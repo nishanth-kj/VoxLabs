@@ -1,1 +1,40 @@
+.env
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
 venv/
+env/
+.uv/
+static/audio/*.mp3
+static/output.mp3
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+.DS_Store
+Thumbs.db
+node_modules/
+.sass-cache/
+*.css.map
+# Agent documentation (internal)
+.agent/
+
+# Voice project data
+voice_projects/
+voice_uploads/
+
+# Next.js
+.next/
+out/
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/

@@ -1,0 +1,46 @@
+{
+    "$schema": "https://schema.tauri.app/config/1",
+    "build": {
+        "beforeDevCommand": "cd ../frontend && npm run dev",
+        "beforeBuildCommand": "cd ../frontend && npm run build",
+        "devPath": "http://localhost:3000",
+        "distDir": "../frontend/out"
+    },
+    "package": {
+        "productName": "VoxLabs",
+        "version": "2.0.0"
+    },
+    "tauri": {
+        "allowlist": {
+            "all": false,
+            "shell": {
+                "all": false,
+                "open": true
+            }
+        },
+        "bundle": {
+            "active": true,
+            "targets": "all",
+            "identifier": "com.voxlabs.app",
+            "icon": [
+                "icons/32x32.png",
+                "icons/128x128.png",
+                "icons/128x128@2x.png",
+                "icons/icon.icns",
+                "icons/icon.ico"
+            ]
+        },
+        "security": {
+            "csp": null
+        },
+        "windows": [
+            {
+                "fullscreen": false,
+                "resizable": true,
+                "title": "VoxLabs",
+                "width": 1200,
+                "height": 800
+            }
+        ]
+    }
+}

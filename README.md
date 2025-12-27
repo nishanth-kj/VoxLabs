@@ -1,129 +1,206 @@
+# 🎙️ VoxLabs
 
+**Professional AI Voice Cloning Platform**
 
-## Running the Application Locally
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://python.org)
+[![Node.js 20+](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](./docker-compose.yml)
 
-1. **Activate the virtual environment** (if you created one):
-
-    ```sh
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    ```
-
-2. **Run the application:**
-
-    ```sh
-    python app.py
-    ```
-
-3. **Open your web browser and navigate to:**
-
-    ```
-    http://127.0.0.1:5000/
-    ```
-
-Here's the full updated README file:
+> Ethical voice cloning with consent. Local-first processing. Multi-platform support.
 
 ---
 
-# Text-to-Speech Flask Application
+## ✨ Features
 
-This is a simple Flask application that provides a basic web interface. The application can be extended to include functionalities like converting text to speech using the gTTS library.
+- 🎤 **Voice Cloning** - Clone voices with explicit consent
+- 🎭 **Emotional TTS** - Control speed, pitch, and energy
+- 🔒 **100% Local** - No data uploads, complete privacy
+- 🌍 **Multi-Language** - Support for 100+ languages
+- 📱 **Multi-Platform** - Web, Desktop, Mobile
+- ⚡ **Modern Stack** - FastAPI + Next.js + Tauri
 
-## Features
+---
 
-- Basic web interface with Flask.
+## 🚀 Quick Start
 
-## Requirements
+### Option 1: Docker (Recommended)
 
-- Python 3.12+
-- Flask
+```bash
+# Start all services
+docker-compose up -d
 
-## Installation
+# Access:
+# Frontend: http://localhost:3000
+# Backend: http://localhost:8000
+# API Docs: http://localhost:8000/docs
+```
 
-1. **Clone the repository:**
+### Option 2: Local Development
 
-    ```sh
-    git clone https://github.com/nishanthkj/Text-to-Speech.git
-    cd Text-to-Speech
-    ```
+**Backend (FastAPI)**
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-2. **Create and activate a virtual environment (optional but recommended):**
+# Start server
+python main.py
 
-    ```sh
-    python3.12 -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    ```
+# → http://localhost:8000
+```
 
-3. **Install the required packages:**
+**Frontend (Next.js)**
+```bash
+# Install dependencies
+npm install
 
-    ```sh
-    pip install -r requirements.txt
-    ```
+# Start development server
+npm run dev
 
-## Running the Application Locally
+# → http://localhost:3000
+```
 
-1. **Activate the virtual environment** (if you created one):
+---
 
-    ```sh
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    ```
+## 📋 Requirements
 
-2. **Run the application:**
+- **Python:** 3.12 or higher
+- **Node.js:** 20.0.0 or higher
+- **Docker:** Latest (optional, for containerized deployment)
 
-    ```sh
-    python app.py
-    ```
+---
 
-3. **Open your web browser and navigate to:**
-
-    ```
-    http://127.0.0.1:5000/
-    ```
-
-## Project Structure
+## 📁 Project Structure
 
 ```
-Text-to-Speech/
+VoxLabs/
+├── main.py                   # FastAPI backend entry point
+├── voice_engine.py           # Voice cloning engine
+├── requirements.txt          # Python dependencies
+├── pyproject.toml            # Python project configuration
 │
-├── app.py
-├── requirements.txt
-├── templates/
-│   └── index.html
-└── static/
+├── app/                      # Next.js pages (App Router)
+├── components/               # React components
+├── next.config.js            # Next.js configuration
+├── package.json              # Node.js dependencies
+│
+├── Dockerfile.backend        # Backend Docker image
+├── Dockerfile.frontend       # Frontend Docker image
+├── docker-compose.yml        # Multi-container orchestration
+├── nginx.conf                # Nginx reverse proxy config
+│
+├── .env.example              # Environment variables template
+├── README.md                 # This file
+├── CONTRIBUTING.md           # Contribution guidelines
+└── LICENSE                   # MIT License
 ```
-
-## Website
-![image](https://github.com/user-attachments/assets/32f6e727-634d-4520-8196-4d3d37134c8b)
-
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
-
-```
-MIT License
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-## Author
-
-Nishanth K J
 
 ---
 
+## 🛠️ Tech Stack
+
+### Backend
+- **FastAPI** - Modern Python web framework
+- **librosa** - Audio feature extraction
+- **pydub** - Audio manipulation
+- **gTTS** - Google Text-to-Speech
+- **NumPy/SciPy** - Scientific computing
+
+### Frontend
+- **Next.js 14** - React framework with App Router
+- **TypeScript** - Type-safe JavaScript
+- **React 18** - UI library
+- **Sass** - CSS preprocessor
+
+### DevOps
+- **Docker** - Containerization
+- **Docker Compose** - Multi-container orchestration
+- **Nginx** - Reverse proxy and load balancer
+
+---
+
+## 🔐 Safety & Ethics
+
+VoxLabs is built with ethical AI practices at its core:
+
+✅ **Consent Required** - Explicit consent for all voice cloning operations  
+✅ **Local Storage** - No data uploads to external servers  
+✅ **AI Labels** - All generated audio labeled as AI-generated  
+✅ **Easy Deletion** - Simple voice data revocation  
+✅ **Transparent** - Open source and fully auditable  
+✅ **No Impersonation** - Designed to prevent malicious use  
+
+---
+
+## 🎯 Use Cases
+
+- **Accessibility** - Text-to-speech for visually impaired users
+- **Content Creation** - Voiceovers for videos and podcasts
+- **Language Learning** - Practice pronunciation with native voices
+- **Personal Assistants** - Custom voice for smart home devices
+- **Game Development** - Character voices for indie games
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for:
+
+- Code of conduct
+- Development setup
+- Coding standards
+- Pull request process
+- Testing guidelines
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+
+**Important Disclaimer:** Users are responsible for obtaining proper consent before cloning any voice and must comply with all applicable laws and regulations.
+
+---
+
+## 🎯 Roadmap
+
+- [x] FastAPI backend with voice cloning
+- [x] Next.js frontend with modern UI
+- [x] Docker deployment setup
+- [x] Emotional TTS controls
+- [x] Multi-language support
+- [ ] Desktop app (Tauri)
+- [ ] Mobile app (Tauri Mobile)
+- [ ] npm package (`@voxlabs/client`)
+- [ ] PyPI package (`voxlabs`)
+- [ ] Cloud deployment guides
+
+---
+
+## 📞 Support & Contact
+
+- **Author**: nishanth-kj
+- **GitHub**: [@nishanth-kj](https://github.com/nishanth-kj)
+- **Issues**: [GitHub Issues](https://github.com/nishanth-kj/VoxLabs/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/nishanth-kj/VoxLabs/discussions)
+
+---
+
+## 🙏 Acknowledgments
+
+- FastAPI for the excellent web framework
+- Next.js team for the React framework
+- Open source community for amazing tools
+- Contributors and supporters
+
+---
+
+<div align="center">
+
+**Made with ❤️ for ethical AI voice technology**
+
+[Report Bug](https://github.com/nishanth-kj/VoxLabs/issues) • [Request Feature](https://github.com/nishanth-kj/VoxLabs/issues) • [Documentation](./CONTRIBUTING.md)
+
+⭐ **Star this repo if you find it useful!** ⭐
+
+</div>

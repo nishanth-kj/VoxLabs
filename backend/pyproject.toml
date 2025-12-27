@@ -1,0 +1,22 @@
+[project]
+name = "voxlabs"
+version = "2.0.0"
+description = "VoxLabs - AI Voice Cloning Platform"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "gtts>=2.5.0",
+    "python-multipart>=0.0.9",
+    "jinja2>=3.1.4",
+    "aiofiles>=24.1.0",
+    "python-dotenv>=1.0.0",
+    "pydub>=0.25.1",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "librosa>=0.10.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"

@@ -1,5 +1,7 @@
 MIT License
 
+Copyright (c) 2025 nishanth-kj
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -17,3 +19,27 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+ETHICAL USE DISCLAIMER
+
+This software is designed for ethical voice cloning with explicit consent.
+Users of this software must:
+
+1. Obtain explicit written consent before cloning any person's voice
+2. Clearly label all AI-generated audio as synthetic/AI-generated
+3. Not use this software for impersonation, fraud, or deception
+4. Comply with all applicable laws and regulations regarding voice data
+5. Respect privacy and data protection rights
+6. Not use this software to create deepfakes or misleading content
+
+The authors and contributors of this software:
+- Do NOT endorse or support malicious use of voice cloning technology
+- Are NOT responsible for misuse of this software by third parties
+- Strongly advocate for responsible AI development and deployment
+- Support transparency and consent in all AI voice applications
+
+By using this software, you agree to use it responsibly and ethically,
+and acknowledge that you are solely responsible for ensuring your use
+complies with all applicable laws and ethical standards.
