@@ -6,11 +6,13 @@ export default function Home() {
   const [text, setText] = useState('')
   const [audioUrl, setAudioUrl] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleGenerate = async () => {
     if (!text.trim()) return
 
     setLoading(true)
+    setError('')
     try {
       const formData = new FormData()
       formData.append('text', text)
@@ -25,9 +27,12 @@ export default function Home() {
       const data = await response.json()
       if (data.success) {
         setAudioUrl(`http://localhost:8000${data.audio_url}`)
+      } else {
+        setError('Failed to generate speech')
       }
-    } catch (error) {
-      console.error('Error generating speech:', error)
+    } catch (err) {
+      setError('Error connecting to backend. Make sure the backend server is running on port 8000.')
+      console.error('Error generating speech:', err)
     } finally {
       setLoading(false)
     }
@@ -53,7 +58,7 @@ export default function Home() {
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
               rows={4}
               placeholder="Type something to convert to speech..."
             />
@@ -67,9 +72,15 @@ export default function Home() {
             {loading ? 'Generating...' : 'Generate Speech'}
           </button>
 
+          {error && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
           {audioUrl && (
             <div className="mt-8 p-6 bg-gray-50 rounded-lg">
-              <h3 className="text-lg font-semibold mb-4">Generated Audio</h3>
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">Generated Audio</h3>
               <audio controls className="w-full" src={audioUrl}>
                 Your browser does not support the audio element.
               </audio>
