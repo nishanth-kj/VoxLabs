@@ -24,17 +24,31 @@
 
 ## 🚀 Quick Start
 
-### Option 1: Docker (Recommended)
+### Option 1: Docker (Recommended) ⭐
 
+**Windows:**
 ```bash
-# Start all services
-docker-compose up -d
-
-# Access:
-# Frontend: http://localhost:3000
-# Backend: http://localhost:8000
-# API Docs: http://localhost:8000/docs
+# Double-click start-docker.bat
+# OR run in terminal:
+docker-compose up -d --build
 ```
+
+**Linux/Mac:**
+```bash
+docker-compose up -d --build
+```
+
+**Access:**
+- 🌐 Frontend: http://localhost (port 80)
+- 📚 API Docs: http://localhost/docs
+- 🔧 API Status: http://localhost/api/status
+
+**Stop:**
+```bash
+docker-compose down
+```
+
+📖 **Full Docker Guide:** See [DOCKER_GUIDE.md](./DOCKER_GUIDE.md)
 
 ### Option 2: Local Development
 

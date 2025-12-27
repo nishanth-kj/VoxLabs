@@ -121,8 +121,6 @@ VoxLabs/                        # Monorepo root
 └── tools/                     # Build scripts
 ```
 
-See [`.agent/STRUCTURE.md`](./.agent/STRUCTURE.md) for detailed structure.
-
 ---
 
 ## 🔧 Making Changes
