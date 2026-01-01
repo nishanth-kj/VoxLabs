@@ -87,13 +87,6 @@ export function Navbar() {
                             Docs
                         </Link>
                         <Link
-                            href="/docs"
-                            className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
-                            onClick={() => setIsMenuOpen(false)}
-                        >
-                            Docs
-                        </Link>
-                        <Link
                             href="/contribution"
                             className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
                             onClick={() => setIsMenuOpen(false)}
