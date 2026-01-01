@@ -44,9 +44,9 @@ We are committed to providing a welcoming and inclusive environment for all cont
 
 ### Prerequisites
 
-- **Node.js** >= 18.0.0
-- **Python** >= 3.10
-- **Rust** >= 1.70 (for Tauri)
+- **Node.js** >= 20.0.0
+- **Python** >= 3.12
+- **uv** (for Python package management)
 - **Git**
 - **Docker** (optional, for containerized development)
 
@@ -66,22 +66,24 @@ git remote add upstream https://github.com/nishanth-kj/VoxLabs.git
 
 ## 💻 Development Setup
 
-### Install Dependencies
+### 1. Install Dependencies
 
+**Frontend (Next.js):**
 ```bash
-# Install all workspace dependencies
+cd web
 npm install
-
-# Install Python dependencies
-cd packages/backend
-pip install -r requirements.txt
-pip install -e ".[dev]"  # Install with dev dependencies
-
-# Install Rust (if building desktop/mobile)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-### Environment Setup
+**Backend (FastAPI):**
+```bash
+# Install uv if you haven't already
+pip install uv
+
+cd api
+# uv handles virtual environment and dependencies automatically when you run commands
+```
+
+### 2. Environment Setup
 
 ```bash
 # Copy environment template
@@ -90,16 +92,20 @@ cp .env.example .env
 # Edit .env with your settings
 ```
 
-### Start Development
+### 3. Start Development
 
+**Frontend:**
 ```bash
-# Start all services (Turbo)
+cd web
 npm run dev
+# → http://localhost:3000
+```
 
-# Or start individual packages
-cd packages/backend && python -m uvicorn main:app --reload
-cd packages/frontend && npm run dev
-cd packages/desktop && cargo tauri dev
+**Backend:**
+```bash
+cd api
+uv run uvicorn main:app --reload --port 8000
+# → http://localhost:8000
 ```
 
 ---
@@ -107,18 +113,17 @@ cd packages/desktop && cargo tauri dev
 ## 📁 Project Structure
 
 ```
-VoxLabs/                        # Monorepo root
-├── packages/                   # All packages
-│   ├── backend/               # Python/FastAPI
-│   ├── frontend/              # TypeScript/Next.js
-│   ├── desktop/               # Rust/Tauri
-│   ├── mobile/                # Rust/Tauri Mobile
-│   ├── shared/                # Shared TypeScript
-│   ├── voxlabs-client/        # npm library
-│   └── voxlabs-python/        # PyPI library
-├── docker/                    # Docker configs
-├── docs/                      # Documentation
-└── tools/                     # Build scripts
+VoxLabs/
+├── api/                        # FastAPI Backend
+│   ├── engine/                # Voice Cloning & TTS Engine
+│   ├── main.py                # App Entry Point
+│   └── pyproject.toml         # Python Dependencies
+├── web/                        # Next.js Frontend
+│   ├── app/                   # App Router Pages
+│   └── components/            # React Components
+├── desktop/                    # Tauri Desktop App (Upcoming)
+├── docs/                       # Documentation
+└── docker-compose.yml          # Container Orchestration
 ```
 
 ---
@@ -156,25 +161,14 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 <type>(<scope>): <description>
 
 [optional body]
-
-[optional footer]
 ```
 
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation
-- `style`: Formatting
-- `refactor`: Code restructuring
-- `test`: Tests
-- `chore`: Maintenance
+**Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
 
 **Examples:**
-
 ```bash
-git commit -m "feat(backend): add voice cloning endpoint"
-git commit -m "fix(frontend): resolve audio playback issue"
-git commit -m "docs(readme): update installation instructions"
+git commit -m "feat(api): add voice cloning endpoint"
+git commit -m "fix(web): resolve audio playback issue"
 ```
 
 ---
@@ -184,268 +178,39 @@ git commit -m "docs(readme): update installation instructions"
 ### Before Submitting
 
 1. **Test your changes**
-   ```bash
-   npm run test
-   npm run lint
-   ```
-
 2. **Build successfully**
    ```bash
-   npm run build
+   # Web
+   cd web && npm run build
    ```
-
 3. **Update documentation** if needed
-
-4. **Add tests** for new features
 
 ### Create Pull Request
 
-1. Push your branch
+1. Push your branch:
    ```bash
    git push origin feature/your-feature-name
    ```
-
-2. Go to GitHub and create a Pull Request
-
-3. Fill out the PR template:
-   - **Description**: What does this PR do?
-   - **Related Issues**: Link to issues
-   - **Testing**: How was it tested?
-   - **Screenshots**: If UI changes
-
-4. Wait for review
-
-### PR Review Process
-
-- Maintainers will review your PR
-- Address any feedback
-- Once approved, it will be merged
-
----
-
-## 📏 Coding Standards
-
-### TypeScript
-
-```typescript
-// Use TypeScript strict mode
-// Use meaningful variable names
-// Add JSDoc comments for public APIs
-
-/**
- * Synthesize speech from text
- * @param text - Text to convert
- * @param options - Synthesis options
- * @returns Audio data
- */
-export async function synthesize(
-  text: string,
-  options: SynthesisOptions
-): Promise<AudioData> {
-  // Implementation
-}
-```
-
-### Python
-
-```python
-# Follow PEP 8
-# Use type hints
-# Add docstrings
-
-def synthesize(
-    text: str,
-    speed: float = 1.0,
-    pitch: float = 1.0
-) -> bytes:
-    """
-    Synthesize speech from text.
-
-    Args:
-        text: Text to convert to speech
-        speed: Speaking speed (0.5 - 2.0)
-        pitch: Voice pitch (0.5 - 1.5)
-
-    Returns:
-        Audio data as bytes
-    """
-    # Implementation
-```
-
-### Rust
-
-```rust
-// Follow Rust conventions
-// Use rustfmt
-// Add documentation comments
-
-/// Synthesize speech from text
-///
-/// # Arguments
-///
-/// * `text` - Text to convert
-/// * `options` - Synthesis options
-///
-/// # Returns
-///
-/// Audio data as bytes
-pub fn synthesize(text: &str, options: SynthOptions) -> Vec<u8> {
-    // Implementation
-}
-```
-
-### Formatting
-
-```bash
-# TypeScript/JavaScript
-npm run format
-
-# Python
-black packages/backend
-ruff check packages/backend
-
-# Rust
-cargo fmt
-```
-
----
-
-## 🧪 Testing
-
-### TypeScript
-
-```bash
-cd packages/frontend
-npm run test
-npm run test:coverage
-```
-
-### Python
-
-```bash
-cd packages/backend
-pytest
-pytest --cov=src tests/
-```
-
-### Rust
-
-```bash
-cd packages/desktop
-cargo test
-```
-
-### Integration Tests
-
-```bash
-# Run all tests
-npm run test
-```
-
----
-
-## 📚 Documentation
-
-### Code Documentation
-
-- Add JSDoc/docstrings for all public APIs
-- Include examples in documentation
-- Keep README files updated
-
-### User Documentation
-
-- Update `docs/` for user-facing changes
-- Add screenshots for UI changes
-- Update API documentation
-
-### Changelog
-
-- Update `CHANGELOG.md` for notable changes
-- Follow [Keep a Changelog](https://keepachangelog.com/) format
+2. Go to GitHub and create a Pull Request.
+3. Our **PR Template** will automatically load. Please fill it out completely:
+   - **Description**: Summary of changes
+   - **Type of Change**: Bug fix, feature, etc.
+   - **Related Issues**: Link to issues (e.g., `Closes #123`)
+   - **Testing**: How you verified functionality
 
 ---
 
 ## 🐛 Reporting Bugs
 
-### Before Reporting
+Please use our **Bug Report Template** when opening a new issue.
 
-1. Check existing issues
-2. Try latest version
-3. Gather information:
-   - OS and version
-   - Node.js/Python/Rust version
-   - Steps to reproduce
-   - Expected vs actual behavior
-
-### Bug Report Template
-
-```markdown
-**Describe the bug**
-A clear description of the bug.
-
-**To Reproduce**
-Steps to reproduce:
-1. Go to '...'
-2. Click on '...'
-3. See error
-
-**Expected behavior**
-What you expected to happen.
-
-**Screenshots**
-If applicable, add screenshots.
-
-**Environment**
-- OS: [e.g., Windows 11]
-- Node.js: [e.g., 18.0.0]
-- Python: [e.g., 3.10]
-- Browser: [e.g., Chrome 120]
-
-**Additional context**
-Any other relevant information.
-```
-
----
+1. Check existing issues to avoid duplicates.
+2. Provide a clear description and steps to reproduce.
+3. Include environment details (OS, Browser, etc.).
 
 ## 💡 Feature Requests
 
-### Before Requesting
-
-1. Check existing feature requests
-2. Ensure it aligns with project goals
-3. Consider if it could be a plugin/extension
-
-### Feature Request Template
-
-```markdown
-**Is your feature request related to a problem?**
-A clear description of the problem.
-
-**Describe the solution you'd like**
-What you want to happen.
-
-**Describe alternatives you've considered**
-Other solutions you've thought about.
-
-**Additional context**
-Any other relevant information.
-```
-
----
-
-## 🔒 Security
-
-### Reporting Security Issues
-
-**DO NOT** open public issues for security vulnerabilities.
-
-Instead:
-1. Email: security@voxlabs.com (or GitHub private reporting)
-2. Include:
-   - Description of vulnerability
-   - Steps to reproduce
-   - Potential impact
-   - Suggested fix (if any)
+Please use our **Feature Request Template** to suggest new ideas.
 
 ---
 
@@ -455,25 +220,9 @@ By contributing to VoxLabs, you agree that your contributions will be licensed u
 
 ---
 
-## 🙏 Recognition
-
-Contributors will be recognized in:
-- `CONTRIBUTORS.md`
-- Release notes
-- Project README
-
----
-
 ## 📞 Questions?
 
 - **Discussions**: [GitHub Discussions](https://github.com/nishanth-kj/VoxLabs/discussions)
-- **Chat**: [Discord/Slack link]
-- **Email**: contact@voxlabs.com
-
----
-
-## 🎉 Thank You!
-
-Thank you for contributing to VoxLabs! Your efforts help make voice technology more accessible and ethical.
+- **Issues**: [GitHub Issues](https://github.com/nishanth-kj/VoxLabs/issues)
 
 **Happy Coding!** 🚀
