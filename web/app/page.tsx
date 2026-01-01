@@ -1,100 +1,86 @@
 'use client'
 
-import { useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Mic, Wand2, Lock } from "lucide-react"
+import { gsap } from "gsap"
+import { useGSAP } from "@gsap/react"
+import { useRef } from 'react'
 
-export default function Home() {
-  const [text, setText] = useState('')
-  const [audioUrl, setAudioUrl] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+import { HeroSection } from "@/components/landing/hero-section"
 
-  const handleGenerate = async () => {
-    if (!text.trim()) return
+export default function LandingPage() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const featuresRef = useRef<HTMLDivElement>(null)
 
-    setLoading(true)
-    setError('')
-    try {
-      const formData = new FormData()
-      formData.append('text', text)
-      formData.append('engine', 'gtts')
-      formData.append('language', 'en')
+  useGSAP(() => {
+    const tl = gsap.timeline()
 
-      const response = await fetch('http://localhost:8000/api/tts', {
-        method: 'POST',
-        body: formData,
-      })
+    tl.from(featuresRef.current?.children || [], {
+      y: 50,
+      opacity: 0,
+      duration: 0.8,
+      stagger: 0.2,
+      ease: "power3.out",
+      delay: 0.5
+    })
 
-      const data = await response.json()
-      if (data.success) {
-        setAudioUrl(`http://localhost:8000${data.audio_url}`)
-      } else {
-        setError('Failed to generate speech')
-      }
-    } catch (err) {
-      setError('Error connecting to backend. Make sure the backend server is running on port 8000.')
-      console.error('Error generating speech:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, { scope: containerRef })
 
   return (
-    <main className="min-h-screen p-8 bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-4xl mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-gray-900 mb-4">
-            🎙️ VoxLabs
-          </h1>
-          <p className="text-xl text-gray-600">
-            Professional AI Voice Cloning Platform
-          </p>
-        </header>
+    <div ref={containerRef} className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/50 via-background to-background dark:from-slate-900 dark:via-background dark:to-background selection:bg-primary/20">
 
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Enter Text
-            </label>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-              rows={4}
-              placeholder="Type something to convert to speech..."
-            />
+      {/* Hero Section */}
+      <HeroSection />
+
+
+
+      <section className="py-20 px-6 bg-secondary/30 border-t border-border/40 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold mb-4">Why VoxLabs?</h2>
+            <p className="text-muted-foreground">Professional tools for creators, developers, and businesses.</p>
           </div>
 
-          <button
-            onClick={handleGenerate}
-            disabled={loading || !text.trim()}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-          >
-            {loading ? 'Generating...' : 'Generate Speech'}
-          </button>
-
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
-
-          {audioUrl && (
-            <div className="mt-8 p-6 bg-gray-50 rounded-lg">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900">Generated Audio</h3>
-              <audio controls className="w-full" src={audioUrl}>
-                Your browser does not support the audio element.
-              </audio>
-              <p className="text-sm text-gray-500 mt-2">
-                ⚠️ AI-Generated Audio
-              </p>
-            </div>
-          )}
+          <div ref={featuresRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FeatureCard
+              icon={<Wand2 className="w-6 h-6 text-indigo-400" />}
+              title="Emotional TTS"
+              description="Generate speech with granular control over emotion, speed, pitch, and energy. Not just reading, but performing."
+            />
+            <FeatureCard
+              icon={<Mic className="w-6 h-6 text-purple-400" />}
+              title="Instant Voice Cloning"
+              description="Clone any voice from a 30-second audio sample. Perfect for narrations, podcasts, and digital avatars."
+            />
+            <FeatureCard
+              icon={<Lock className="w-6 h-6 text-emerald-400" />}
+              title="Secure & Private"
+              description="Your voice data is encrypted and never shared. We prioritize ethical AI usage and data protection."
+            />
+          </div>
         </div>
+      </section>
 
-        <footer className="text-center mt-12 text-gray-600">
-          <p>Made with ❤️ for ethical AI voice technology</p>
-        </footer>
-      </div>
-    </main>
+
+
+    </div>
+  )
+}
+
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+  return (
+    <Card className="bg-card/50 border-border/40 hover:border-border/80 transition-colors h-full">
+      <CardHeader>
+        <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center mb-4">
+          {icon}
+        </div>
+        <CardTitle className="text-xl">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-muted-foreground leading-relaxed">
+          {description}
+        </p>
+      </CardContent>
+    </Card>
   )
 }
