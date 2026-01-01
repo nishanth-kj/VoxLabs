@@ -54,11 +54,12 @@ docker-compose down
 
 **Backend (FastAPI)**
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Install uv (if not installed)
+pip install uv
 
-# Start server
-python main.py
+# Run server (dependencies installed automatically)
+cd api
+uv run uvicorn main:app --reload --port 8000
 
 # → http://localhost:8000
 ```
