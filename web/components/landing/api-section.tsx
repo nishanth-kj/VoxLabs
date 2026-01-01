@@ -47,7 +47,7 @@ export function ApiSection(props: React.HTMLAttributes<HTMLElement>) {
                                 <pre className="bg-slate-950 p-6 rounded-lg overflow-x-auto text-sm font-mono text-blue-100 leading-relaxed">
                                     {`import requests
 
-url = "http://localhost:8000/api/tts"
+url = "${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/tts"
 payload = {
     "text": "Hello world! This is a test of the VoxLabs API.",
     "emotion": "happy",
@@ -69,7 +69,7 @@ print("Audio saved as output.mp3")`}
 formData.append('text', 'Hello world! This is a test.');
 formData.append('emotion', 'excited');
 
-fetch('http://localhost:8000/api/tts', {
+fetch('${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/tts', {
     method: 'POST',
     body: formData
 })
@@ -84,7 +84,7 @@ fetch('http://localhost:8000/api/tts', {
 
                             <TabsContent value="curl" className="mt-0">
                                 <pre className="bg-slate-950 p-6 rounded-lg overflow-x-auto text-sm font-mono text-green-100 leading-relaxed">
-                                    {`curl -X POST http://localhost:8000/api/tts \\
+                                    {`curl -X POST ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/tts \\
      -F "text=Hello world!" \\
      -F "emotion=confident" \\
      -o output.mp3`}

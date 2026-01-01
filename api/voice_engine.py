@@ -4,6 +4,7 @@ Following safety design brief: consent-based, project-scoped, offline
 """
 
 import os
+import shutil
 import json
 import hashlib
 import librosa
@@ -64,6 +65,14 @@ class VoiceEngine:
     def __init__(self, project_path: str = "voice_projects"):
         self.project_path = Path(project_path)
         self.project_path.mkdir(exist_ok=True)
+        
+        # Check for FFmpeg
+        if not shutil.which("ffmpeg"):
+            print("\n" + "!"*50)
+            print("CRITICAL WARNING: FFmpeg not found in PATH!")
+            print("Audio synthesis using pydub/gTTS will fail.")
+            print("Please install FFmpeg and add it to your system PATH.")
+            print("!"*50 + "\n")
         
         # Storage structure
         self.voices_dir = self.project_path / "voices"

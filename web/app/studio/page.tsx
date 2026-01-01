@@ -13,17 +13,8 @@ import { Settings2, Sparkles, AudioWaveform, Loader2, Mic, Upload, Trash2, Play,
 import { gsap } from "gsap"
 import { useGSAP } from "@gsap/react"
 import { toast } from "sonner"
-
-interface Voice {
-  id: string
-  name: string
-  description?: string
-}
-
-interface Emotion {
-  name: string
-  value: string
-}
+import { Voice, Emotion } from "@/lib/types"
+import { api } from "@/lib/api"
 
 export default function Home() {
   const [text, setText] = useState('')
@@ -62,19 +53,12 @@ export default function Home() {
     const fetchData = async () => {
       try {
         const [voicesRes, emotionsRes] = await Promise.all([
-          fetch('http://localhost:8000/api/voices'),
-          fetch('http://localhost:8000/api/emotions')
+          api.voices.list(),
+          api.emotions.list()
         ])
 
-        const voicesData = await voicesRes.json()
-        const emotionsData = await emotionsRes.json()
-
-        if (voicesData.success) {
-          setVoices(voicesData.voices)
-        }
-        if (emotionsData.emotions) {
-          setEmotions(emotionsData.emotions)
-        }
+        if (voicesRes.success) setVoices(voicesRes.voices)
+        if (emotionsRes.success) setEmotions(emotionsRes.emotions)
       } catch (err) {
         console.error('Failed to load initial data:', err)
       }
@@ -113,25 +97,22 @@ export default function Home() {
 
     setIsCloning(true)
     try {
+      if (!cloneFile) throw new Error("Audio file missing")
+
       const formData = new FormData()
       formData.append('voice_name', cloneName)
       formData.append('audio_file', cloneFile)
       formData.append('description', 'Cloned via Web UI')
 
-      const response = await fetch('http://localhost:8000/api/voices/register', {
-        method: 'POST',
-        body: formData,
-      })
-      const data = await response.json()
+      const data = await api.voices.create(formData)
 
       if (data.success) {
         toast.success("Voice Cloned Successfully!", { description: `${cloneName} is now available.` })
         setCloneName('')
         setCloneFile(null)
         // Refresh voices
-        const voicesRes = await fetch('http://localhost:8000/api/voices')
-        const voicesData = await voicesRes.json()
-        if (voicesData.success) setVoices(voicesData.voices)
+        const voicesRes = await api.voices.list()
+        if (voicesRes.success) setVoices(voicesRes.voices)
       } else {
         throw new Error(data.detail)
       }
@@ -147,8 +128,7 @@ export default function Home() {
     if (!confirm("Are you sure you want to delete this voice?")) return
 
     try {
-      const response = await fetch(`http://localhost:8000/api/voices/${id}`, { method: 'DELETE' })
-      const data = await response.json()
+      const data = await api.voices.delete(id)
       if (data.success) {
         toast.success("Voice Deleted")
         setVoices(voices.filter(v => v.id !== id))
@@ -178,18 +158,13 @@ export default function Home() {
       formData.append('energy', energy[0].toString())
 
       if (selectedVoice) {
-        // If a specific voice is selected (adding support for cloning later)
         formData.append('voice_id', selectedVoice)
       }
 
-      const response = await fetch('http://localhost:8000/api/tts', {
-        method: 'POST',
-        body: formData,
-      })
+      const data = await api.tts.synthesize(formData)
 
-      const data = await response.json()
-      if (data.success) {
-        setAudioUrl(`http://localhost:8000${data.audio_url}`)
+      if (data.success && data.audio_url) {
+        setAudioUrl(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${data.audio_url}`)
         toast.success("Speech generated successfully!", {
           description: "playing audio...",
         })
