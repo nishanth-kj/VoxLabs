@@ -3,24 +3,23 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies for audio processing
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsndfile1 \
-    libsndfile1-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements from root
-COPY requirements.txt .
+# Install uv
+RUN pip install uv
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy dependency files
+COPY pyproject.toml .
 
-# Copy backend code
-COPY backend/ ./backend/
+# Install dependencies with uv
+RUN uv pip install --system -r pyproject.toml
 
-# Copy engine code
-COPY engine/ ./engine/
+# Copy application code
+COPY . .
 
 # Create necessary directories
 RUN mkdir -p voice_projects/voices static/audio
@@ -31,5 +30,5 @@ EXPOSE 8000
 # Set Python path
 ENV PYTHONPATH=/app
 
-# Run FastAPI backend
-CMD ["python", "backend/main.py"]
+# Run FastAPI backend with uv
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

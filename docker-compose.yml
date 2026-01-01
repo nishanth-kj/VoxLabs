@@ -4,33 +4,36 @@ services:
   # FastAPI Backend
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./api
+      dockerfile: Dockerfile
     container_name: voxlabs-backend
     ports:
       - "8000:8000"
     volumes:
       - voice_data:/app/voice_projects
       - audio_files:/app/static/audio
+      - ./api:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - ENVIRONMENT=production
+      - ENVIRONMENT=development
     restart: unless-stopped
     networks:
       - voxlabs-network
     healthcheck:
-      test: [ "CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/status')" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/status" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 10s
 
   # Next.js Frontend
   frontend:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
+      context: ./web
+      dockerfile: Dockerfile
     container_name: voxlabs-frontend
+    ports:
+      - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost/api
       - NODE_ENV=production
@@ -54,12 +57,6 @@ services:
     restart: unless-stopped
     networks:
       - voxlabs-network
-    healthcheck:
-      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
 networks:
   voxlabs-network:

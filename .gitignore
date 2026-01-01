@@ -1,40 +1,73 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 .env
-*.pyc
-__pycache__/
-*.pyo
-*.pyd
-.Python
-*.so
-*.egg
-*.egg-info/
+.env.local
+.env.*.local
+.venv
+venv/
+ENV/
+env/
 dist/
 build/
-.venv/
-venv/
-env/
-.uv/
-static/audio/*.mp3
-static/output.mp3
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python / FastAPI
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-*.log
-.DS_Store
-Thumbs.db
+poetry.lock
+pdm.lock
+.uv/
+uv.lock
+
+# Node.js / Next.js
 node_modules/
-.sass-cache/
-*.css.map
-# Agent documentation (internal)
-.agent/
-
-# Voice project data
-voice_projects/
-voice_uploads/
-
-# Next.js
 .next/
 out/
+next-env.d.ts
+
+# Voice Project Data (Sensitive/Large)
+voice_projects/
+voice_uploads/
+api/static/audio/
+api/voice_projects/
+static/audio/
+*.mp3
+*.wav
 
 # Tauri
 src-tauri/target/
 src-tauri/gen/
+src-tauri/Cargo.lock
+
+# Agent (Internal)
+.agent/
+.gemini/
