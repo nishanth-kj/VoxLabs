@@ -46,20 +46,29 @@ class EmotionalTTSEngine:
         final_pitch = pitch if pitch is not None else emotion_params['pitch']
         final_energy = energy if energy is not None else emotion_params['energy']
         
-        # Generate base TTS
-        tts = gTTS(text=text, lang=language, slow=False)
-        audio_fp = io.BytesIO()
-        tts.write_to_fp(audio_fp)
-        audio_fp.seek(0)
-        
-        # Load and process audio
-        audio = AudioSegment.from_mp3(audio_fp)
-        audio = self._apply_modulation(audio, final_speed, final_pitch, final_energy)
-        
-        # Export
-        output = io.BytesIO()
-        audio.export(output, format="mp3")
-        return output.getvalue()
+        try:
+            # Generate base TTS using gTTS
+            # slow=False means normal speed
+            tts = gTTS(text=text, lang=language, slow=False)
+            audio_fp = io.BytesIO()
+            tts.write_to_fp(audio_fp)
+            audio_fp.seek(0)
+            
+            # Load into pydub
+            audio = AudioSegment.from_file(audio_fp, format="mp3")
+            
+            # Apply modulations
+            audio = self._apply_modulation(audio, final_speed, final_pitch, final_energy)
+            
+            # Export to MP3 buffer
+            output = io.BytesIO()
+            audio.export(output, format="mp3")
+            return output.getvalue()
+            
+        except Exception as e:
+            print(f"TTS Error: {str(e)}")
+            # Return a silent error audio or raise
+            raise e
     
     def _apply_modulation(
         self,
@@ -69,23 +78,44 @@ class EmotionalTTSEngine:
         energy: float
     ) -> AudioSegment:
         """Apply speed, pitch, and energy modulation"""
-        # Apply speed
+        
+        # 1. Apply Speed (Time Stretching)
+        # pydub doesn't have good time stretching without pitch shift built-in simply
+        # we will use a speedup method that might affect pitch slightly, or use frame rate hacks
+        
         if speed != 1.0:
-            audio = audio.speedup(playback_speed=speed)
-        
-        # Apply pitch
+            # Simple speed change (affects pitch too usually, but speedup attempts to fix it)
+            # For strict speed without pitch, we need DSP libraries (librosa/rubberband), 
+            # but for this simple engine, we use pydub's speedup/slowdown logic
+            
+            if speed > 1.0:
+                 audio = audio.speedup(playback_speed=speed)
+            else:
+                 # Slowing down is harder in pydub/ffmpeg without changing pitch
+                 # We can hack frame rate
+                 new_frame_rate = int(audio.frame_rate * speed)
+                 audio = audio._spawn(audio.raw_data, overrides={
+                    "frame_rate": new_frame_rate
+                 })
+                 audio = audio.set_frame_rate(44100) # Restore standard rate
+
+        # 2. Apply Pitch (Sample Rate Shifting)
+        # This implementation shifts pitch by changing sample rate, which changes speed
+        # To change pitch WITHOUT speed, we'd need complex DSP or accept the speed change
         if pitch != 1.0:
-            new_sample_rate = int(audio.frame_rate * pitch)
-            audio = audio._spawn(
-                audio.raw_data,
-                overrides={"frame_rate": new_sample_rate}
-            )
-            audio = audio.set_frame_rate(44100)
-        
-        # Apply energy (volume)
+             new_sample_rate = int(audio.frame_rate * pitch)
+             audio = audio._spawn(audio.raw_data, overrides={
+                "frame_rate": new_sample_rate
+             })
+             audio = audio.set_frame_rate(44100)
+
+        # 3. Apply Energy (Volume Gain)
         if energy != 1.0:
-            change_in_dB = 20 * np.log10(energy)
-            audio = audio + change_in_dB
+            # Convert energy ratio to decibels
+            # energy 0.5 -> -6dB, energy 2.0 -> +6dB
+            if energy > 0:
+                gain_db = 10 * np.log10(energy)
+                audio = audio + gain_db
         
         return audio
     

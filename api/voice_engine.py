@@ -14,6 +14,7 @@ from typing import Optional, Dict, List
 from datetime import datetime
 from pydub import AudioSegment
 import io
+from engine.emotional_tts import EmotionalTTSEngine
 
 
 class VoiceIdentity:
@@ -89,6 +90,61 @@ class VoiceEngine:
             }
         }
     
+        self.emotional_engine = EmotionalTTSEngine()
+
+    def synthesize(
+        self,
+        text: str,
+        engine: str = "emotional",
+        voice_id: Optional[str] = None,
+        language: str = "en",
+        emotion: str = "neutral",
+        speed: float = 1.0,
+        pitch: float = 1.0,
+        energy: float = 1.0
+    ) -> bytes:
+        """
+        Synthesize speech using the specified engine strategy
+        """
+        if engine == "emotional":
+            # Use Emotional TTS Engine
+            return self.emotional_engine.synthesize(
+                text=text,
+                language=language,
+                emotion=emotion,
+                speed=speed,
+                pitch=pitch,
+                energy=energy
+            )
+        elif engine == "clone":
+            # Basic cloning simulation using pitch shifting
+            if not voice_id:
+                raise ValueError("Voice ID required for cloning")
+            
+            # Get target voice features
+            voice = self.get_voice(voice_id)
+            if not voice:
+                 # Check default voices
+                if voice_id in self.pretrained_voices:
+                     # Use default voice features logic if needed
+                     pass
+                else:
+                    raise ValueError(f"Voice {voice_id} not found")
+
+            # For now, just use emotional engine with custom pitch/speed as a proxy for cloning
+            # In a real system, this would use a VITS/Tacotron model with speaker embedding
+            return self.emotional_engine.synthesize(
+                text=text,
+                language=language,
+                emotion=emotion, # Keep emotion
+                speed=speed,
+                pitch=pitch * 0.9 if voice_id == "male_default" else pitch * 1.1, # Simple gender simulation
+                energy=energy
+            )
+        else:
+             # Fallback to basic
+             return self.emotional_engine.synthesize(text=text, language=language)
+
     def _generate_default_features(self, gender: str) -> np.ndarray:
         """Generate default voice features for male/female"""
         # Simplified feature representation
