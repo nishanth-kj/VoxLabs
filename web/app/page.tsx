@@ -7,6 +7,8 @@ import { useGSAP } from "@gsap/react"
 import { useRef } from 'react'
 
 import { HeroSection } from "@/components/landing/hero-section"
+import { HowItWorksSection } from "@/components/landing/how-it-works-section"
+import { ApiSection } from "@/components/landing/api-section"
 
 export default function LandingPage() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -60,6 +62,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <HowItWorksSection />
+      <ApiSection style={{ paddingBottom: '150px' }} />
 
 
 

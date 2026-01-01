@@ -2,9 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { AudioWaveform, Github, Menu, X } from 'lucide-react'
+import { AudioWaveform, Github, Menu, X, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/mode-toggle'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -26,8 +32,8 @@ export function Navbar() {
                         <Link href="/studio" className="hover:text-primary transition-colors">
                             Studio
                         </Link>
-                        <Link href="/#features" className="hover:text-primary transition-colors">
-                            Features
+                        <Link href="/docs" className="hover:text-primary transition-colors">
+                            Docs
                         </Link>
                         <Link href="/contribution" className="hover:text-primary transition-colors">
                             Community
@@ -74,11 +80,18 @@ export function Navbar() {
                             Studio
                         </Link>
                         <Link
-                            href="/#features"
+                            href="/docs"
                             className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
                             onClick={() => setIsMenuOpen(false)}
                         >
-                            Features
+                            Docs
+                        </Link>
+                        <Link
+                            href="/docs"
+                            className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            Docs
                         </Link>
                         <Link
                             href="/contribution"

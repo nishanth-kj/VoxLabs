@@ -11,8 +11,8 @@ from pathlib import Path
 import os
 import sys
 
-# Add engine to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add api directory to path
+sys.path.insert(0, str(Path(__file__).parent))
 
 from engine import get_voice_engine
 from typing import Optional
