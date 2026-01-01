@@ -1,11 +1,14 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { AudioWaveform, Github } from 'lucide-react'
+import { AudioWaveform, Github, Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/mode-toggle'
 
 export function Navbar() {
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
+
     return (
         <nav className="border-b border-white/5 bg-background/50 backdrop-blur-xl sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -26,7 +29,9 @@ export function Navbar() {
                         <Link href="/#features" className="hover:text-primary transition-colors">
                             Features
                         </Link>
-
+                        <Link href="/contribution" className="hover:text-primary transition-colors">
+                            Community
+                        </Link>
                     </div>
                 </div>
 
@@ -36,14 +41,62 @@ export function Navbar() {
                             <Github className="w-5 h-5" />
                         </Button>
                     </Link>
-                    <Link href="/studio">
-                        <Button size="sm" className="bg-primary text-primary-foreground hover:opacity-90">
-                            Launch Studio
-                        </Button>
-                    </Link>
+                    <div className="hidden sm:block">
+                        <Link href="/studio">
+                            <Button size="sm" className="bg-primary text-primary-foreground hover:opacity-90">
+                                Launch Studio
+                            </Button>
+                        </Link>
+                    </div>
                     <ModeToggle />
+
+                    {/* Mobile Menu Toggle */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="md:hidden"
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    >
+                        {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                    </Button>
                 </div>
             </div>
+
+            {/* Mobile Menu Overlay */}
+            {isMenuOpen && (
+                <div className="md:hidden absolute top-16 left-0 w-full bg-background border-b border-border/40 p-4 shadow-2xl animate-in slide-in-from-top-5 fade-in duration-200">
+                    <div className="flex flex-col space-y-4">
+                        <Link
+                            href="/studio"
+                            className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            Studio
+                        </Link>
+                        <Link
+                            href="/#features"
+                            className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            Features
+                        </Link>
+                        <Link
+                            href="/contribution"
+                            className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            Community
+                        </Link>
+                        <div className="pt-2 border-t border-border/20">
+                            <Link href="/studio" onClick={() => setIsMenuOpen(false)}>
+                                <Button className="w-full bg-primary text-primary-foreground">
+                                    Launch Studio
+                                </Button>
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            )}
         </nav>
     )
 }

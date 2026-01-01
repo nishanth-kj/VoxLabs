@@ -220,11 +220,11 @@ export default function Home() {
 
         <Tabs defaultValue="tts" className="w-full space-y-6">
           <div className="flex items-center justify-between">
-            <TabsList className="bg-secondary/50 p-1 border border-white/5">
-              <TabsTrigger value="tts" className="px-6 data-[state=active]:bg-background/80 data-[state=active]:shadow-lg">
+            <TabsList className="bg-secondary/50 p-1 border border-white/5 h-auto flex-wrap justify-start">
+              <TabsTrigger value="tts" className="px-6 data-[state=active]:bg-background/80 data-[state=active]:shadow-lg flex-1 sm:flex-none">
                 Text to Speech
               </TabsTrigger>
-              <TabsTrigger value="voice-lab" className="px-6 data-[state=active]:bg-background/80 data-[state=active]:shadow-lg">
+              <TabsTrigger value="voice-lab" className="px-6 data-[state=active]:bg-background/80 data-[state=active]:shadow-lg flex-1 sm:flex-none">
                 Voice Lab <span className="ml-2 px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">NEW</span>
               </TabsTrigger>
             </TabsList>
