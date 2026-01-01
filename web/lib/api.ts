@@ -34,17 +34,19 @@ class ApiClient {
         const response = await fetch(url, options);
 
         if (!response.ok) {
-            let errorMessage = `HTTP Error ${response.status}`;
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.detail || errorMessage;
-            } catch (e) {
-                // response was not JSON
-            }
-            throw new Error(errorMessage);
+            throw new Error(`HTTP Error ${response.status}`);
         }
 
-        return response.json();
+        const json = await response.json();
+
+        // Standardized Reponse Handling
+        // Expected format: { status: 0|1, data: T, error?: string }
+        if (json.status === 1) {
+            return json.data as T;
+        } else {
+            // Status 0 or missing means error
+            throw new Error(json.error || "Unknown API Error");
+        }
     }
 
     async get<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
@@ -74,12 +76,12 @@ export const httpClient = new ApiClient();
 // Specific API Calls
 export const api = {
     voices: {
-        list: () => httpClient.get<{ success: boolean; voices: Voice[] }>('/api/voices'),
-        create: (formData: FormData) => httpClient.post<{ success: boolean; voice_id?: string; detail?: string }>('/api/voices/register', formData),
-        delete: (id: string) => httpClient.delete<{ success: boolean }>(`/api/voices/${id}`),
+        list: () => httpClient.get<{ voices: Voice[], count: number }>('/api/voices'),
+        create: (formData: FormData) => httpClient.post<{ voice_id: string; name: string; message: string }>('/api/voices/register', formData),
+        delete: (id: string) => httpClient.delete<{ message: string }>(`/api/voices/${id}`),
     },
     emotions: {
-        list: () => httpClient.get<{ success: boolean; emotions: string[] }>('/api/emotions'),
+        list: () => httpClient.get<{ emotions: Record<string, any>; count: number }>('/api/emotions'),
     },
     tts: {
         synthesize: (formData: FormData) => httpClient.post<SynthesisResponse>('/api/tts', formData),

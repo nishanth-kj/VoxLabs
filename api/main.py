@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 from engine import get_voice_engine
-from typing import Optional
+from typing import Optional, Any
 import uvicorn
 
 # Initialize FastAPI app
@@ -45,11 +45,29 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Initialize voice engine
 voice_engine = get_voice_engine()
 
+from pydantic import BaseModel
+from typing import Optional, Any, Generic, TypeVar
+
+T = TypeVar('T')
+
+class APIResponse(BaseModel, Generic[T]):
+    """Standardized API Response"""
+    status: int  # 0 or 1
+    data: Optional[T] = None
+    error: Optional[str] = None
+
+def api_response(data: Any = None, error: Optional[str] = None) -> APIResponse:
+    """Helper to create APIResponse"""
+    return APIResponse(
+        status=1 if error is None else 0,
+        data=data,
+        error=error
+    )
 
 @app.get("/")
 async def root():
     """API root endpoint"""
-    return {
+    return api_response(data={
         "name": "VoxLabs API",
         "version": "2.0.0",
         "status": "running",
@@ -61,30 +79,32 @@ async def root():
             "register": "/api/voices/register",
             "emotions": "/api/emotions"
         }
-    }
+    })
 
 
 @app.get("/api/status")
 async def get_status():
     """Get API status"""
-    return {
+    return api_response(data={
         "status": "healthy",
         "voice_engine": "advanced",
         "registered_voices": len(voice_engine.list_voices()),
         "engines": ["emotional", "clone", "basic"]
-    }
+    })
 
 
 @app.get("/api/emotions")
 async def get_emotions():
     """Get available emotions"""
-    from engine.emotional_tts import EmotionalTTSEngine
-    engine = EmotionalTTSEngine()
-    return {
-        "success": True,
-        "emotions": engine.get_emotions(),
-        "count": len(engine.get_emotions())
-    }
+    try:
+        from engine.emotional_tts import EmotionalTTSEngine
+        engine = EmotionalTTSEngine()
+        return api_response(data={
+            "emotions": engine.get_emotions(),
+            "count": len(engine.get_emotions())
+        })
+    except Exception as e:
+        return api_response(error=str(e))
 
 
 @app.post("/api/tts")
@@ -100,16 +120,6 @@ async def text_to_speech(
 ):
     """
     Generate speech from text using advanced engine
-    
-    Parameters:
-    - text: Text to convert to speech
-    - engine: Engine type (emotional, clone, basic)
-    - voice_id: Voice ID for cloning (optional)
-    - language: Language code (en, es, fr, etc.)
-    - emotion: Emotion (neutral, happy, sad, angry, calm, excited, fearful, confident)
-    - speed: Speaking speed (0.5 - 2.0)
-    - pitch: Voice pitch (0.5 - 1.5)
-    - energy: Voice energy (0.5 - 2.0)
     """
     try:
         # Synthesize using advanced engine
@@ -130,16 +140,15 @@ async def text_to_speech(
         with open(filepath, "wb") as f:
             f.write(audio_data)
         
-        return {
-            "success": True,
+        return api_response(data={
             "audio_url": f"/static/audio/{filename}",
             "engine": engine,
             "emotion": emotion if engine == "emotional" else None,
             "message": "Speech generated successfully"
-        }
+        })
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return api_response(error=str(e))
 
 
 @app.get("/api/voices")
@@ -147,13 +156,12 @@ async def list_voices():
     """List all registered voices"""
     try:
         voices = voice_engine.list_voices()
-        return {
-            "success": True,
+        return api_response(data={
             "voices": voices,
             "count": len(voices)
-        }
+        })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return api_response(error=str(e))
 
 
 @app.post("/api/voices/register")
@@ -164,11 +172,6 @@ async def register_voice(
 ):
     """
     Register a new voice for cloning
-    
-    Parameters:
-    - audio_file: Audio file containing voice sample
-    - voice_name: Name for the voice
-    - description: Voice description
     """
     try:
         # Save uploaded file temporarily
@@ -183,15 +186,14 @@ async def register_voice(
             description=description
         )
         
-        return {
-            "success": True,
+        return api_response(data={
             "voice_id": voice_id,
             "name": voice_name,
             "message": f"Voice '{voice_name}' registered successfully"
-        }
+        })
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return api_response(error=str(e))
 
 
 @app.delete("/api/voices/{voice_id}")
@@ -199,12 +201,11 @@ async def delete_voice(voice_id: str):
     """Delete a registered voice"""
     try:
         voice_engine.delete_voice(voice_id)
-        return {
-            "success": True,
+        return api_response(data={
             "message": f"Voice {voice_id} deleted successfully"
-        }
+        })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return api_response(error=str(e))
 
 
 @app.get("/api/voices/{voice_id}")
@@ -213,14 +214,13 @@ async def get_voice(voice_id: str):
     try:
         voice = voice_engine.get_voice(voice_id)
         if voice:
-            return {
-                "success": True,
+            return api_response(data={
                 "voice": voice
-            }
+            })
         else:
-            raise HTTPException(status_code=404, detail="Voice not found")
+            return api_response(error="Voice not found")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return api_response(error=str(e))
 
 
 if __name__ == "__main__":

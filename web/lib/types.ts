@@ -22,10 +22,18 @@ export interface SynthesisRequest {
     energy?: number;
 }
 
+
+export interface ApiResponse<T> {
+    status: number;
+    data: T;
+    error?: string;
+}
+
 export interface SynthesisResponse {
-    success: boolean;
     audio_url?: string;
-    detail?: string;
+    engine?: string;
+    emotion?: string;
+    message?: string;
 }
 
 export interface CloneRequest {

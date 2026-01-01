@@ -67,8 +67,8 @@ export default function Home() {
           api.emotions.list()
         ])
 
-        if (voicesRes.success) setVoices(voicesRes.voices)
-        if (emotionsRes.success) setEmotions(emotionsRes.emotions)
+        setVoices(voicesRes.voices)
+        setEmotions(emotionsRes.emotions)
       } catch (err) {
         console.error('Failed to load initial data:', err)
       }
@@ -116,16 +116,12 @@ export default function Home() {
 
       const data = await api.voices.create(formData)
 
-      if (data.success) {
-        toast.success("Voice Cloned Successfully!", { description: `${cloneName} is now available.` })
-        setCloneName('')
-        setCloneFile(null)
-        // Refresh voices
-        const voicesRes = await api.voices.list()
-        if (voicesRes.success) setVoices(voicesRes.voices)
-      } else {
-        throw new Error(data.detail)
-      }
+      toast.success("Voice Cloned Successfully!", { description: `${cloneName} is now available.` })
+      setCloneName('')
+      setCloneFile(null)
+      // Refresh voices
+      const voicesRes = await api.voices.list()
+      setVoices(voicesRes.voices)
     } catch (err: any) {
       toast.error("Cloning Failed", { description: err.message || "Unknown error occurred." })
     } finally {
@@ -138,12 +134,11 @@ export default function Home() {
     if (!confirm("Are you sure you want to delete this voice?")) return
 
     try {
-      const data = await api.voices.delete(id)
-      if (data.success) {
-        toast.success("Voice Deleted")
-        setVoices(voices.filter(v => v.id !== id))
-        if (selectedVoice === id) setSelectedVoice('')
-      }
+      await api.voices.delete(id)
+
+      toast.success("Voice Deleted")
+      setVoices(voices.filter(v => v.id !== id))
+      if (selectedVoice === id) setSelectedVoice('')
     } catch (err) {
       toast.error("Delete Failed")
     }
@@ -173,7 +168,7 @@ export default function Home() {
 
       const data = await api.tts.synthesize(formData)
 
-      if (data.success && data.audio_url) {
+      if (data.audio_url) {
         setAudioUrl(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${data.audio_url}`)
         toast.success("Speech generated successfully!", {
           description: "playing audio...",
@@ -185,10 +180,6 @@ export default function Home() {
             audioRef.current.onended = () => setPlayingVoice(null)
           }
         }, 100)
-      } else {
-        toast.error("Failed to generate speech", {
-          description: data.detail || "Please try again.",
-        })
       }
     } catch (err) {
       toast.error("Connection Failed", {
