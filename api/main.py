@@ -81,6 +81,7 @@ async def get_emotions():
     from engine.emotional_tts import EmotionalTTSEngine
     engine = EmotionalTTSEngine()
     return {
+        "success": True,
         "emotions": engine.get_emotions(),
         "count": len(engine.get_emotions())
     }

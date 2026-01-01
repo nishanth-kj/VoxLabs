@@ -24,7 +24,7 @@ export default function Home() {
 
   // Data
   const [voices, setVoices] = useState<Voice[]>([])
-  const [emotions, setEmotions] = useState<string[]>([])
+  const [emotions, setEmotions] = useState<Record<string, any>>({})
 
   // Settings
   const [selectedVoice, setSelectedVoice] = useState<string>('')
@@ -33,6 +33,16 @@ export default function Home() {
   const [pitch, setPitch] = useState([1.0])
   const [energy, setEnergy] = useState([1.0])
   const [showSettings, setShowSettings] = useState(false)
+
+  // Update sliders when emotion changes
+  useEffect(() => {
+    if (selectedEmotion && emotions[selectedEmotion]) {
+      const defaults = emotions[selectedEmotion]
+      setSpeed([defaults.speed])
+      setPitch([defaults.pitch])
+      setEnergy([defaults.energy])
+    }
+  }, [selectedEmotion, emotions])
 
   // Voice Cloning State
   const [cloneName, setCloneName] = useState('')
@@ -245,7 +255,7 @@ export default function Home() {
                           <SelectValue placeholder="Select emotion" />
                         </SelectTrigger>
                         <SelectContent>
-                          {emotions.map((e) => (
+                          {Object.keys(emotions).map((e) => (
                             <SelectItem key={e} value={e}>
                               {e.charAt(0).toUpperCase() + e.slice(1)}
                             </SelectItem>
