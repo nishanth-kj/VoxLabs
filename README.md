@@ -11,6 +11,18 @@
 
 ---
 
+## 📚 Documentation
+
+Detailed documentation is available in the [`docs/`](./docs) directory:
+
+- [**Project Overview**](./docs/README.md)
+- [**Backend Guide**](./docs/backend.md) (Architecture, Audio Engine)
+- [**API Reference**](./docs/api.md) (Endpoints, JSON formats)
+- [**Frontend Guide**](./docs/frontend.md) (Studio UI, State Management)
+- [**Setup & Deployment**](./docs/setup.md) (Local Dev, Docker)
+
+---
+
 ## ✨ Features
 
 - 🎤 **Voice Cloning** - Clone voices with explicit consent
@@ -24,64 +36,17 @@
 
 ## 🚀 Quick Start
 
-### Option 1: Docker (Recommended) ⭐
+For detailed setup instructions, see [Setup Guide](./docs/setup.md).
 
-**Windows:**
-```bash
-# Double-click start-docker.bat
-# OR run in terminal:
-docker-compose up -d --build
-```
+### Docker (Recommended) ⭐
 
-**Linux/Mac:**
 ```bash
 docker-compose up -d --build
 ```
 
-**Access:**
-- 🌐 Frontend: http://localhost (port 80)
-- 📚 API Docs: http://localhost/docs
-- 🔧 API Status: http://localhost/api/status
-
-**Stop:**
-```bash
-docker-compose down
-```
-
-📖 **Full Docker Guide:** See [DOCKER_GUIDE.md](./DOCKER_GUIDE.md)
-
-### Option 2: Local Development
-
-**Backend (FastAPI)**
-```bash
-# Install uv (if not installed)
-pip install uv
-
-# Run server (dependencies installed automatically)
-cd api
-uv run uvicorn main:app --reload --port 8000
-
-# → http://localhost:8000
-```
-
-**Frontend (Next.js)**
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# → http://localhost:3000
-```
-
----
-
-## 📋 Requirements
-
-- **Python:** 3.12 or higher
-- **Node.js:** 20.0.0 or higher
-- **Docker:** Latest (optional, for containerized deployment)
+Access:
+- 🌐 Frontend: `http://localhost:3000`
+- 📚 API Docs: `http://localhost:8000/docs`
 
 ---
 
@@ -89,25 +54,17 @@ npm run dev
 
 ```
 VoxLabs/
-├── main.py                   # FastAPI backend entry point
-├── voice_engine.py           # Voice cloning engine
-├── requirements.txt          # Python dependencies
-├── pyproject.toml            # Python project configuration
-│
-├── app/                      # Next.js pages (App Router)
-├── components/               # React components
-├── next.config.js            # Next.js configuration
-├── package.json              # Node.js dependencies
-│
-├── Dockerfile.backend        # Backend Docker image
-├── Dockerfile.frontend       # Frontend Docker image
-├── docker-compose.yml        # Multi-container orchestration
-├── nginx.conf                # Nginx reverse proxy config
-│
-├── .env.example              # Environment variables template
-├── README.md                 # This file
-├── CONTRIBUTING.md           # Contribution guidelines
-└── LICENSE                   # MIT License
+├── api/                      # FastAPI Backend
+│   ├── main.py               # Entry point
+│   ├── engine/               # Audio processing logic
+│   └── static/               # Generated audio files
+├── web/                      # Next.js Frontend
+│   ├── app/                  # App Router pages
+│   └── lib/                  # API client & types
+├── desktop/                  # Tauri Desktop App config
+├── docs/                     # Project Documentation
+├── docker-compose.yml        # Orchestration
+└── README.md                 # This file
 ```
 
 ---
@@ -115,22 +72,21 @@ VoxLabs/
 ## 🛠️ Tech Stack
 
 ### Backend
-- **FastAPI** - Modern Python web framework
-- **librosa** - Audio feature extraction
-- **pydub** - Audio manipulation
-- **gTTS** - Google Text-to-Speech
-- **NumPy/SciPy** - Scientific computing
+- **FastAPI** - Python web framework
+- **Librosa** - DSP & Audio analysis
+- **SoundFile** - Audio I/O
+- **Pydantic** - Data validation
 
 ### Frontend
-- **Next.js 14** - React framework with App Router
-- **TypeScript** - Type-safe JavaScript
-- **React 18** - UI library
-- **Sass** - CSS preprocessor
+- **Next.js 16** - React framework
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
+- **Shadcn UI** - Components
+- **Framer Motion / GSAP** - Animations
 
-### DevOps
+### DevOps & Desktop
 - **Docker** - Containerization
-- **Docker Compose** - Multi-container orchestration
-- **Nginx** - Reverse proxy and load balancer
+- **Tauri** - Desktop application bundle
 
 ---
 
