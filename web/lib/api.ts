@@ -31,22 +31,42 @@ class ApiClient {
             }
         }
 
-        const response = await fetch(url, options);
+        const maxRetries = 3;
+        let attempt = 0;
+        let lastError = null;
 
-        if (!response.ok) {
-            throw new Error(`HTTP Error ${response.status}`);
+        while (attempt < maxRetries) {
+            try {
+                const response = await fetch(url, options);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP Error ${response.status}`);
+                }
+
+                const json = await response.json();
+
+                // Standardized Reponse Handling
+                if (json.status === 1) {
+                    return json.data as T;
+                } else {
+                    throw new Error(json.error || "Unknown API Error");
+                }
+            } catch (error) {
+                lastError = error;
+                // Only retry on network errors (fetch throws) or 5xx errors
+                // If it's an API error (status 0), don't retry
+                if (error instanceof Error && error.message.includes("HTTP Error 5")) {
+                    attempt++;
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                } else if (error instanceof TypeError) { // Network error
+                    attempt++;
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                } else {
+                    throw error;
+                }
+            }
         }
-
-        const json = await response.json();
-
-        // Standardized Reponse Handling
-        // Expected format: { status: 0|1, data: T, error?: string }
-        if (json.status === 1) {
-            return json.data as T;
-        } else {
-            // Status 0 or missing means error
-            throw new Error(json.error || "Unknown API Error");
-        }
+        throw lastError;
     }
 
     async get<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
