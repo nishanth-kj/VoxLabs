@@ -4,8 +4,22 @@ Python/FastAPI backend for voice cloning and TTS.
 
 ## Quick Start
 
+### Using uv (Recommended)
+
+First, install [uv](https://github.com/astral-sh/uv):
+
 ```bash
-python main.py
+# On Windows (PowerShell)
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# On macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Then run the API:
+
+```bash
+uv run python main.py
 ```
 
 ## API Endpoints
@@ -19,4 +33,4 @@ python main.py
 ## Requirements
 
 - Python 3.12+
-- See `requirements.txt`
+- `uv` package manager
