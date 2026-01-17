@@ -19,6 +19,7 @@ dependencies = [
     "llvmlite>=0.42.0",
     "pytest>=9.0.2",
     "httpx>=0.28.1",
+    "pyinstaller>=6.4.0",
 ]
 
 

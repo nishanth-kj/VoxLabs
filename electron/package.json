@@ -1,0 +1,61 @@
+{
+    "name": "voxlabs-desktop",
+    "version": "2.0.0",
+    "description": "VoxLabs - AI Voice Cloning Platform",
+    "main": "main.js",
+    "author": "VoxLabs",
+    "scripts": {
+        "start": "electron .",
+        "pack": "electron-builder --dir",
+        "dist": "electron-builder"
+    },
+    "devDependencies": {
+        "electron": "^28.0.0",
+        "electron-builder": "^24.9.1"
+    },
+    "build": {
+        "appId": "com.voxlabs.app",
+        "productName": "VoxLabs",
+        "directories": {
+            "output": "dist",
+            "buildResources": "resources"
+        },
+        "files": [
+            "main.js",
+            "preload.js",
+            "resources/**/*"
+        ],
+        "extraResources": [
+            {
+                "from": "resources/bin",
+                "to": "bin",
+                "filter": [
+                    "**/*"
+                ]
+            },
+            {
+                "from": "renderer-dist",
+                "to": "renderer",
+                "filter": [
+                    "**/*"
+                ]
+            }
+        ],
+        "win": {
+            "target": "nsis",
+            "icon": "resources/icon.ico",
+            "forceCodeSigning": false
+        },
+        "nsis": {
+            "oneClick": false,
+            "perMachine": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "VoxLabs"
+        }
+    },
+    "dependencies": {
+        "electron-serve": "^3.0.0"
+    }
+}
