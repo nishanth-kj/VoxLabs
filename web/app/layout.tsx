@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ThemeProvider } from "@/components/theme-provider"
+import { StatusBanner } from "@/components/status-banner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Navbar />
+          <StatusBanner />
           {children}
           <Footer />
           <Toaster />
