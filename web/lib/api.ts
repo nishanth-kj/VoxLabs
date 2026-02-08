@@ -45,11 +45,12 @@ class ApiClient {
 
                 const json = await response.json();
 
-                // Standardized Reponse Handling
+                // Standardized Response Handling
                 if (json.status === 1) {
                     return json.data as T;
                 } else {
-                    throw new Error(json.error || "Unknown API Error");
+                    const errorMessage = json.error?.message || (typeof json.error === 'string' ? json.error : "Unknown API Error");
+                    throw new Error(errorMessage);
                 }
             } catch (error) {
                 lastError = error;
@@ -105,5 +106,7 @@ export const api = {
     },
     tts: {
         synthesize: (formData: FormData) => httpClient.post<SynthesisResponse>('/api/tts', formData),
+        listEdgeVoices: () => httpClient.get<any[]>('/api/tts/edge/voices'),
+        synthesizeEdge: (data: any) => httpClient.post<SynthesisResponse>('/api/tts/edge/generate', data),
     }
 };

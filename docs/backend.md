@@ -1,16 +1,25 @@
 # Backend Documentation
 
-The VoxLabs backend is built with **FastAPI** and provides a robust engine for speech synthesis and voice management.
+The backend is built with FastAPI and follows a strict **Routes-Services** class-based architecture.
 
 ## Architecture
+- **Routes** (`api/routes`): Class-based handlers (`SystemRoutes`, `VoiceRoutes`, `TTSRoutes`) using `APIRouter`.
+- **Services** (`api/services`): Dedicated services (`SystemService`, `VoiceService`, `TTSService`, `EdgeTTSService`) containing business logic.
 
-The backend is structured as follows:
+## Setup
+```bash
+# Git-based setup
+git clone ...
+uv venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
+uv pip install edge-tts
+```
 
-- **`main.py`**: The entry point. Initializes the FastAPI app, mounts static files, and defines API endpoints.
-- **`engine/`**: Contains the core logic for audio processing.
-    - **`emotional_tts.py`**: Implements the `EmotionalTTSEngine`. Uses `librosa` for Digital Signal Processing (DSP) to modify pitch, speed, and energy.
-    - **`voice_engine.py`**: Manages voice cloning and synthesis coordination.
-- **`static/audio/`**: Stores generated TTS audio files and temporary uploads.
+## Endpoints
+### Edge TTS
+- `GET /api/tts/edge/voices`: List Microsoft AI voices.
+- `POST /api/tts/edge/generate`: Generate high-quality voice.
 
 ## Audio Engine (DSP)
 

@@ -34,6 +34,13 @@ export default function Home() {
   const [energy, setEnergy] = useState([1.0])
   const [showSettings, setShowSettings] = useState(false)
 
+  // Edge TTS Settings
+  const [engine, setEngine] = useState<'emotional' | 'edge'>('emotional')
+  const [edgeVoices, setEdgeVoices] = useState<any[]>([])
+  const [selectedEdgeVoice, setSelectedEdgeVoice] = useState<string>('')
+  const [edgeRate, setEdgeRate] = useState([0]) // -100 to 100 percentage
+  const [edgePitch, setEdgePitch] = useState([0]) // -100 to 100 percentage
+
   // Update sliders when emotion changes
   useEffect(() => {
     if (selectedEmotion && emotions[selectedEmotion]) {
@@ -62,13 +69,18 @@ export default function Home() {
     // Fetch initial data
     const fetchData = async () => {
       try {
-        const [voicesRes, emotionsRes] = await Promise.all([
+        const [voicesRes, emotionsRes, edgeVoicesRes] = await Promise.all([
           api.voices.list(),
-          api.emotions.list()
+          api.emotions.list(),
+          api.tts.listEdgeVoices()
         ])
 
         setVoices(voicesRes.voices)
         setEmotions(emotionsRes.emotions)
+        setEdgeVoices(edgeVoicesRes)
+        if (edgeVoicesRes.length > 0) {
+          setSelectedEdgeVoice(edgeVoicesRes[0].ShortName)
+        }
       } catch (err) {
         console.error('Failed to load initial data:', err)
       }
@@ -152,21 +164,33 @@ export default function Home() {
     setAudioUrl('')
 
     try {
-      const formData = new FormData()
-      formData.append('text', text)
-      // Use emotional engine by default for best quality
-      formData.append('engine', 'emotional')
-      formData.append('language', 'en')
-      formData.append('emotion', selectedEmotion)
-      formData.append('speed', speed[0].toString())
-      formData.append('pitch', pitch[0].toString())
-      formData.append('energy', energy[0].toString())
+      let data;
+      if (engine === 'edge') {
+        const rateStr = `${edgeRate[0] >= 0 ? '+' : ''}${edgeRate[0]}%`
+        const pitchStr = `${edgePitch[0] >= 0 ? '+' : ''}${edgePitch[0]}Hz`
 
-      if (selectedVoice) {
-        formData.append('voice_id', selectedVoice)
+        data = await api.tts.synthesizeEdge({
+          text,
+          voice: selectedEdgeVoice,
+          rate: rateStr,
+          pitch: pitchStr
+        })
+      } else {
+        const formData = new FormData()
+        formData.append('text', text)
+        formData.append('engine', 'emotional')
+        formData.append('language', 'en')
+        formData.append('emotion', selectedEmotion)
+        formData.append('speed', speed[0].toString())
+        formData.append('pitch', pitch[0].toString())
+        formData.append('energy', energy[0].toString())
+
+        if (selectedVoice) {
+          formData.append('voice_id', selectedVoice)
+        }
+
+        data = await api.tts.synthesize(formData)
       }
-
-      const data = await api.tts.synthesize(formData)
 
       if (data.audio_url) {
         setAudioUrl(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${data.audio_url}`)
@@ -220,40 +244,72 @@ export default function Home() {
                   </CardHeader>
                   <CardContent className="space-y-6">
 
-                    {/* Voice Selection */}
+                    {/* Engine Selection */}
                     <div className="space-y-3">
-                      <Label>Voice Model</Label>
-                      <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                      <Label>Synthesis Engine</Label>
+                      <Select value={engine} onValueChange={(v: any) => setEngine(v)}>
                         <SelectTrigger className="bg-secondary/30 border-white/10">
-                          <SelectValue placeholder="Select a voice" />
+                          <SelectValue placeholder="Select engine" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="default">Default Voice (Nova)</SelectItem>
-                          {voices.map((v) => (
-                            <SelectItem key={v.id} value={v.id}>
-                              {v.name} {v.description && <span className="text-muted-foreground ml-2 text-xs">({v.description})</span>}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="emotional">Advanced (Emotional)</SelectItem>
+                          <SelectItem value="edge">Edge (Microsoft AI)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
-                    {/* Emotion Selection */}
-                    <div className="space-y-3">
-                      <Label>Emotion & Style</Label>
-                      <Select value={selectedEmotion} onValueChange={setSelectedEmotion}>
-                        <SelectTrigger className="bg-secondary/30 border-white/10">
-                          <SelectValue placeholder="Select emotion" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.keys(emotions).map((e) => (
-                            <SelectItem key={e} value={e}>
-                              {e.charAt(0).toUpperCase() + e.slice(1)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {engine === 'emotional' ? (
+                      <>
+                        <div className="space-y-3">
+                          <Label>Voice Model</Label>
+                          <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                            <SelectTrigger className="bg-secondary/30 border-white/10">
+                              <SelectValue placeholder="Select a voice" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="default">Default Voice (Nova)</SelectItem>
+                              {voices.map((v) => (
+                                <SelectItem key={v.id} value={v.id}>
+                                  {v.name} {v.description && <span className="text-muted-foreground ml-2 text-xs">({v.description})</span>}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label>Emotion & Style</Label>
+                          <Select value={selectedEmotion} onValueChange={setSelectedEmotion}>
+                            <SelectTrigger className="bg-secondary/30 border-white/10">
+                              <SelectValue placeholder="Select emotion" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.keys(emotions).map((e) => (
+                                <SelectItem key={e} value={e}>
+                                  {e.charAt(0).toUpperCase() + e.slice(1)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        <Label>AI Voice</Label>
+                        <Select value={selectedEdgeVoice} onValueChange={setSelectedEdgeVoice}>
+                          <SelectTrigger className="bg-secondary/30 border-white/10">
+                            <SelectValue placeholder="Select Edge voice" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {edgeVoices.map((v) => (
+                              <SelectItem key={v.ShortName} value={v.ShortName}>
+                                {v.FriendlyName.split(' - ')[1] || v.FriendlyName} ({v.Locale})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
                     {/* Advanced Controls Toggle */}
                     <div className="pt-4 border-t border-border/40">
@@ -270,48 +326,83 @@ export default function Home() {
                       {showSettings && (
                         <div ref={advancedControlsRef} className="overflow-hidden">
                           <div className="space-y-6 mt-6 p-1">
-                            <div className="space-y-3">
-                              <div className="flex justify-between">
-                                <Label className="text-xs font-normal text-muted-foreground">Speed</Label>
-                                <span className="text-xs font-mono text-primary">{speed[0]}x</span>
-                              </div>
-                              <Slider
-                                value={speed}
-                                onValueChange={setSpeed}
-                                min={0.5}
-                                max={2.0}
-                                step={0.1}
-                                className="py-2"
-                              />
-                            </div>
-                            <div className="space-y-3">
-                              <div className="flex justify-between">
-                                <Label className="text-xs font-normal text-muted-foreground">Pitch</Label>
-                                <span className="text-xs font-mono text-primary">{pitch[0]}</span>
-                              </div>
-                              <Slider
-                                value={pitch}
-                                onValueChange={setPitch}
-                                min={0.5}
-                                max={1.5}
-                                step={0.1}
-                                className="py-2"
-                              />
-                            </div>
-                            <div className="space-y-3">
-                              <div className="flex justify-between">
-                                <Label className="text-xs font-normal text-muted-foreground">Energy</Label>
-                                <span className="text-xs font-mono text-primary">{energy[0]}</span>
-                              </div>
-                              <Slider
-                                value={energy}
-                                onValueChange={setEnergy}
-                                min={0.5}
-                                max={2.0}
-                                step={0.1}
-                                className="py-2"
-                              />
-                            </div>
+                            {engine === 'emotional' ? (
+                              <>
+                                <div className="space-y-3">
+                                  <div className="flex justify-between">
+                                    <Label className="text-xs font-normal text-muted-foreground">Speed</Label>
+                                    <span className="text-xs font-mono text-primary">{speed[0]}x</span>
+                                  </div>
+                                  <Slider
+                                    value={speed}
+                                    onValueChange={setSpeed}
+                                    min={0.5}
+                                    max={2.0}
+                                    step={0.1}
+                                    className="py-2"
+                                  />
+                                </div>
+                                <div className="space-y-3">
+                                  <div className="flex justify-between">
+                                    <Label className="text-xs font-normal text-muted-foreground">Pitch</Label>
+                                    <span className="text-xs font-mono text-primary">{pitch[0]}</span>
+                                  </div>
+                                  <Slider
+                                    value={pitch}
+                                    onValueChange={setPitch}
+                                    min={0.5}
+                                    max={1.5}
+                                    step={0.1}
+                                    className="py-2"
+                                  />
+                                </div>
+                                <div className="space-y-3">
+                                  <div className="flex justify-between">
+                                    <Label className="text-xs font-normal text-muted-foreground">Energy</Label>
+                                    <span className="text-xs font-mono text-primary">{energy[0]}</span>
+                                  </div>
+                                  <Slider
+                                    value={energy}
+                                    onValueChange={setEnergy}
+                                    min={0.5}
+                                    max={2.0}
+                                    step={0.1}
+                                    className="py-2"
+                                  />
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="space-y-3">
+                                  <div className="flex justify-between">
+                                    <Label className="text-xs font-normal text-muted-foreground">Rate</Label>
+                                    <span className="text-xs font-mono text-primary">{edgeRate[0]}%</span>
+                                  </div>
+                                  <Slider
+                                    value={edgeRate}
+                                    onValueChange={setEdgeRate}
+                                    min={-100}
+                                    max={100}
+                                    step={1}
+                                    className="py-2"
+                                  />
+                                </div>
+                                <div className="space-y-3">
+                                  <div className="flex justify-between">
+                                    <Label className="text-xs font-normal text-muted-foreground">Pitch</Label>
+                                    <span className="text-xs font-mono text-primary">{edgePitch[0]}Hz</span>
+                                  </div>
+                                  <Slider
+                                    value={edgePitch}
+                                    onValueChange={setEdgePitch}
+                                    min={-100}
+                                    max={100}
+                                    step={1}
+                                    className="py-2"
+                                  />
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       )}
