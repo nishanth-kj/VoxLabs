@@ -16,6 +16,7 @@ from datetime import datetime
 from pydub import AudioSegment
 import io
 from services.tts_service import EmotionalTTSEngine
+from utils.logger import logger
 
 
 class VoiceIdentity:
@@ -63,16 +64,18 @@ class VoiceEngine:
     """
     
     def __init__(self, project_path: str = "voice_projects"):
-        self.project_path = Path(project_path)
-        self.project_path.mkdir(exist_ok=True)
+        try:
+            self.project_path = Path(project_path)
+            self.project_path.mkdir(exist_ok=True)
+            logger.info(f"VoiceEngine initialized with project path: {project_path}")
+        except Exception as e:
+            logger.error(f"Failed to create project path {project_path}: {str(e)}")
+            raise
         
         # Check for FFmpeg
         if not shutil.which("ffmpeg"):
-            print("\n" + "!"*50)
-            print("CRITICAL WARNING: FFmpeg not found in PATH!")
-            print("Audio synthesis using pydub/gTTS will fail.")
-            print("Please install FFmpeg and add it to your system PATH.")
-            print("!"*50 + "\n")
+            logger.warning("FFmpeg not found in PATH! Audio synthesis using pydub/gTTS will fail.")
+            logger.warning("Please install FFmpeg and add it to your system PATH.")
         
         # Storage structure
         self.voices_dir = self.project_path / "voices"
@@ -115,44 +118,46 @@ class VoiceEngine:
         """
         Synthesize speech using the specified engine strategy
         """
-        if engine == "emotional":
-            # Use Emotional TTS Engine
-            return self.emotional_engine.synthesize(
-                text=text,
-                language=language,
-                emotion=emotion,
-                speed=speed,
-                pitch=pitch,
-                energy=energy
-            )
-        elif engine == "clone":
-            # Basic cloning simulation using pitch shifting
-            if not voice_id:
-                raise ValueError("Voice ID required for cloning")
+        try:
+            logger.info(f"Synthesis request (engine={engine}, voice_id={voice_id}, lang={language}, emotion={emotion})")
+            logger.debug(f"Text to synthesize: {text[:50]}...")
             
-            # Get target voice features
-            voice = self.get_voice(voice_id)
-            if not voice:
-                 # Check default voices
-                if voice_id in self.pretrained_voices:
-                     # Use default voice features logic if needed
-                     pass
-                else:
-                    raise ValueError(f"Voice {voice_id} not found")
+            if engine == "emotional":
+                return self.emotional_engine.synthesize(
+                    text=text,
+                    language=language,
+                    emotion=emotion,
+                    speed=speed,
+                    pitch=pitch,
+                    energy=energy
+                )
+            elif engine == "clone":
+                if not voice_id:
+                    logger.warning("Synthesis failed: voice_id required for cloning engine")
+                    raise ValueError("Voice ID required for cloning")
+                
+                voice = self.get_voice(voice_id)
+                if not voice:
+                    if voice_id in self.pretrained_voices:
+                        pass
+                    else:
+                        logger.error(f"Synthesis failed: voice {voice_id} not found")
+                        raise ValueError(f"Voice {voice_id} not found")
 
-            # For now, just use emotional engine with custom pitch/speed as a proxy for cloning
-            # In a real system, this would use a VITS/Tacotron model with speaker embedding
-            return self.emotional_engine.synthesize(
-                text=text,
-                language=language,
-                emotion=emotion, # Keep emotion
-                speed=speed,
-                pitch=pitch * 0.9 if voice_id == "male_default" else pitch * 1.1, # Simple gender simulation
-                energy=energy
-            )
-        else:
-             # Fallback to basic
-             return self.emotional_engine.synthesize(text=text, language=language)
+                return self.emotional_engine.synthesize(
+                    text=text,
+                    language=language,
+                    emotion=emotion,
+                    speed=speed,
+                    pitch=pitch * 0.9 if voice_id == "male_default" else pitch * 1.1,
+                    energy=energy
+                )
+            else:
+                 logger.info(f"Using default synthesis for unknown engine: {engine}")
+                 return self.emotional_engine.synthesize(text=text, language=language)
+        except Exception as e:
+            logger.error(f"Synthesis error: {str(e)}", exc_info=True)
+            raise
 
     def _generate_default_features(self, gender: str) -> np.ndarray:
         """Generate default voice features for male/female"""
@@ -188,7 +193,7 @@ class VoiceEngine:
                     )
                     self.voices[voice_id].revoked = data.get('revoked', False)
         except Exception as e:
-            print(f"Error loading voices: {e}")
+            logger.error(f"Error loading voices: {e}")
     
     def _save_voices(self):
         """Save voice metadata to disk"""
@@ -258,50 +263,54 @@ class VoiceEngine:
     ) -> str:
         """
         Register a new voice identity with consent
-        
-        Safety checks:
-        - Explicit consent required
-        - Local-only storage
-        - Project-scoped
         """
-        if not consent:
-            raise ValueError("Explicit consent required for voice registration")
-        
-        if not Path(audio_path).exists():
-            raise FileNotFoundError(f"Audio file not found: {audio_path}")
-        
-        # Generate unique voice ID
-        voice_id = hashlib.sha256(
-            f"{voice_name}{datetime.now().isoformat()}".encode()
-        ).hexdigest()[:16]
-        
-        # Extract voice features
-        features = self.extract_voice_features(audio_path)
-        
-        # Create voice identity
-        voice = VoiceIdentity(
-            voice_id=voice_id,
-            name=voice_name,
-            consent=consent,
-            audio_features=features,
-            created_at=datetime.now().isoformat(),
-            project_id=project_id,
-            metadata=metadata or {}
-        )
-        
-        # Save to storage
-        self.voices[voice_id] = voice
-        np.save(self.voices_dir / f"{voice_id}_features.npy", features)
-        self._save_voices()
-        
-        # Log consent
-        self._log_consent(voice_id, "register", {
-            "name": voice_name,
-            "project_id": project_id,
-            "consent": consent
-        })
-        
-        return voice_id
+        try:
+            logger.info(f"Registering new voice: {voice_name} for project: {project_id}")
+            if not consent:
+                logger.warning(f"Registration attempt for {voice_name} failed: Explicit consent required")
+                raise ValueError("Explicit consent required for voice registration")
+            
+            if not Path(audio_path).exists():
+                logger.error(f"Registration failed: Audio file not found at {audio_path}")
+                raise FileNotFoundError(f"Audio file not found: {audio_path}")
+            
+            # Generate unique voice ID
+            voice_id = hashlib.sha256(
+                f"{voice_name}{datetime.now().isoformat()}".encode()
+            ).hexdigest()[:16]
+            logger.debug(f"Generated voice ID: {voice_id}")
+            
+            # Extract voice features
+            features = self.extract_voice_features(audio_path)
+            
+            # Create voice identity
+            voice = VoiceIdentity(
+                voice_id=voice_id,
+                name=voice_name,
+                consent=consent,
+                audio_features=features,
+                created_at=datetime.now().isoformat(),
+                project_id=project_id,
+                metadata=metadata or {}
+            )
+            
+            # Save to storage
+            self.voices[voice_id] = voice
+            np.save(self.voices_dir / f"{voice_id}_features.npy", features)
+            self._save_voices()
+            
+            # Log consent
+            self._log_consent(voice_id, "register", {
+                "name": voice_name,
+                "project_id": project_id,
+                "consent": consent
+            })
+            
+            logger.info(f"Voice {voice_name} registered successfully with ID: {voice_id}")
+            return voice_id
+        except Exception as e:
+            logger.error(f"Error during voice registration: {str(e)}", exc_info=True)
+            raise
     
     def list_voices(self, project_id: Optional[str] = None) -> List[Dict]:
         """List registered voices (optionally filtered by project)"""
@@ -327,28 +336,37 @@ class VoiceEngine:
         Revoke a voice identity and delete associated data
         Ensures complete removal per safety design
         """
-        if voice_id not in self.voices:
-            raise ValueError(f"Voice {voice_id} not found")
-        
-        voice = self.voices[voice_id]
-        voice.revoked = True
-        
-        # Delete features file
-        features_path = self.voices_dir / f"{voice_id}_features.npy"
-        if features_path.exists():
-            features_path.unlink()
-        
-        # Log revocation
-        self._log_consent(voice_id, "revoke", {
-            "name": voice.name,
-            "timestamp": datetime.now().isoformat()
-        })
-        
-        # Update metadata
-        self._save_voices()
-        
-        # Remove from memory
-        del self.voices[voice_id]
+        try:
+            logger.info(f"Revoking voice identity: {voice_id}")
+            if voice_id not in self.voices:
+                logger.warning(f"Revocation failed: Voice {voice_id} not found")
+                raise ValueError(f"Voice {voice_id} not found")
+            
+            voice = self.voices[voice_id]
+            logger.info(f"Removing data for voice: {voice.name}")
+            voice.revoked = True
+            
+            # Delete features file
+            features_path = self.voices_dir / f"{voice_id}_features.npy"
+            if features_path.exists():
+                features_path.unlink()
+                logger.debug(f"Deleted features file: {features_path}")
+            
+            # Log revocation
+            self._log_consent(voice_id, "revoke", {
+                "name": voice.name,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            # Update metadata
+            self._save_voices()
+            
+            # Remove from memory
+            del self.voices[voice_id]
+            logger.info(f"Voice {voice_id} revoked successfully")
+        except Exception as e:
+            logger.error(f"Error revoking voice {voice_id}: {str(e)}", exc_info=True)
+            raise
     
     def synthesize_with_voice(
         self,
