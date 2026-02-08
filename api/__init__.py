@@ -3,7 +3,7 @@ VoxLabs Backend Package
 FastAPI backend for voice cloning and TTS
 """
 
-from .voice_engine import VoiceEngine, VoiceIdentity, get_voice_engine
+from .services.voice_service import VoiceEngine, VoiceIdentity, get_voice_engine
 
 __all__ = [
     'VoiceEngine',
