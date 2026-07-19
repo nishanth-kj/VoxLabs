@@ -22,6 +22,14 @@ Then run the API:
 uv run python main.py
 ```
 
+### Running the Desktop App
+
+You can also run the PyQt6 desktop app from this directory:
+
+```bash
+uv run python desktop/main.py
+```
+
 ## API Endpoints
 
 - `GET /` - API root
