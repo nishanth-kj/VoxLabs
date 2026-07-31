@@ -21,4 +21,13 @@ if(EMSCRIPTEN)
 else()
     # Standard desktop/server build
     add_executable(voxlabs_core ${SOURCES})
+
+    # Find and link FFmpeg (provided by vcpkg)
+    find_package(PkgConfig QUIET)
+    if(PKG_CONFIG_FOUND)
+        pkg_check_modules(FFMPEG IMPORTED_TARGET libavcodec libavformat libavutil)
+        if(TARGET PkgConfig::FFMPEG)
+            target_link_libraries(voxlabs_core PkgConfig::FFMPEG)
+        endif()
+    endif()
 endif()
