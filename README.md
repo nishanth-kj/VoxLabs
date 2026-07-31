@@ -65,10 +65,9 @@ git clone https://github.com/microsoft/vcpkg.git
 # On Linux/macOS:
 # ./vcpkg/bootstrap-vcpkg.sh
 
-# 2. Build the project using the local toolchain
-mkdir build && cd build
-cmake -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake ..
-make
+# 2. Build the project using the local toolchain (Cross-platform)
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake --build build
 ```
 
 #### WebAssembly Build
@@ -76,9 +75,8 @@ To compile the C++ core to WebAssembly, you need [Emscripten](https://emscripten
 
 ```bash
 cd core
-mkdir build && cd build
-emcmake cmake ..
-make
+emcmake cmake -B build-wasm -S .
+cmake --build build-wasm
 ```
 
 ---
