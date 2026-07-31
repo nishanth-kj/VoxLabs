@@ -48,12 +48,46 @@ Access:
 - 🌐 Frontend: `http://localhost:3000`
 - 📚 API Docs: `http://localhost:8000/docs`
 
+### C++ Core (Native & WebAssembly) 🚀
+
+The new high-performance C++ core handles voice decloning and emotion control.
+
+#### Standard Native Build
+To build natively, we use a local installation of `vcpkg` for dependency management:
+
+```bash
+cd core
+
+# 1. Clone and bootstrap vcpkg locally
+git clone https://github.com/microsoft/vcpkg.git
+# On Windows:
+.\vcpkg\bootstrap-vcpkg.bat
+# On Linux/macOS:
+# ./vcpkg/bootstrap-vcpkg.sh
+
+# 2. Build the project using the local toolchain
+mkdir build && cd build
+cmake -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake ..
+make
+```
+
+#### WebAssembly Build
+To compile the C++ core to WebAssembly, you need [Emscripten](https://emscripten.org/) installed:
+
+```bash
+cd core
+mkdir build && cd build
+emcmake cmake ..
+make
+```
+
 ---
 
 ## 📁 Project Structure
 
 ```
 VoxLabs/
+├── core/                     # C++ Core (Voice Decloning & Emotion)
 ├── api/                      # FastAPI Backend
 │   ├── main.py               # Entry point
 │   ├── engine/               # Audio processing logic
