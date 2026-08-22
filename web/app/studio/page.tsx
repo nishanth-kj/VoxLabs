@@ -57,6 +57,16 @@ export default function Home() {
   const [isCloning, setIsCloning] = useState(false)
   const [playingVoice, setPlayingVoice] = useState<string | null>(null)
 
+  // Voice Design State
+  const [designPrompt, setDesignPrompt] = useState('')
+  const [isDesigning, setIsDesigning] = useState(false)
+  const [voiceMode, setVoiceMode] = useState<'clone' | 'design'>('clone')
+
+  // Mic State
+  const [isRecording, setIsRecording] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+
   const audioRef = useRef<HTMLAudioElement>(null)
 
   // Refs for animations
@@ -110,6 +120,66 @@ export default function Home() {
       )
     }
   }, [showSettings])
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const file = new File([audioBlob], 'recording.webm', { type: 'audio/webm' })
+        setCloneFile(file)
+        setIsRecording(false)
+        stream.getTracks().forEach(track => track.stop())
+      }
+
+      mediaRecorder.start()
+      setIsRecording(true)
+    } catch (err) {
+      toast.error('Microphone Access Denied', { description: 'Please allow microphone access to record.' })
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+    }
+  }
+
+  const handleDesignVoice = async () => {
+    if (!designPrompt) {
+      toast.error("Missing information", { description: "Please provide a voice description." })
+      return
+    }
+
+    setIsDesigning(true)
+    try {
+      const formData = new FormData()
+      formData.append('prompt', designPrompt)
+      formData.append('project_id', 'default')
+
+      await api.voices.design(formData)
+
+      toast.success("Voice Designed Successfully!", { description: `Voice based on "${designPrompt}" is ready.` })
+      setDesignPrompt('')
+      
+      const voicesRes = await api.voices.list()
+      setVoices(voicesRes.voices)
+    } catch (err: any) {
+      toast.error("Design Failed", { description: err.message || "Unknown error occurred." })
+    } finally {
+      setIsDesigning(false)
+    }
+  }
 
   const handleClone = async () => {
     if (!cloneName || !cloneFile) {
@@ -479,68 +549,133 @@ export default function Home() {
           <TabsContent value="voice-lab" className="data-[state=active]:animate-in data-[state=active]:fade-in duration-500 focus-visible:outline-none">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
 
-              {/* Clone New Voice */}
+              {/* Clone/Design Voice */}
               <Card className="md:col-span-5 h-fit border-border/40 bg-card/40 backdrop-blur-xl">
                 <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Mic className="w-4 h-4 text-primary" />
-                    Clone New Voice
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Mic className="w-4 h-4 text-primary" />
+                      Add Voice
+                    </div>
+                    <div className="flex bg-secondary/50 rounded-lg p-1 text-xs">
+                      <button 
+                        onClick={() => setVoiceMode('clone')}
+                        className={`px-3 py-1 rounded-md transition-colors ${voiceMode === 'clone' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
+                      >
+                        Clone
+                      </button>
+                      <button 
+                        onClick={() => setVoiceMode('design')}
+                        className={`px-3 py-1 rounded-md transition-colors ${voiceMode === 'design' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
+                      >
+                        Design
+                      </button>
+                    </div>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-sm mb-4">
-                    Instant Voice Cloning requires only a 30s sample.
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label>Voice Name</Label>
-                    <Input
-                      placeholder="e.g. My Narrator Voice"
-                      value={cloneName}
-                      onChange={(e) => setCloneName(e.target.value)}
-                      className="bg-secondary/30 border-white/10"
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label>Audio Sample</Label>
-                    <div className="border-2 border-dashed border-white/10 rounded-xl p-8 transition-colors hover:border-primary/50 hover:bg-primary/5 group relative cursor-pointer">
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        onChange={(e) => setCloneFile(e.target.files?.[0] || null)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      />
-                      <div className="flex flex-col items-center justify-center text-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <Upload className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-medium text-sm text-foreground">
-                            {cloneFile ? cloneFile.name : "Click to upload audio"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {cloneFile ? `${(cloneFile.size / 1024 / 1024).toFixed(2)} MB` : "WAV, MP3 up to 10MB"}
-                          </p>
-                        </div>
+                  {voiceMode === 'clone' ? (
+                    <>
+                      <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-sm mb-4">
+                        Instant Voice Cloning requires only a 30s sample.
                       </div>
-                    </div>
-                  </div>
 
-                  <Button
-                    className="w-full h-11 mt-4"
-                    disabled={isCloning || !cloneName || !cloneFile}
-                    onClick={handleClone}
-                  >
-                    {isCloning ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Cloning Voice...
-                      </>
-                    ) : (
-                      "Clone Voice"
-                    )}
-                  </Button>
+                      <div className="space-y-3">
+                        <Label>Voice Name</Label>
+                        <Input
+                          placeholder="e.g. My Narrator Voice"
+                          value={cloneName}
+                          onChange={(e) => setCloneName(e.target.value)}
+                          className="bg-secondary/30 border-white/10"
+                        />
+                      </div>
+
+                      <div className="space-y-3">
+                        <Label>Audio Sample</Label>
+                        <div className="border-2 border-dashed border-white/10 rounded-xl p-8 transition-colors hover:border-primary/50 hover:bg-primary/5 group relative">
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            onChange={(e) => setCloneFile(e.target.files?.[0] || null)}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          />
+                          <div className="flex flex-col items-center justify-center text-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <Upload className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
+                            <div className="space-y-1">
+                              <p className="font-medium text-sm text-foreground">
+                                {cloneFile ? cloneFile.name : "Click to upload audio"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {cloneFile ? `${(cloneFile.size / 1024 / 1024).toFixed(2)} MB` : "WAV, MP3 up to 10MB"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 justify-center py-2">
+                           <span className="text-xs text-muted-foreground uppercase">OR</span>
+                        </div>
+                        <Button 
+                          variant={isRecording ? "destructive" : "secondary"}
+                          className={`w-full ${isRecording ? "animate-pulse" : ""}`}
+                          onClick={isRecording ? stopRecording : startRecording}
+                        >
+                          <Mic className="w-4 h-4 mr-2" />
+                          {isRecording ? "Stop Recording" : "Record from Microphone"}
+                        </Button>
+                      </div>
+
+                      <Button
+                        className="w-full h-11 mt-4"
+                        disabled={isCloning || !cloneName || !cloneFile}
+                        onClick={handleClone}
+                      >
+                        {isCloning ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Cloning Voice...
+                          </>
+                        ) : (
+                          "Clone Voice"
+                        )}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-200 text-sm mb-4">
+                        Design a new voice from scratch using a text prompt.
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <Label>Voice Prompt</Label>
+                        <Textarea
+                          placeholder="e.g. A middle-aged British man speaking urgently and professionally..."
+                          value={designPrompt}
+                          onChange={(e) => setDesignPrompt(e.target.value)}
+                          className="bg-secondary/30 border-white/10 resize-none h-32"
+                        />
+                      </div>
+                      
+                      <Button
+                        className="w-full h-11 mt-4 bg-purple-600 hover:bg-purple-700 text-white"
+                        disabled={isDesigning || !designPrompt}
+                        onClick={handleDesignVoice}
+                      >
+                        {isDesigning ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Designing...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Design Voice
+                          </>
+                        )}
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 

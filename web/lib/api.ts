@@ -99,7 +99,9 @@ export const api = {
     voices: {
         list: () => httpClient.get<{ voices: Voice[], count: number }>('/api/voices'),
         create: (formData: FormData) => httpClient.post<{ voice_id: string; name: string; message: string }>('/api/voices/register', formData),
+        design: (formData: FormData) => httpClient.post<{ voice_id: string; message: string }>('/api/voices/design', formData),
         delete: (id: string) => httpClient.delete<{ message: string }>(`/api/voices/${id}`),
+        sourceUrl: (id: string) => `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/voices/${id}/source`,
     },
     emotions: {
         list: () => httpClient.get<{ emotions: Record<string, any>; count: number }>('/api/emotions'),

@@ -32,6 +32,9 @@ export function Navbar() {
                         <Link href="/studio" className="hover:text-primary transition-colors">
                             Studio
                         </Link>
+                        <Link href="/library" className="hover:text-primary transition-colors">
+                            Library & Models
+                        </Link>
                         <Link href="/docs" className="hover:text-primary transition-colors">
                             Docs
                         </Link>
@@ -78,6 +81,13 @@ export function Navbar() {
                             onClick={() => setIsMenuOpen(false)}
                         >
                             Studio
+                        </Link>
+                        <Link
+                            href="/library"
+                            className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            Library & Models
                         </Link>
                         <Link
                             href="/docs"

@@ -1,6 +1,6 @@
 
 export interface Voice {
-    id: string;
+    voice_id: string;
     name: string;
     description?: string;
     projectId?: string;

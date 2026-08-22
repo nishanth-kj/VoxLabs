@@ -71,9 +71,9 @@ except Exception as e:
 
 if __name__ == "__main__":
     try:
-        logger.info("🎙️ Starting VoxLabs API with Advanced Voice Engine...")
-        logger.info("📍 API: http://localhost:8000")
-        logger.info("📚 Docs: http://localhost:8000/docs")
+        logger.info("Starting VoxLabs API with Advanced Voice Engine...")
+        logger.info("API: http://localhost:8000")
+        logger.info("Docs: http://localhost:8000/docs")
         
         uvicorn.run(
             "main:app",
