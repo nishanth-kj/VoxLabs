@@ -1,0 +1,44 @@
+﻿#include <iostream>
+#include "main_window.h"
+#include "utils/logger.h"
+#include "repositories/voice_repository.h"
+#include "services/voice_service.h"
+#include <windows.h>
+#include <atomic>
+
+static std::atomic<bool> g_shutdown{false};
+
+static BOOL WINAPI ConsoleHandler(DWORD ctrlType)
+{
+    switch (ctrlType)
+    {
+    case CTRL_C_EVENT:
+    case CTRL_CLOSE_EVENT:
+    case CTRL_SHUTDOWN_EVENT:
+        // request graceful shutdown instead of immediate termination
+        g_shutdown.store(true);
+        return TRUE; // handled
+    default:
+        return FALSE;
+    }
+}
+
+int main(int argc, char** argv) {
+    SetConsoleCtrlHandler(ConsoleHandler, TRUE);
+
+    voxlabs::utils::Logger::info("VoxLabs GUI Initializing...");
+
+    voxlabs::repositories::VoiceRepository voiceRepo;
+    voiceRepo.initializeDatabase("voxlabs.db");
+
+    voxlabs::services::VoiceService voiceService(voiceRepo);
+
+    voxlabs::gui::MainWindow mainWindow(voiceService);
+    mainWindow.show();
+
+    while (true && !g_shutdown.load())
+    {
+    }
+
+    return 0;
+}

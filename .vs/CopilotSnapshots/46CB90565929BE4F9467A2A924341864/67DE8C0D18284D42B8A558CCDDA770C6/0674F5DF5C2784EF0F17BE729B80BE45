@@ -1,0 +1,72 @@
+﻿#include <iostream>
+#include <string>
+#include <thread>
+#include <atomic>
+#include <windows.h>
+
+#include "utils/logger.h"
+#include "repositories/voice_repository.h"
+#include "services/voice_service.h"
+#include "app/api/api_server.h"
+#include "controllers/voice_controller.h"
+#include "app/gui/main_window.h"
+#include <drogon/drogon.h>
+
+using namespace voxlabs;
+
+static std::atomic<bool> g_shutdown{false};
+
+static BOOL WINAPI ConsoleHandler(DWORD ctrlType)
+{
+    switch (ctrlType)
+    {
+    case CTRL_C_EVENT:
+    case CTRL_CLOSE_EVENT:
+    case CTRL_SHUTDOWN_EVENT:
+        g_shutdown.store(true);
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+int main(int argc, char** argv) {
+    SetConsoleCtrlHandler(ConsoleHandler, TRUE);
+
+    utils::Logger::info("VoxLabs Unified C++ Core Initializing...");
+
+    repositories::VoiceRepository voiceRepo;
+    voiceRepo.initializeDatabase("voxlabs.db");
+
+    services::VoiceService voiceService(voiceRepo);
+    controllers::VoiceController voiceController(voiceService);
+
+    utils::Logger::info("VoxLabs Architecture Wired Successfully.");
+
+    // Start the Drogon API Server in a background thread
+    // Drogon blocks the thread it runs on, while Raylib must run on the main thread.
+    std::thread apiThread([&voiceService, &voiceController]() {
+        utils::Logger::info("Launching API Server on port 8080 (Background Thread)...");
+        app::ApiServer apiServer(voiceService, voiceController);
+        apiServer.start(8080);
+    });
+
+    // Start Raylib GUI on the main thread
+    utils::Logger::info("Launching Graphical User Interface (Main Thread)...");
+    gui::MainWindow mainWindow(voiceService);
+    mainWindow.show();
+
+    while (true && !g_shutdown.load())
+    {
+        // Keep the main thread running while checking for shutdown signal
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    utils::Logger::info("GUI closed or shutdown signal received. Shutting down VoxLabs Engine...");
+    
+    // We tell Drogon to quit safely and join the thread so the program can gracefully exit without crashing
+    drogon::app().quit();
+    apiThread.join(); 
+
+    return 0;
+}
