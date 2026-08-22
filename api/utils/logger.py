@@ -40,7 +40,7 @@ def setup_logger(name: str):
         if LOG_TO_FILE:
             LOG_DIR.mkdir(exist_ok=True)
             log_file = LOG_DIR / "voxlabs.log"
-            file_handler = logging.FileHandler(log_file)
+            file_handler = logging.FileHandler(log_file, encoding='utf-8')
             file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
             logger.addHandler(file_handler)
 

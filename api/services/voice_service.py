@@ -81,6 +81,9 @@ class VoiceEngine:
         self.voices_dir = self.project_path / "voices"
         self.voices_dir.mkdir(exist_ok=True)
         
+        self.voices_source_dir = self.project_path / "voices_source"
+        self.voices_source_dir.mkdir(exist_ok=True)
+        
         self.metadata_file = self.project_path / "voices_metadata.json"
         self.consent_log = self.project_path / "consent_log.json"
         
@@ -299,6 +302,9 @@ class VoiceEngine:
             np.save(self.voices_dir / f"{voice_id}_features.npy", features)
             self._save_voices()
             
+            # Save raw audio source
+            shutil.copy2(audio_path, self.voices_source_dir / f"{voice_id}.wav")
+            
             # Log consent
             self._log_consent(voice_id, "register", {
                 "name": voice_name,
@@ -310,6 +316,72 @@ class VoiceEngine:
             return voice_id
         except Exception as e:
             logger.error(f"Error during voice registration: {str(e)}", exc_info=True)
+            raise
+    
+    def get_voice_source_path(self, voice_id: str) -> Optional[str]:
+        """Get the path to the original audio source for a voice"""
+        source_path = self.voices_source_dir / f"{voice_id}.wav"
+        if source_path.exists():
+            return str(source_path)
+        return None
+    
+    def design_voice(self, prompt: str, project_id: str = "default") -> str:
+        """
+        Design a new voice from a text prompt (Zero-shot persona generation).
+        """
+        try:
+            logger.info(f"Designing voice from prompt: '{prompt}' for project: {project_id}")
+            
+            # Generate unique voice ID
+            voice_id = hashlib.sha256(
+                f"{prompt}{datetime.now().isoformat()}".encode()
+            ).hexdigest()[:16]
+            
+            # Generate features deterministically based on the prompt string hash
+            # In production, this would call an LLM or TTS model to generate embeddings
+            np.random.seed(int(hashlib.md5(prompt.encode()).hexdigest(), 16) % (2**32))
+            features = np.random.randn(256)
+            
+            # Simple heuristic mapping for pitch based on prompt words
+            base_pitch = 120 # Default male
+            prompt_lower = prompt.lower()
+            if "female" in prompt_lower or "woman" in prompt_lower or "girl" in prompt_lower:
+                base_pitch = 220
+            if "deep" in prompt_lower or "low" in prompt_lower:
+                base_pitch *= 0.8
+            if "high" in prompt_lower or "child" in prompt_lower:
+                base_pitch *= 1.3
+                
+            features[0] = base_pitch
+            
+            voice_name = f"Designed: {prompt[:20]}..."
+            
+            voice = VoiceIdentity(
+                voice_id=voice_id,
+                name=voice_name,
+                consent=True, # Generated voice, implicit consent
+                audio_features=features,
+                created_at=datetime.now().isoformat(),
+                project_id=project_id,
+                metadata={"prompt": prompt, "type": "designed"}
+            )
+            
+            # Save to storage
+            self.voices[voice_id] = voice
+            np.save(self.voices_dir / f"{voice_id}_features.npy", features)
+            self._save_voices()
+            
+            # Log consent
+            self._log_consent(voice_id, "design", {
+                "name": voice_name,
+                "project_id": project_id,
+                "prompt": prompt
+            })
+            
+            logger.info(f"Designed voice {voice_id} created successfully")
+            return voice_id
+        except Exception as e:
+            logger.error(f"Error during voice design: {str(e)}", exc_info=True)
             raise
     
     def list_voices(self, project_id: Optional[str] = None) -> List[Dict]:
@@ -375,7 +447,7 @@ class VoiceEngine:
         speed: float = 1.0,
         pitch_shift: float = 1.0,
         energy: float = 1.0
-    ) -> bytes:
+    ) -> dict:
         """
         Synthesize speech with voice characteristics
         
@@ -398,16 +470,16 @@ class VoiceEngine:
         
         # Use features to modulate synthesis
         # Extract pitch from features
-        target_pitch = features[0] if len(features) > 0 else 220
+        target_pitch = float(features[0]) if len(features) > 0 else 220.0
         
         # Adjust pitch_shift based on voice features
-        pitch_adjust = pitch_shift * (target_pitch / 220.0)  # Normalize to female default
+        pitch_adjust = float(pitch_shift) * (target_pitch / 220.0)  # Normalize to female default
         
         return {
             "features": features,
             "pitch_adjust": pitch_adjust,
-            "speed": speed,
-            "energy": energy
+            "speed": float(speed),
+            "energy": float(energy)
         }
     
     def purge_project(self, project_id: str):
@@ -434,7 +506,7 @@ class VoiceEngine:
         # For now, return as-is with comment
         
         output = io.BytesIO()
-        audio.export(
+        audio.export( # type: ignore
             output,
             format="mp3",
             tags={'comment': 'AI-Generated by Voice-Synth Engine'}
