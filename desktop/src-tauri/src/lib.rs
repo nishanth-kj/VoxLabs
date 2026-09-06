@@ -3,6 +3,9 @@ use tauri::Manager;
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
+#[cfg(windows)]
+mod windows_job;
+
 /// Holds the handle to the spawned VoxLabs API sidecar so it can be killed on exit.
 struct ApiProcess(Mutex<Option<CommandChild>>);
 
@@ -27,6 +30,15 @@ pub fn run() {
         let (_rx, child) = sidecar
           .spawn()
           .expect("failed to start the VoxLabs API sidecar");
+
+        // Belt-and-braces: also tie the sidecar's lifetime to ours at the OS
+        // level, so it's killed even if we don't get to run the
+        // `ExitRequested` handler below (crash, "End Task", `taskkill /F`).
+        #[cfg(windows)]
+        if let Err(e) = windows_job::kill_with_parent(child.pid()) {
+          log::warn!("failed to bind sidecar lifetime to the main process: {e}");
+        }
+
         app.state::<ApiProcess>().0.lock().unwrap().replace(child);
       }
       Ok(())
