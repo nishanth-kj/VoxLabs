@@ -86,16 +86,24 @@ except Exception as e:
     sys.exit(1)
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
+
+    is_frozen = getattr(sys, "frozen", False)
+    API_HOST = os.getenv("API_HOST", "0.0.0.0")
+    API_PORT = int(os.getenv("API_PORT", "8942"))
+
     try:
         logger.info("Starting VoxLabs API with Advanced Voice Engine...")
-        logger.info("API: http://localhost:8000")
-        logger.info("Docs: http://localhost:8000/docs")
-        
+        logger.info(f"API: http://127.0.0.1:{API_PORT}")
+        if not is_frozen:
+            logger.info(f"Docs: http://127.0.0.1:{API_PORT}/docs")
+
         uvicorn.run(
-            "main:app",
-            host="0.0.0.0",
-            port=8000,
-            reload=True
+            app if is_frozen else "main:app",
+            host=API_HOST,
+            port=API_PORT,
+            reload=not is_frozen
         )
     except Exception as e:
         logger.error(f"Runtime error: {str(e)}", exc_info=True)
