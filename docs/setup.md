@@ -71,7 +71,11 @@ npm install
 npm run tauri dev
 ```
 
-This opens the native window backed by the Next.js frontend (`http://localhost:3000` in dev). It talks to the FastAPI backend, so keep step 1 running alongside it.
+This opens the native window backed by the Next.js frontend (`http://localhost:3010` in dev). It talks to the FastAPI backend, so keep step 1 running alongside it.
+
+To view the same UI in a regular browser instead of the native window, run `npm run dev` (inside `desktop/`) and open `http://localhost:3010` directly — no Rust build required.
+
+**Shortcut:** from the repo root, `npm install && npm run dev` starts the backend and the browser-only frontend together (single Ctrl+C stops both) — this is the default for day-to-day work since it needs no Rust build. Use `npm run dev:desktop` instead when you specifically need the native window. `npm run build:desktop` builds the installer.
 
 ## Troubleshooting
 

@@ -1,0 +1,16 @@
+{
+  "name": "voxlabs",
+  "private": true,
+  "description": "Root dev orchestration for the VoxLabs backend and desktop app",
+  "scripts": {
+    "dev:api": "cd api && uv run uvicorn main:app --reload --port 8000",
+    "dev:desktop-only": "cd desktop && npm run tauri dev",
+    "dev:web-only": "cd desktop && npm run dev",
+    "dev": "concurrently -n API,WEB -c blue,green --kill-others npm:dev:api npm:dev:web-only",
+    "dev:desktop": "concurrently -n API,DESKTOP -c blue,magenta --kill-others npm:dev:api npm:dev:desktop-only",
+    "build:desktop": "cd desktop && npm run tauri build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

@@ -48,6 +48,16 @@ Access:
 - 🌐 Landing site: `http://localhost:3000`
 - 📚 API Docs: `http://localhost:8000/docs`
 
+### Local Dev (API + Web)
+
+```bash
+npm install && npm run dev
+```
+
+Starts the FastAPI backend and the desktop app's frontend as a plain website — no Rust/Tauri build required. Open `http://localhost:3010` in your browser. Stops both cleanly with a single Ctrl+C.
+
+To run the native desktop window instead (Tauri), use `npm run dev:desktop`. To build the installer, run `npm run build:desktop`.
+
 ---
 
 ## 📁 Project Structure

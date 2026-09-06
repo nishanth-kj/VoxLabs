@@ -32,8 +32,11 @@ npm run test      # vitest
 Desktop app (from `desktop/`):
 ```bash
 npm install
-npm run tauri dev
+npm run tauri dev     # native window
+npm run dev           # browser-only, at :3010, no Rust build needed
 ```
+
+Shortcut from the repo root: `npm run dev` (API + browser-only frontend, the default for day-to-day work) or `npm run dev:desktop` (API + native window). See root `package.json`.
 
 Full stack via Docker: `docker-compose up -d --build` (landing site on `:3000`, API on `:8000`).
 
