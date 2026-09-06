@@ -11,6 +11,12 @@ __pycache__/
 venv/
 env/
 
+# PyInstaller (see scripts/build-api-sidecar.mjs)
+*.spec
+build/
+dist/
+*.db
+
 # OS
 .DS_Store
 Thumbs.db

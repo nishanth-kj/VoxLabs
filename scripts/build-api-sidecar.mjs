@@ -43,12 +43,26 @@ function getHostTriple() {
 
 console.log("== Building VoxLabs API sidecar ==");
 
+// Invoke the venv's PyInstaller directly rather than through `uv run`: `uv run` wraps
+// the process in a way that races with PyInstaller's base_library.zip write during
+// heavy --collect-all analysis (numba/librosa), producing a sidecar that crashes on
+// launch with "ModuleNotFoundError: No module named 'encodings'". Calling the venv
+// interpreter directly does not have this problem.
+const venvPython = path.join(
+  apiDir,
+  ".venv",
+  platform() === "win32" ? "Scripts/python.exe" : "bin/python"
+);
+if (!existsSync(venvPython)) {
+  throw new Error(`Python venv not found at ${venvPython} - run \`npm run setup\` first.`);
+}
+
 rmSync(path.join(apiDir, "build"), { recursive: true, force: true });
 rmSync(path.join(apiDir, "dist"), { recursive: true, force: true });
 
 run(
   [
-    "uv run pyinstaller",
+    `"${venvPython}" -m PyInstaller`,
     "--name voxlabs-api",
     "--onefile",
     "--noconfirm",
