@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- **Python**: 3.11 or higher
-- **Node.js**: 18 or higher
+- **Python**: 3.12 or higher
+- **Node.js**: 20 or higher
 - **FFmpeg**: Required for audio processing (must be in system PATH).
 
 ## Quick Start (Docker)
@@ -45,6 +45,13 @@ npm run dev
 ```
 
 Visit `http://localhost:3000` to start using the Studio.
+
+### 3. Desktop App (PyQt6)
+
+```bash
+cd api
+uv run python desktop/main.py
+```
 
 ## Troubleshooting
 

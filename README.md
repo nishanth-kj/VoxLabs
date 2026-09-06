@@ -29,8 +29,8 @@ Detailed documentation is available in the [`docs/`](./docs) directory:
 - 🎭 **Emotional TTS** - Control speed, pitch, and energy
 - 🔒 **100% Local** - No data uploads, complete privacy
 - 🌍 **Multi-Language** - Support for 100+ languages
-- 📱 **Multi-Platform** - Web, Desktop, Mobile
-- ⚡ **Modern Stack** - FastAPI + Next.js + Tauri
+- 📱 **Multi-Platform** - Web, Desktop
+- ⚡ **Modern Stack** - FastAPI + Next.js
 
 ---
 
@@ -48,52 +48,20 @@ Access:
 - 🌐 Frontend: `http://localhost:3000`
 - 📚 API Docs: `http://localhost:8000/docs`
 
-### C++ Core (Native & WebAssembly) 🚀
-
-The new high-performance C++ core handles voice decloning and emotion control.
-
-#### Standard Native Build
-To build natively, we use a local installation of `vcpkg` for dependency management:
-
-```bash
-cd core
-
-# 1. Clone and bootstrap vcpkg locally
-git clone https://github.com/microsoft/vcpkg.git
-# On Windows:
-.\vcpkg\bootstrap-vcpkg.bat
-# On Linux/macOS:
-# ./vcpkg/bootstrap-vcpkg.sh
-
-# 2. Build the project using the local toolchain (Cross-platform)
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake
-cmake --build build
-```
-
-#### WebAssembly Build
-To compile the C++ core to WebAssembly, you need [Emscripten](https://emscripten.org/) installed:
-
-```bash
-cd core
-emcmake cmake -B build-wasm -S .
-cmake --build build-wasm
-```
-
 ---
 
 ## 📁 Project Structure
 
 ```
 VoxLabs/
-├── core/                     # C++ Core (Voice Decloning & Emotion)
 ├── api/                      # FastAPI Backend
 │   ├── main.py               # Entry point
 │   ├── engine/               # Audio processing logic
+│   ├── desktop/              # PyQt6 desktop app
 │   └── static/               # Generated audio files
 ├── web/                      # Next.js Frontend
 │   ├── app/                  # App Router pages
 │   └── lib/                  # API client & types
-├── desktop/                  # Tauri Desktop App config
 ├── docs/                     # Project Documentation
 ├── docker-compose.yml        # Orchestration
 └── README.md                 # This file
@@ -118,7 +86,7 @@ VoxLabs/
 
 ### DevOps & Desktop
 - **Docker** - Containerization
-- **Tauri** - Desktop application bundle
+- **PyQt6** - Desktop application shell
 
 ---
 
@@ -172,8 +140,8 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 - [x] Docker deployment setup
 - [x] Emotional TTS controls
 - [x] Multi-language support
-- [ ] Desktop app (Tauri)
-- [ ] Mobile app (Tauri Mobile)
+- [x] Desktop app (PyQt6)
+- [ ] Mobile app
 - [ ] npm package (`@voxlabs/client`)
 - [ ] PyPI package (`voxlabs`)
 - [ ] Cloud deployment guides

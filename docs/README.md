@@ -7,7 +7,7 @@
 - **Advanced Emotional TTS**: Generate speech with specific emotions (Happy, Sad, Angry, etc.) and fine-tune Speed, Pitch, and Energy.
 - **Voice Cloning**: Clone any voice using just a 30-second audio sample.
 - **Modern Studio UI**: A sleek, dark-mode web interface built with Next.js and Tailwind CSS.
-- **Desktop Application**: Bundled as a native app using Tauri.
+- **Desktop Application**: A native PyQt6 desktop shell (`api/desktop/`).
 - **Robust API**: FastAPI backend with standardized JSON responses.
 
 ## Documentation Index
@@ -21,5 +21,5 @@
 
 - **Backend**: Python 3.12+, FastAPI, Librosa, SoundFile, Uvicorn.
 - **Frontend**: TypeScript, Next.js 16, React, Tailwind CSS, Shadcn UI, Framer Motion / GSAP.
-- **Desktop**: Tauri (Rust).
+- **Desktop**: PyQt6 (Python).
 - **Containerization**: Docker & Docker Compose.
