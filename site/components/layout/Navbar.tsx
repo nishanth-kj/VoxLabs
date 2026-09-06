@@ -2,15 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { AudioWaveform, Github, Menu, X, ChevronDown } from 'lucide-react'
+import { AudioWaveform, Github, Menu, X, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/mode-toggle'
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { GITHUB_URL, RELEASES_URL } from '@/lib/links'
 
 export function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -29,37 +24,40 @@ export function Navbar() {
                     </Link>
 
                     <div className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
-                        <Link href="/studio" className="hover:text-primary transition-colors">
-                            Studio
+                        <Link href="/#features" className="hover:text-primary transition-colors">
+                            Features
                         </Link>
-                        <Link href="/library" className="hover:text-primary transition-colors">
-                            Library & Models
+                        <Link href="/#how-it-works" className="hover:text-primary transition-colors">
+                            How it works
+                        </Link>
+                        <Link href="/#download" className="hover:text-primary transition-colors">
+                            Download
                         </Link>
                         <Link href="/docs" className="hover:text-primary transition-colors">
                             Docs
                         </Link>
                         <Link href="/contribution" className="hover:text-primary transition-colors">
-                            Community
+                            Contribution
                         </Link>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <Link href="https://github.com/nishanth-kj/Text-to-Speech" target="_blank">
+                    <Link href={GITHUB_URL} target="_blank">
                         <Button variant="ghost" size="icon" className="w-9 h-9 opacity-70 hover:opacity-100">
                             <Github className="w-5 h-5" />
                         </Button>
                     </Link>
                     <div className="hidden sm:block">
-                        <Link href="/studio">
+                        <a href={RELEASES_URL}>
                             <Button size="sm" className="bg-primary text-primary-foreground hover:opacity-90">
-                                Launch Studio
+                                <Download className="w-4 h-4" />
+                                Download
                             </Button>
-                        </Link>
+                        </a>
                     </div>
                     <ModeToggle />
 
-                    {/* Mobile Menu Toggle */}
                     <Button
                         variant="ghost"
                         size="icon"
@@ -71,23 +69,29 @@ export function Navbar() {
                 </div>
             </div>
 
-            {/* Mobile Menu Overlay */}
             {isMenuOpen && (
                 <div className="md:hidden absolute top-16 left-0 w-full bg-background border-b border-border/40 p-4 shadow-2xl animate-in slide-in-from-top-5 fade-in duration-200">
                     <div className="flex flex-col space-y-4">
                         <Link
-                            href="/studio"
+                            href="/#features"
                             className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
                             onClick={() => setIsMenuOpen(false)}
                         >
-                            Studio
+                            Features
                         </Link>
                         <Link
-                            href="/library"
+                            href="/#how-it-works"
                             className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
                             onClick={() => setIsMenuOpen(false)}
                         >
-                            Library & Models
+                            How it works
+                        </Link>
+                        <Link
+                            href="/#download"
+                            className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            Download
                         </Link>
                         <Link
                             href="/docs"
@@ -101,14 +105,15 @@ export function Navbar() {
                             className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
                             onClick={() => setIsMenuOpen(false)}
                         >
-                            Community
+                            Contribution
                         </Link>
                         <div className="pt-2 border-t border-border/20">
-                            <Link href="/studio" onClick={() => setIsMenuOpen(false)}>
+                            <a href={RELEASES_URL} onClick={() => setIsMenuOpen(false)}>
                                 <Button className="w-full bg-primary text-primary-foreground">
-                                    Launch Studio
+                                    <Download className="w-4 h-4" />
+                                    Download
                                 </Button>
-                            </Link>
+                            </a>
                         </div>
                     </div>
                 </div>

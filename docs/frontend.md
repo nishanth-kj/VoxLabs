@@ -1,38 +1,41 @@
-# Frontend Documentation
+# Site Documentation
 
-The VoxLabs frontend is a modern web application known as the **Studio**. It provides an intuitive interface for synthesis and voice cloning.
+The VoxLabs **site** is a marketing landing page. The product itself is the **desktop application** (`desktop/`, a Tauri + Next.js app). The website explains the product and links to installers — it is not a web Studio.
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **UI Components**: Shadcn UI (Radix Primitives)
-- **Animations**: GSAP (GreenSock) & Framer Motion
+- **Animations**: GSAP
 - **Icons**: Lucide React
 
 ## Architecture
 
-### `web/app/studio/page.tsx`
-This is the main interaction hub. It handles:
-1.  **State Management**:
-    - `text`: Input text for synthesis.
-    - `selectedEmotion`: Drives the UI sliders via `useEffect`.
-    - `voices`: List of available voices fetched from API.
-2.  **UI Sync**:
-    - Listens for changes in `selectedEmotion`.
-    - Automatically updates `speed`, `pitch`, and `energy` sliders to match backend defaults.
-3.  **Visualization**:
-    - Simple audio waveform visualization using CSS animations.
+### `site/app/page.tsx`
 
-### API Client (`web/lib/api.ts`)
-A centralized HTTP client wrapper around `fetch`.
-- **Response Handling**: Automatically unwraps the `{ status, data, error }` format.
-    - Throws an error if `status === 0`.
-    - Returns `data` if `status === 1`.
-- **Type Safety**: Uses TypeScript interfaces from `types.ts` to ensure type verification at compile time.
+Single landing page with:
 
-## Desktop Application (Tauri)
-The `desktop/` directory allows bundling this frontend as a native app.
-- It loads the Next.js static export or local server.
-- Provides native window controls and OS integration.
+1. **Hero** — desktop-first headline and a Download CTA (OS-detected).
+2. **Features** — emotional TTS, consent-based cloning, local processing.
+3. **How it works** — download → consent & clone → synthesize → stay local.
+4. **Download** — Windows, macOS, and Linux cards pointing at GitHub Releases.
+
+### Other routes
+
+- `/docs` — install and usage for the desktop app
+- `/contribution` — contribute page, with GitHub Discussions as the community CTA (`/discussions` redirects here)
+- `/legal/privacy`, `/legal/terms`, `/legal/ethics` — product guarantees
+
+There is no in-browser Studio, library, or TTS workspace on this site.
+
+### GitHub Pages
+
+`site/next.config.ts` uses `output: "export"` so the build writes a static `site/out/` directory. GitHub Pages has no Node server, so redirects in `next.config` are not used. `/discussions/` is a static HTML redirect to `/contribution/`.
+
+Set `NEXT_PUBLIC_BASE_PATH` when the site is not at the domain root (the deploy workflow sets this from Pages). Leave it empty for local `npm run dev`.
+
+### Links (`site/lib/links.ts`)
+
+Release and GitHub URLs are centralized. Download buttons should keep pointing at GitHub Releases rather than hosting binaries in the Next.js app.

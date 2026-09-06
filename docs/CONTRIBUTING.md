@@ -68,9 +68,15 @@ git remote add upstream https://github.com/nishanth-kj/VoxLabs.git
 
 ### 1. Install Dependencies
 
-**Frontend (Next.js):**
+**Landing site (Next.js):**
 ```bash
-cd web
+cd site
+npm install
+```
+
+**Desktop app (Tauri + Next.js):**
+```bash
+cd desktop
 npm install
 ```
 
@@ -94,11 +100,18 @@ cp .env.example .env
 
 ### 3. Start Development
 
-**Frontend:**
+**Landing site:**
 ```bash
-cd web
+cd site
 npm run dev
 # → http://localhost:3000
+```
+
+**Desktop app:**
+```bash
+cd desktop
+npm install
+npm run tauri dev
 ```
 
 **Backend:**
@@ -118,10 +131,12 @@ VoxLabs/
 │   ├── engine/                # Voice Cloning & TTS Engine
 │   ├── main.py                # App Entry Point
 │   └── pyproject.toml         # Python Dependencies
-├── web/                        # Next.js Frontend
+├── site/                       # Next.js Landing Page
 │   ├── app/                   # App Router Pages
 │   └── components/            # React Components
-├── desktop/                    # Tauri Desktop App (Upcoming)
+├── desktop/                    # Tauri Desktop App (the product UI)
+│   ├── src/                   # Next.js Frontend
+│   └── src-tauri/             # Rust Shell
 ├── docs/                       # Documentation
 └── docker-compose.yml          # Container Orchestration
 ```
@@ -180,8 +195,11 @@ git commit -m "fix(web): resolve audio playback issue"
 1. **Test your changes**
 2. **Build successfully**
    ```bash
-   # Web
-   cd web && npm run build
+   # Landing site
+   cd site && npm run build
+
+   # Desktop app
+   cd desktop && npm run tauri build
    ```
 3. **Update documentation** if needed
 

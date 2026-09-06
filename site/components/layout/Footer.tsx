@@ -1,10 +1,10 @@
 import { AudioWaveform } from 'lucide-react'
 import Link from 'next/link'
+import { GITHUB_URL } from '@/lib/links'
 
 export function Footer() {
     return (
         <footer className="border-t border-white/5 bg-background/50 backdrop-blur-sm mt-auto">
-            {/* Footer Content */}
             <div className="max-w-7xl mx-auto px-6 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-12">
                     <div className="md:col-span-2 space-y-4">
@@ -15,20 +15,23 @@ export function Footer() {
                             <span className="font-bold text-base">VoxLabs</span>
                         </Link>
                         <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
-                            Pioneering the future of voice technology with ethical AI cloning and emotionally resonant speech synthesis.
+                            Ethical AI voice cloning and emotional speech synthesis — as a desktop app that keeps your voice on your machine.
                         </p>
                     </div>
                     <div>
                         <h4 className="font-semibold text-sm mb-4">Product</h4>
                         <ul className="space-y-2 text-sm text-muted-foreground">
                             <li className="hover:text-primary cursor-pointer transition-colors">
-                                <Link href="/how-it-works">How it Works</Link>
+                                <Link href="/#features">Features</Link>
                             </li>
                             <li className="hover:text-primary cursor-pointer transition-colors">
-                                <Link href="/api-access">API Access</Link>
+                                <Link href="/#how-it-works">How it works</Link>
                             </li>
                             <li className="hover:text-primary cursor-pointer transition-colors">
-                                <Link href="/studio">Studio</Link>
+                                <Link href="/#download">Download</Link>
+                            </li>
+                            <li className="hover:text-primary cursor-pointer transition-colors">
+                                <Link href="/docs">Docs</Link>
                             </li>
                         </ul>
                     </div>
@@ -39,7 +42,7 @@ export function Footer() {
                                 <Link href="/contribution">Contribution</Link>
                             </li>
                             <li className="hover:text-primary cursor-pointer transition-colors">
-                                <Link href="https://github.com/nishanth-kj/Text-to-Speech" target="_blank">GitHub</Link>
+                                <Link href={GITHUB_URL} target="_blank">GitHub</Link>
                             </li>
                         </ul>
                     </div>
@@ -55,12 +58,21 @@ export function Footer() {
                             <li className="hover:text-primary cursor-pointer transition-colors">
                                 <Link href="/legal/ethics">Ethical AI Guidelines</Link>
                             </li>
+                            <li className="hover:text-primary cursor-pointer transition-colors">
+                                <Link href="/legal/cookies">Cookie Policy</Link>
+                            </li>
                         </ul>
                     </div>
                 </div>
                 <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-muted-foreground">
                     <p>&copy; {new Date().getFullYear()} VoxLabs AI. All rights reserved.</p>
-                    <p>Built with Next.js & FastAPI.</p>
+                    <p>
+                        <Link href="/legal/privacy" className="hover:text-foreground">Privacy</Link>
+                        {" · "}
+                        <Link href="/legal/cookies" className="hover:text-foreground">Cookies</Link>
+                        {" · "}
+                        <Link href="/legal/terms" className="hover:text-foreground">Terms</Link>
+                    </p>
                 </div>
             </div>
         </footer>

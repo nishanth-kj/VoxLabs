@@ -4,6 +4,7 @@
 
 - **Python**: 3.12 or higher
 - **Node.js**: 20 or higher
+- **Rust**: stable toolchain (`rustc`/`cargo`), required to build the desktop app (Tauri) — see [rustup.rs](https://rustup.rs).
 - **FFmpeg**: Required for audio processing (must be in system PATH).
 
 ## Quick Start (Docker)
@@ -15,7 +16,7 @@ The easiest way to run VoxLabs is using Docker Compose.
     docker-compose up --build
     ```
 2.  **Access**:
-    - Web Studio: `http://localhost:3000`
+    - Landing site: `http://localhost:3000`
     - API Docs: `http://localhost:8000/docs`
 
 ## Local Development
@@ -33,10 +34,10 @@ uv sync  # or pip install -r requirements.txt
 uv run uvicorn main:app --reload --port 8000
 ```
 
-### 2. Frontend (Web)
+### 2. Landing site
 
 ```bash
-cd web
+cd site
 # Install dependencies
 npm install
 
@@ -44,14 +45,33 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:3000` to start using the Studio.
+Visit `http://localhost:3000` for the download landing page. The product UI is the desktop app, not this site.
 
-### 3. Desktop App (PyQt6)
+### GitHub Pages
+
+The landing site is a static Next.js export. On push to `main`, [`.github/workflows/deploy-nextjs.yml`](../.github/workflows/deploy-nextjs.yml) builds `site/` and deploys it.
+
+1. In the GitHub repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. Push to `main` (or run the **Deploy Next.js to GitHub Pages** workflow).
+3. The site is served at `https://<owner>.github.io/<repo>/` (for this repo, typically `https://nishanth-kj.github.io/VoxLabs/`).
+
+Local production build (no Docker):
 
 ```bash
-cd api
-uv run python desktop/main.py
+cd site
+npm run build
+npm run preview
 ```
+
+### 3. Desktop App (Tauri + Next.js)
+
+```bash
+cd desktop
+npm install
+npm run tauri dev
+```
+
+This opens the native window backed by the Next.js frontend (`http://localhost:3000` in dev). It talks to the FastAPI backend, so keep step 1 running alongside it.
 
 ## Troubleshooting
 

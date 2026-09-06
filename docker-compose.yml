@@ -26,34 +26,16 @@ services:
       retries: 3
       start_period: 10s
 
-  # Next.js Frontend
+  # Next.js landing site
   frontend:
     build:
-      context: ./web
+      context: ./site
       dockerfile: Dockerfile
     container_name: voxlabs-frontend
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost/api
       - NODE_ENV=production
-    depends_on:
-      - backend
-    restart: unless-stopped
-    networks:
-      - voxlabs-network
-
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: voxlabs-nginx
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - frontend
-      - backend
     restart: unless-stopped
     networks:
       - voxlabs-network

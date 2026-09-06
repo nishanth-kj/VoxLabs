@@ -4,11 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mic, Wand2, Lock } from "lucide-react"
 import { gsap } from "gsap"
 import { useGSAP } from "@gsap/react"
-import { useRef } from 'react'
+import { useRef, type ReactNode } from 'react'
 
 import { HeroSection } from "@/components/landing/hero-section"
 import { HowItWorksSection } from "@/components/landing/how-it-works-section"
-import { ApiSection } from "@/components/landing/api-section"
+import { DownloadSection } from "@/components/landing/download-section"
 
 export default function LandingPage() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -31,16 +31,13 @@ export default function LandingPage() {
   return (
     <div ref={containerRef} className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/50 via-background to-background dark:from-slate-900 dark:via-background dark:to-background selection:bg-primary/20">
 
-      {/* Hero Section */}
       <HeroSection />
 
-
-
-      <section className="py-20 px-6 bg-secondary/30 border-t border-border/40 backdrop-blur-sm">
+      <section id="features" className="py-20 px-6 bg-secondary/30 border-t border-border/40 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold mb-4">Why VoxLabs?</h2>
-            <p className="text-muted-foreground">Professional tools for creators, developers, and businesses.</p>
+            <p className="text-muted-foreground">A desktop studio for creators who want emotional speech without sending audio to the cloud.</p>
           </div>
 
           <div ref={featuresRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -52,27 +49,25 @@ export default function LandingPage() {
             <FeatureCard
               icon={<Mic className="w-6 h-6 text-purple-400" />}
               title="Instant Voice Cloning"
-              description="Clone any voice from a 30-second audio sample. Perfect for narrations, podcasts, and digital avatars."
+              description="Clone a voice from a 30-second sample, with explicit consent. Built for narrations, podcasts, and digital avatars."
             />
             <FeatureCard
               icon={<Lock className="w-6 h-6 text-emerald-400" />}
-              title="Secure & Private"
-              description="Your voice data is encrypted and never shared. We prioritize ethical AI usage and data protection."
+              title="Local & Private"
+              description="Processing stays on your desktop. Voice data is not uploaded to third-party services, and deletion is one click."
             />
           </div>
         </div>
       </section>
 
       <HowItWorksSection />
-      <ApiSection style={{ paddingBottom: '150px' }} />
-
-
+      <DownloadSection />
 
     </div>
   )
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+function FeatureCard({ icon, title, description }: { icon: ReactNode, title: string, description: string }) {
   return (
     <Card className="bg-card/50 border-border/40 hover:border-border/80 transition-colors h-full">
       <CardHeader>

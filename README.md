@@ -29,8 +29,8 @@ Detailed documentation is available in the [`docs/`](./docs) directory:
 - 🎭 **Emotional TTS** - Control speed, pitch, and energy
 - 🔒 **100% Local** - No data uploads, complete privacy
 - 🌍 **Multi-Language** - Support for 100+ languages
-- 📱 **Multi-Platform** - Web, Desktop
-- ⚡ **Modern Stack** - FastAPI + Next.js
+- 💻 **Desktop app** - Native studio (Tauri + Next.js); this site is the download page
+- ⚡ **Modern Stack** - FastAPI + Next.js landing site
 
 ---
 
@@ -45,7 +45,7 @@ docker-compose up -d --build
 ```
 
 Access:
-- 🌐 Frontend: `http://localhost:3000`
+- 🌐 Landing site: `http://localhost:3000`
 - 📚 API Docs: `http://localhost:8000/docs`
 
 ---
@@ -57,11 +57,13 @@ VoxLabs/
 ├── api/                      # FastAPI Backend
 │   ├── main.py               # Entry point
 │   ├── engine/               # Audio processing logic
-│   ├── desktop/              # PyQt6 desktop app
 │   └── static/               # Generated audio files
-├── web/                      # Next.js Frontend
+├── desktop/                  # Tauri + Next.js desktop app (product UI)
+│   ├── src/                  # Next.js frontend (App Router)
+│   └── src-tauri/            # Rust shell
+├── site/                     # Next.js landing page (download the desktop app)
 │   ├── app/                  # App Router pages
-│   └── lib/                  # API client & types
+│   └── components/           # Landing UI
 ├── docs/                     # Project Documentation
 ├── docker-compose.yml        # Orchestration
 └── README.md                 # This file
@@ -77,16 +79,19 @@ VoxLabs/
 - **SoundFile** - Audio I/O
 - **Pydantic** - Data validation
 
-### Frontend
+### Landing site
 - **Next.js 16** - React framework
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Styling
 - **Shadcn UI** - Components
-- **Framer Motion / GSAP** - Animations
+- **GSAP** - Animations
 
-### DevOps & Desktop
+### Desktop
+- **Tauri** - Native Rust shell
+- **Next.js 16** - Frontend (statically exported), shared conventions with the landing site
+
+### DevOps
 - **Docker** - Containerization
-- **PyQt6** - Desktop application shell
 
 ---
 
@@ -136,11 +141,11 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 ## 🎯 Roadmap
 
 - [x] FastAPI backend with voice cloning
-- [x] Next.js frontend with modern UI
+- [x] Next.js landing site (desktop download)
 - [x] Docker deployment setup
 - [x] Emotional TTS controls
 - [x] Multi-language support
-- [x] Desktop app (PyQt6)
+- [x] Desktop app (Tauri + Next.js)
 - [ ] Mobile app
 - [ ] npm package (`@voxlabs/client`)
 - [ ] PyPI package (`voxlabs`)

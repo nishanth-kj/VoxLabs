@@ -7,8 +7,8 @@ Guidance for AI coding agents working in the VoxLabs repository.
 VoxLabs is an AI voice cloning and TTS platform with three cooperating pieces:
 
 - **`api/`** — FastAPI backend (Python 3.12+, `uv`-managed). Class-based **Routes → Services** architecture: `api/routes/` holds `APIRouter` handlers (`SystemRoutes`, `VoiceRoutes`, `TTSRoutes`), `api/services/` holds the business logic they call into (`SystemService`, `VoiceService`, `TTSService`, `EdgeTTSService`). Audio DSP (time-stretch, pitch-shift, energy) lives in the `EmotionalTTSEngine` and uses `librosa`.
-- **`web/`** — Next.js 16 / React 19 / TypeScript frontend ("Studio" UI), Tailwind + shadcn/Radix components, tested with Vitest.
-- **`api/desktop/`** — PyQt6 desktop shell.
+- **`desktop/`** — the product UI: a Tauri (Rust) shell wrapping a Next.js 16 / TypeScript frontend, statically exported (`output: "export"`) and bundled into the native app. It calls the FastAPI backend over HTTP; it does not import Python.
+- **`site/`** — Next.js 16 / React 19 / TypeScript **landing page**. It tells visitors to download the desktop app. It is not a web Studio.
 
 All API responses follow `{ "status": 1|0, "data": {...}, "error": null|string }`.
 
@@ -20,22 +20,29 @@ uv sync
 uv run uvicorn main:app --reload --port 8000
 ```
 
-Frontend (from `web/`):
+Landing site (from `site/`):
 ```bash
 npm install
-npm run dev      # dev server
+npm run dev      # landing page
 npm run build
 npm run lint      # eslint
 npm run test      # vitest
 ```
 
-Full stack via Docker: `docker-compose up -d --build` (web on `:3000`, API on `:8000`, docs at `/docs`).
+Desktop app (from `desktop/`):
+```bash
+npm install
+npm run tauri dev
+```
+
+Full stack via Docker: `docker-compose up -d --build` (landing site on `:3000`, API on `:8000`).
 
 ## Conventions
 
 - **Backend**: keep new HTTP handlers thin — request/response glue only in `routes/`, all logic in `services/`. Match the existing standardized JSON envelope for every endpoint.
-- **Frontend**: use existing shadcn/Radix primitives in `web/components/` rather than adding new UI libraries; keep API calls behind `web/lib/`.
-- Do not commit secrets; use `.env` (see `.env.example`) and never hardcode API URLs — the frontend reads `NEXT_PUBLIC_API_URL`.
+- **Desktop app**: the frontend is plain TypeScript/React calling `api.ts` (`desktop/src/lib/api.ts`), which talks to the FastAPI backend over HTTP — never add a Python/PyQt6 GUI back in. Keep `next.config.ts`'s `output: "export"` intact; Tauri bundles the static export, not a Node server.
+- **Landing site**: use existing shadcn/Radix primitives in `site/components/` rather than adding new UI libraries. Keep download/GitHub URLs in `site/lib/links.ts`. Do not reintroduce a web Studio — the product is the desktop app.
+- Do not commit secrets; use `.env` (see `.env.example`).
 
 ## Safety & Ethics (non-negotiable for this project)
 
