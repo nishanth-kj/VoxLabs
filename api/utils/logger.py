@@ -1,8 +1,10 @@
 import logging
 import sys
 import os
+from collections import deque
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Any
 
 # Environment-based configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -21,6 +23,31 @@ current_level = LEVELS.get(LOG_LEVEL, logging.INFO)
 
 # Structured format: timestamp - name - level - message
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+_LOG_BUFFER: deque[dict[str, Any]] = deque(maxlen=500)
+
+
+class MemoryLogHandler(logging.Handler):
+    """Keep recent log records in memory for the Studio logs panel."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            _LOG_BUFFER.append({
+                "ts": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(timespec="milliseconds"),
+                "level": record.levelname.lower(),
+                "logger": record.name,
+                "message": record.getMessage(),
+            })
+        except Exception:
+            self.handleError(record)
+
+
+def get_recent_logs(limit: int = 200) -> list[dict[str, Any]]:
+    items = list(_LOG_BUFFER)
+    if limit > 0:
+        items = items[-limit:]
+    return items
+
 
 def setup_logger(name: str):
     """
@@ -43,6 +70,8 @@ def setup_logger(name: str):
             file_handler = logging.FileHandler(log_file, encoding='utf-8')
             file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
             logger.addHandler(file_handler)
+
+        logger.addHandler(MemoryLogHandler())
 
     return logger
 

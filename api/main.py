@@ -15,6 +15,8 @@ import uuid
 from routes import get_router
 import uvicorn
 from utils.logger import logger
+from utils.response_handler import ApiResponse
+from exceptions import ApiException
 
 try:
     logger.info("Initializing VoxLabs API...")
@@ -40,17 +42,31 @@ try:
         request_id = str(uuid.uuid4())
         start_time = time.time()
         
-        # Add request ID to logger context (simulated via prefix for now)
-        logger.info(f"[{request_id}] Start {request.method} {request.url.path}")
-        
+        quiet = request.url.path == "/api/logs"
+        if not quiet:
+            logger.info(f"[{request_id}] Start {request.method} {request.url.path}")
+
         response = await call_next(request)
-        
+
         process_time = time.time() - start_time
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Process-Time"] = str(process_time)
-        
-        logger.info(f"[{request_id}] Completed {request.method} {request.url.path} in {process_time:.4f}s")
+
+        if not quiet:
+            logger.info(f"[{request_id}] Completed {request.method} {request.url.path} in {process_time:.4f}s")
         return response
+
+    # Global error handling - routes/services just raise, this is the only place
+    # that turns an exception into a standardized ApiResponse error.
+    @app.exception_handler(ApiException)
+    async def api_exception_handler(request: Request, exc: ApiException):
+        logger.warning(f"{request.method} {request.url.path} - ApiException: {exc.code} {exc.message}")
+        return ApiResponse(error=exc).error()
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        logger.error(f"{request.method} {request.url.path} - Unhandled error: {exc}", exc_info=True)
+        return ApiResponse(error=exc).error()
 
     # Create directories
     STATIC_DIR = Path("static")

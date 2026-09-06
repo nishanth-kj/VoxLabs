@@ -1,16 +1,43 @@
 @import "tailwindcss";
 
 :root {
-  --background: #121214;
-  --surface: #1b1b1f;
-  --surface-alt: #232329;
-  --border: #2e2e35;
-  --foreground: #e8e8ea;
-  --foreground-dim: #9a9aa2;
-  --accent: #6d5dfc;
-  --accent-hover: #8172ff;
-  --success: #3ddc84;
-  --danger: #ff5470;
+  --background: #07070c;
+  --surface: #101018;
+  --surface-alt: #16161f;
+  --border: rgba(255, 255, 255, 0.07);
+  --foreground: #f5f5f7;
+  --foreground-dim: #8a8a96;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-soft: rgba(99, 102, 241, 0.16);
+  --success: #34d399;
+  --danger: #fb7185;
+  --ring: rgba(99, 102, 241, 0.45);
+  --track: #2a2a36;
+  --glass: rgba(16, 16, 24, 0.72);
+  --glass-highlight: rgba(255, 255, 255, 0.04);
+  --bloom-a: rgba(99, 102, 241, 0.18);
+  --bloom-b: rgba(168, 85, 247, 0.08);
+}
+
+html.light {
+  --background: #f3f3f7;
+  --surface: #ffffff;
+  --surface-alt: #f0f0f5;
+  --border: rgba(17, 17, 24, 0.1);
+  --foreground: #111118;
+  --foreground-dim: #6b6b78;
+  --accent: #4f46e5;
+  --accent-hover: #6366f1;
+  --accent-soft: rgba(79, 70, 229, 0.12);
+  --success: #059669;
+  --danger: #e11d48;
+  --ring: rgba(79, 70, 229, 0.3);
+  --track: #dcdce6;
+  --glass: rgba(255, 255, 255, 0.82);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --bloom-a: rgba(79, 70, 229, 0.1);
+  --bloom-b: rgba(168, 85, 247, 0.06);
 }
 
 @theme inline {
@@ -22,8 +49,10 @@
   --color-foreground-dim: var(--foreground-dim);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
   --color-success: var(--success);
   --color-danger: var(--danger);
+  --color-ring: var(--ring);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -32,27 +61,102 @@ html {
   color-scheme: dark;
 }
 
+html.light {
+  color-scheme: light;
+}
+
+html,
 body {
-  background: var(--background);
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background:
+    radial-gradient(900px 480px at 0% -10%, var(--bloom-a), transparent 55%),
+    radial-gradient(700px 360px at 100% 0%, var(--bloom-b), transparent 50%),
+    var(--background);
   color: var(--foreground);
-  font-family: "Segoe UI", Inter, Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.35);
 }
 
 ::-webkit-scrollbar {
   width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--surface-alt);
-  border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--border);
+  background: var(--track);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 input,
 textarea,
 select {
-  color-scheme: dark;
+  color-scheme: inherit;
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a8a96' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 2.25rem;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--track);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 0 4px var(--accent-soft), 0 0 0 1px var(--accent);
+  cursor: pointer;
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px var(--accent-soft), 0 0 0 1px var(--accent), 0 0 0 4px var(--ring);
+}
+
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.eq-bar {
+  transform-origin: bottom;
+  animation: eq 1.35s ease-in-out infinite;
+}
+
+.glass {
+  background: var(--glass);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 1px 2px rgba(0, 0, 0, 0.12);
 }

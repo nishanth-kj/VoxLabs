@@ -12,11 +12,13 @@ Once Rust is present, its own dependencies (Tauri, wry, tao, etc. — `desktop/s
 
 The easiest way to run VoxLabs is using Docker Compose.
 
-1.  **Build and Run**:
+1. **Build and Run**:
+
     ```bash
     docker-compose up --build
     ```
-2.  **Access**:
+
+2. **Access**:
     - Landing site: `http://localhost:3000`
     - API Docs: `http://localhost:8000/docs`
 

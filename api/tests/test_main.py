@@ -35,3 +35,25 @@ def test_get_voices():
 def test_404_on_unknown_endpoint():
     response = client.get("/api/unknown")
     assert response.status_code == 404
+
+
+def test_get_logs():
+    response = client.get("/api/logs?limit=50")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == 1
+    assert "logs" in data["data"]
+    assert isinstance(data["data"]["logs"], list)
+    assert "count" in data["data"]
+
+
+def test_get_models():
+    response = client.get("/api/models")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == 1
+    payload = data["data"]
+    assert isinstance(payload["models"], list)
+    assert payload["engine_count"] >= 3
+    ids = {item["id"] for item in payload["engines"]}
+    assert {"emotional", "clone", "edge"} <= ids
