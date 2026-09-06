@@ -3,6 +3,8 @@
   "private": true,
   "description": "Root dev orchestration for the VoxLabs backend and desktop app",
   "scripts": {
+    "postinstall": "node scripts/bootstrap.mjs",
+    "setup": "node scripts/bootstrap.mjs",
     "dev:api": "cd api && uv run uvicorn main:app --reload --port 8000",
     "dev:desktop-only": "cd desktop && npm run tauri dev",
     "dev:web-only": "cd desktop && npm run dev",

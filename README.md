@@ -54,9 +54,9 @@ Access:
 npm install && npm run dev
 ```
 
-Starts the FastAPI backend and the desktop app's frontend as a plain website — no Rust/Tauri build required. Open `http://localhost:3010` in your browser. Stops both cleanly with a single Ctrl+C.
+`npm install` checks for **uv**, **Rust**, and **FFmpeg** and installs whichever is missing, then installs the Python and desktop-app dependencies — no manual setup needed beyond Node.js. `npm run dev` then starts the FastAPI backend and the desktop app's frontend as a plain website — no Rust/Tauri build required. Open `http://localhost:3010` in your browser. Stops both cleanly with a single Ctrl+C.
 
-To run the native desktop window instead (Tauri), use `npm run dev:desktop`. To build the installer, run `npm run build:desktop`.
+To run the native desktop window instead (Tauri), use `npm run dev:desktop`. To build the installer, run `npm run build:desktop`. Either one triggers Cargo to fetch and compile the Rust dependencies automatically the first time — no manual `cargo install` step.
 
 ---
 

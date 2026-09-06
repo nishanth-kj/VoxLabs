@@ -2,10 +2,11 @@
 
 ## Prerequisites
 
-- **Python**: 3.12 or higher
-- **Node.js**: 20 or higher
-- **Rust**: stable toolchain (`rustc`/`cargo`), required to build the desktop app (Tauri) — see [rustup.rs](https://rustup.rs).
-- **FFmpeg**: Required for audio processing (must be in system PATH).
+- **Node.js**: 20 or higher (npm comes with it)
+
+That's it — Python, Rust, and FFmpeg don't need to be pre-installed. Running `npm install` from the repo root checks for **uv**, **Rust**, and **FFmpeg** and installs whichever is missing (via the official astral.sh/rustup.rs installers, and winget/brew/apt/dnf/pacman for FFmpeg depending on OS), then runs `uv sync` for the Python backend and `npm install` for the desktop app. See [`scripts/bootstrap.mjs`](../scripts/bootstrap.mjs). Re-run `npm install` (or `npm run setup`) any time to check again — it's safe to run repeatedly. If FFmpeg was just installed for the first time, open a new terminal before running anything that needs it.
+
+Once Rust is present, its own dependencies (Tauri, wry, tao, etc. — `desktop/src-tauri/Cargo.toml`) don't need any setup step either: Cargo downloads and compiles them automatically the first time you run `npm run dev:desktop` or `npm run build:desktop`, the same way `npm install` resolves a `package.json`.
 
 ## Quick Start (Docker)
 
@@ -20,6 +21,8 @@ The easiest way to run VoxLabs is using Docker Compose.
     - API Docs: `http://localhost:8000/docs`
 
 ## Local Development
+
+Fastest path: `npm install` from the repo root (see Prerequisites above), then `npm run dev` — this installs everything and starts the backend plus the desktop app's web frontend together.
 
 If you prefer to run services manually:
 
@@ -79,5 +82,5 @@ To view the same UI in a regular browser instead of the native window, run `npm 
 
 ## Troubleshooting
 
-- **FFmpeg Error**: If you see errors about "ffmpeg not found", ensure it is installed and added to your system environment variables.
+- **FFmpeg Error**: If you see errors about "ffmpeg not found" right after `npm install` installed it, open a new terminal — a fresh install isn't on the current terminal's PATH yet. If it still fails, install it manually and confirm it's on PATH.
 - **API Connection**: Ensure the backend is running on `localhost:8000`. The frontend expects this default URL.

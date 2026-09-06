@@ -14,6 +14,8 @@ All API responses follow `{ "status": 1|0, "data": {...}, "error": null|string }
 
 ## Setup & Common Commands
 
+First-time setup: `npm install` from the repo root. Its `postinstall` (`scripts/bootstrap.mjs`) checks for `uv`, Rust, and FFmpeg, installs whichever is missing, then runs `uv sync` in `api/` and `npm install` in `desktop/`. Re-running it is safe/idempotent. Rust's own dependencies (`desktop/src-tauri/Cargo.toml`) need no separate step — Cargo fetches and builds them automatically on the first `tauri dev`/`tauri build`.
+
 Backend (from `api/`):
 ```bash
 uv sync
