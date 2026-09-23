@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VoxLabs Studio",
-  description: "AI voice cloning and text-to-speech studio",
+  title: "VoxLabs — Voice AI Studio",
+  description: "A local-first workspace for expressive speech, voice cloning, and audio generation.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
