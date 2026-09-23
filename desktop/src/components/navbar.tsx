@@ -6,29 +6,17 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { logFe } from "@/lib/fe-logs";
 import { applyTheme, readTheme, type Theme } from "@/lib/theme";
-import {
-  IconCpu,
-  IconHome,
-  IconLibrary,
-  IconLock,
-  IconMic,
-  IconMoon,
-  IconSettings,
-  IconSliders,
-  IconSpeech,
-  IconSun,
-  IconWaveform,
-} from "./icons";
+import { IconLibrary, IconMoon, IconSettings, IconSun, IconWaveform } from "./icons";
 import { SettingsModal } from "./settings-modal";
 import { cn } from "./ui";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: IconHome },
-  { href: "/studio", label: "Studio", icon: IconSliders },
+  { href: "/", label: "Home" },
+  { href: "/studio", label: "Studio" },
+  { href: "/clone", label: "Clone" },
   { href: "/library", label: "Library", icon: IconLibrary },
-  { href: "/models", label: "Models", icon: IconCpu },
-  { href: "/clone", label: "Clone", icon: IconMic },
-  { href: "/tts", label: "Speech", icon: IconSpeech },
+  { href: "/models", label: "Models" },
+  { href: "/tts", label: "Quick TTS" },
 ];
 
 export function Navbar() {
@@ -39,14 +27,17 @@ export function Navbar() {
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .getStatus()
+    api.getStatus()
       .then(() => !cancelled && setOnline(true))
       .catch(() => !cancelled && setOnline(false));
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [pathname]);
+
+  useEffect(() => {
+    const open = () => setSettingsOpen(true);
+    window.addEventListener("voxlabs:settings", open);
+    return () => window.removeEventListener("voxlabs:settings", open);
+  }, []);
 
   function toggleTheme() {
     const next: Theme = theme === "dark" ? "light" : "dark";
@@ -57,75 +48,65 @@ export function Navbar() {
 
   return (
     <>
-    <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-border bg-surface/80 px-4 backdrop-blur-md min-[1100px]:px-5">
-      <Link href="/" className="flex min-w-0 items-center gap-2.5 justify-self-start">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-violet-600 text-white shadow-md shadow-indigo-500/25">
-          <IconWaveform className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 leading-tight">
-          <p className="text-sm font-semibold tracking-tight">VoxLabs</p>
-          <p className="text-[10px] text-foreground-dim">Studio</p>
-        </div>
-      </Link>
+      <header className="sticky top-0 z-40 shrink-0 border-b border-border bg-surface/85 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 w-full items-center gap-3 px-4 sm:px-6">
+          <Link href="/" className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-400 to-violet-600 text-white shadow-md shadow-indigo-500/20">
+              <IconWaveform className="h-4 w-4" />
+            </div>
+            <div className="hidden leading-tight sm:block">
+              <p className="text-sm font-semibold tracking-tight">VoxLabs</p>
+              <p className="text-[10px] text-foreground-dim">Voice Studio</p>
+            </div>
+          </Link>
 
-      <nav className="flex items-center gap-1 justify-self-center">
-        {NAV_ITEMS.map((item) => {
-          const active = pathname === item.href;
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors min-[1100px]:gap-2 min-[1100px]:px-3",
-                active
-                  ? "bg-accent-soft font-medium text-foreground"
-                  : "text-foreground-dim hover:bg-surface-alt hover:text-foreground",
-              )}
+          <nav className="ml-2 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+            {NAV_ITEMS.map((item) => {
+              const active = pathname === item.href;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors sm:text-sm",
+                    active
+                      ? "bg-accent-soft font-medium text-foreground"
+                      : "text-foreground-dim hover:bg-surface-alt hover:text-foreground",
+                  )}
+                >
+                  {Icon && <Icon className={cn("h-3.5 w-3.5", active && "text-accent-hover")} />}
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="hidden items-center gap-1.5 rounded-full border border-border bg-surface-alt px-2.5 py-1 text-[11px] text-foreground-dim sm:inline-flex">
+              <span className={cn("h-1.5 w-1.5 rounded-full", online === null ? "bg-foreground-dim" : online ? "bg-success" : "bg-danger")} />
+              {online === null ? "Checking" : online ? "Connected" : "Offline"}
+            </span>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-alt text-foreground-dim hover:text-foreground"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             >
-              <Icon className={cn("h-4 w-4", active && "text-accent-hover")} />
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="flex items-center justify-end gap-2 justify-self-end">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-alt px-2 py-1 text-[11px] text-foreground-dim min-[1100px]:px-2.5">
-          <IconLock className="h-3 w-3" />
-          <span className="hidden min-[1100px]:inline">Local</span>
-        </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-alt px-2 py-1 text-[11px] text-foreground-dim min-[1100px]:px-2.5">
-          <span
-            className={cn(
-              "h-1.5 w-1.5 rounded-full",
-              online === null ? "bg-foreground-dim" : online ? "bg-success" : "bg-danger",
-            )}
-          />
-          {online === null ? "Checking" : online ? "Connected" : "Offline"}
-        </span>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-alt text-foreground-dim hover:text-foreground"
-          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          title={theme === "dark" ? "Light mode" : "Dark mode"}
-        >
-          {theme === "dark" ? <IconSun className="h-4 w-4" /> : <IconMoon className="h-4 w-4" />}
-        </button>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface-alt px-2.5 text-foreground-dim hover:text-foreground"
-          aria-label="Settings"
-          title="Settings"
-        >
-          <IconSettings className="h-4 w-4" />
-          <span className="hidden text-xs font-medium min-[1100px]:inline">Settings</span>
-        </button>
-      </div>
-    </header>
-    <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+              {theme === "dark" ? <IconSun className="h-4 w-4" /> : <IconMoon className="h-4 w-4" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-alt text-foreground-dim hover:text-foreground"
+              aria-label="Settings"
+            >
+              <IconSettings className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </header>
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   );
 }
