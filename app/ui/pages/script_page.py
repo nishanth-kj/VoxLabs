@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.constants.audio import EMOTIONS, ENHANCE_PRESETS, STYLES
+from app.models.request import SectionRequest
 from app.services.audio_service import audio_service
 from app.services.script_service import DEFAULT_SPEAKER, script_service
 from app.services.voice_service import voice_service
@@ -504,7 +505,8 @@ class ScriptPage(BasePage):
             "style": self.section_style.currentData(),
             "pause_after_ms": self.section_pause.value(),
         }
-        self.run(lambda: script_service.update_section(section_id, **fields), self._section_updated)
+        self.run(lambda: script_service.update_section(SectionRequest(script_sections_id=section_id, **fields)),
+                 self._section_updated)
 
     def _section_updated(self, section):
         for index, existing in enumerate(self.script["sections"]):

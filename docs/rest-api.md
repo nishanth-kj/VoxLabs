@@ -17,14 +17,38 @@ It can also run inside the desktop app (**Settings → REST API**; the default p
 
 ## Conventions
 
-- **Always HTTP 200.** Every response, errors included, is HTTP 200 with the `ApiResponse` envelope (`app/models/response/api_response.py`). Clients check the envelope's `status`:
+- **Always HTTP 200.** Every response, errors included, is HTTP 200. Routes build it with `ApiResponse(data=...).success()`; the error handlers use `ApiResponse(error=exc).error()` (`app/models/response/api_response.py`). Clients check `status` (from `ResponseStatus`: 1 = Success, 0 = Error):
 
   ```json
   { "status": 1, "data": { ... }, "error": null }
-  { "status": 0, "data": { "type": "NotFoundError", "field": "voices_id" }, "error": "Voice 9 not found" }
+  { "status": 0, "data": null, "error": {
+      "type": "NotFound", "error_code": 404, "error_message": "The requested item was not found.",
+      "field": { "voices_id": "Voice 42 not found" }, "detail": "Voice 42 not found" } }
   ```
 
-  `status` comes from the `ResponseStatus` constant (1 = Success, 0 = Error). On failure, `data.type` is the error class (`ValidationError`, `NotFoundError`, `ConsentError`, `AuthError`, `ModelError`, `HTTPError`, `InternalError`, …) and `data.field` names the offending input when known. Stack traces are never returned.
+  The `error` object:
+
+  | Key | Contents |
+  |---|---|
+  | `type` | `ErrorCode.value`, a stable label |
+  | `error_code` | `ErrorCode.code`, which follows HTTP meanings |
+  | `error_message` | `ErrorMessage.value`, the predefined text |
+  | `field` | an object mapping field name → message (validation lists every invalid field) |
+  | `detail` | the specific message from the service |
+
+  Stack traces are never returned.
+
+  | error_code | type | Raised as |
+  |---|---|---|
+  | 400 | BadRequest | `AppError`, `AudioError`, `ProjectError` |
+  | 401 | Unauthorized | `AuthError` (missing or wrong API token) |
+  | 403 | ConsentRequired | `ConsentError` |
+  | 404 | NotFound | `NotFoundError`, unknown route |
+  | 409 | Conflict | `VoiceError`, `JobError` |
+  | 422 | ValidationError | `ValidationError`, invalid request body |
+  | 500 | InternalServerError | `InternalError`, unexpected exceptions |
+  | 503 | ServiceUnavailable | `ModelError` (model not installed, online engines disabled, load failure) |
+
 - **One save endpoint per resource.** `POST /api/<resource>` creates, updates or deletes, depending on the body:
 
   | Body | Action |
@@ -34,7 +58,7 @@ It can also run inside the desktop app (**Settings → REST API**; the default p
   | `<table>_id` + `"status": 8` (`Status.DELETED.code`) | delete |
 
   The route calls the service's `save()` method, which does the dispatch.
-- **Request and response classes.** Request bodies are Pydantic classes in `app/models/request/`, one class per file (`UserRequest`, `VoiceRequest`, `TTSRequest`, …). Routes validate with them and pass the fields to a service.
+- **Request and response classes.** Request bodies are Pydantic classes in `app/models/request/`, one class per file (`UserRequest`, `VoiceRequest`, `TTSRequest`, …). Routes validate with them, pass the fields to a service and return `ApiResponse(data=...).success()`.
 - **Status labels.** `status` values are integer codes, and a readable label is included next to them, e.g. `"status": 5, "status_label": "Completed"`.
 
 ## Endpoints

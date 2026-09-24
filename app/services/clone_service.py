@@ -6,18 +6,20 @@ voice + consent + samples in a single transaction.
 """
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import numpy as np
+from fastapi import UploadFile
 
 from app.constants.audio import CLONE_MAX_SECONDS, CLONE_MIN_SAMPLE_RATE, CLONE_MIN_SECONDS, CLONE_TARGET_SAMPLE_RATE
-from app.constants.jobs import JobType
-from app.constants.models import ModelType
 from app.constants.consent_status import ConsentStatus
+from app.constants.jobs import JobType
+from app.constants.models import DEFAULT_CLONE_MODEL, ModelType
 from app.constants.status import Status
-from app.exceptions import ModelError, ValidationError, VoiceError
+from app.exceptions import ModelError, ValidationError, VoiceError, service_error
 from app.models import VoiceSample
+from app.models.request import CloneRequest, TTSRequest
 from app.services.audio_service import audio_service
 from app.services.consent_service import consent_service
 from app.services.job_service import job_service
@@ -26,11 +28,11 @@ from app.services.system_service import system_service
 from app.services.voice_service import CLONE, voice_service
 from app.utils import audio as au
 from app.utils.database import transaction
-from app.utils.files import remove_file, remove_tree, subdir, unique_path
+from app.utils.files import remove_file, remove_tree, save_upload, subdir, unique_path
 from app.utils.hashing import sha256_file
 from app.utils.logger import logger
 from app.utils.model import extract_voice_profile
-from app.utils.validation import require_audio_file, require_name
+from app.utils.validation import Validation
 
 PREVIEW_TEXT = "Hello! This is a preview of my VoxLabs voice. Generated audio is labeled as AI generated."
 
@@ -38,23 +40,37 @@ PREVIEW_TEXT = "Hello! This is a preview of my VoxLabs voice. Generated audio is
 class CloneService:
     def analyze_sample(self, path: str | Path) -> dict:
         """Quality report plus blocking `errors` for the Clone page's analysis step."""
-        analysis = audio_service.analyze(path)
-        errors = []
-        if analysis["duration"] < 1.0:
-            errors.append("Sample is shorter than 1 second")
-        if analysis["duration"] > CLONE_MAX_SECONDS:
-            errors.append(f"Sample is longer than {int(CLONE_MAX_SECONDS)} seconds — trim it first")
-        if analysis["sample_rate"] < CLONE_MIN_SAMPLE_RATE:
-            errors.append(f"Sample rate must be at least {CLONE_MIN_SAMPLE_RATE} Hz")
-        if analysis["silence_ratio"] > 0.9:
-            errors.append("Sample is almost entirely silence")
-        analysis["errors"] = errors
-        analysis["ok"] = not errors
-        return analysis
+        try:
+            analysis = audio_service.analyze(path)
+            errors = []
+            if analysis["duration"] < 1.0:
+                errors.append("Sample is shorter than 1 second")
+            if analysis["duration"] > CLONE_MAX_SECONDS:
+                errors.append(f"Sample is longer than {int(CLONE_MAX_SECONDS)} seconds — trim it first")
+            if analysis["sample_rate"] < CLONE_MIN_SAMPLE_RATE:
+                errors.append(f"Sample rate must be at least {CLONE_MIN_SAMPLE_RATE} Hz")
+            if analysis["silence_ratio"] > 0.9:
+                errors.append("Sample is almost entirely silence")
+            analysis["errors"] = errors
+            analysis["ok"] = not errors
+            return analysis
+        except Exception as exc:
+            raise service_error(exc, "clone_service.analyze_sample")
+
+    def analyze_upload(self, sample: UploadFile) -> dict:
+        """analyze_sample for an uploaded file; the temporary upload is always removed."""
+        path = None
+        try:
+            path = save_upload(sample)
+            return self.analyze_sample(path)
+        except Exception as exc:
+            raise service_error(exc, "clone_service.analyze_upload")
+        finally:
+            remove_file(path)
 
     def prepare_sample(self, path: str | Path, dest_dir: Path) -> dict:
         """Validate one file and store a cleaned copy. Returns the VoiceSample fields."""
-        path = require_audio_file(path)
+        path = Validation.require_audio_file(path)
         analysis = self.analyze_sample(path)
         if analysis["errors"]:
             raise ValidationError(f"{path.name}: {analysis['errors'][0]}", field="samples")
@@ -82,13 +98,14 @@ class CloneService:
             return {}
         pitches = [p["pitch_hz"] for p in profiles if p["pitch_hz"]]
         return {
-            "mfcc_mean": np.mean([p["mfcc_mean"] for p in profiles], axis=0).round(4).tolist(),
-            "mfcc_std": np.mean([p["mfcc_std"] for p in profiles], axis=0).round(4).tolist(),
+            "mfcc_mean": np.asarray([p["mfcc_mean"] for p in profiles]).mean(axis=0).round(4).tolist(),
+            "mfcc_std": np.asarray([p["mfcc_std"] for p in profiles]).mean(axis=0).round(4).tolist(),
             "pitch_hz": round(float(np.median(pitches)), 2) if pitches else 0.0,
         }
 
     def select_model(self, model_key: str | None) -> dict:
-        model = model_service.get(model_key or system_service.get_setting("default_clone_model"))
+        model = model_service.get(
+            model_key or system_service.get_setting("default_clone_model") or DEFAULT_CLONE_MODEL)
         if model["model_type"] not in (ModelType.CLONE, ModelType.EMBED):
             raise ModelError(f"{model['name']} cannot clone voices")
         if not model["installed"]:
@@ -97,7 +114,7 @@ class CloneService:
 
     def clone(
         self,
-        sample_paths: list[str | Path],
+        sample_paths: Sequence[str | Path],
         name: str,
         consent: dict,
         *,
@@ -107,89 +124,127 @@ class CloneService:
         users_id: int | None = None,
         progress: Callable[[float], None] | None = None,
     ) -> dict:
-        name = require_name(name)
-        if not sample_paths:
-            raise ValidationError("Add at least one voice sample", field="samples")
-        files = [require_audio_file(p, field="samples") for p in sample_paths]
-        consent_data = consent_service.validate(consent)  # no bypass: checked before any work
-        model = self.select_model(model_key)
-        report = progress or (lambda _v: None)
-
-        # Heavy work (and progress reporting, which writes the jobs table) happens before the
-        # transaction, so the transaction itself is short and write-only.
-        staging = subdir("voices", "_staging") / uuid.uuid4().hex
-        storage: str | None = None
         try:
-            records = []
-            for index, path in enumerate(files):
-                records.append(self.prepare_sample(path, staging)["record"])
-                report((index + 1) / (len(files) + 1) * 0.7)
-            total = sum(r["duration"] for r in records)
-            if total < CLONE_MIN_SECONDS:
-                raise ValidationError(
-                    f"Need at least {CLONE_MIN_SECONDS:.0f} seconds of speech in total (got {total:.1f}s)",
-                    field="samples",
-                )
-            profile = self.build_profile([r["path"] for r in records])
-            report(0.9)
+            name = Validation.require_name(name)
+            if not sample_paths:
+                raise ValidationError("Add at least one voice sample", field="samples")
+            files = [Validation.require_audio_file(p, field="samples") for p in sample_paths]
+            consent_data = consent_service.validate(consent)  # no bypass: checked before any work
+            model = self.select_model(model_key)
+            report = progress or (lambda _v: None)
+            logger.info(f"Cloning voice '{name}' from {len(files)} sample(s) with {model['key']}")
 
-            with transaction() as session:
-                voice = voice_service.create_in(
-                    session, name, source=CLONE, language=language, description=description,
-                    model_key=model["key"], users_id=users_id, consent_status=ConsentStatus.GRANTED.code,
-                )
-                storage = voice.storage_dir
-                consent_service.record(session, voice.voices_id, {**consent_data, "confirmed": True})
-                for record in records:
-                    stored = Path(storage) / "samples" / Path(record["path"]).name
-                    stored.parent.mkdir(parents=True, exist_ok=True)
-                    Path(record["path"]).replace(stored)
-                    voice.samples.append(VoiceSample(**{**record, "path": str(stored)}))
-                voice.sample_count = len(records)
-                voice.profile = profile
-                session.flush()
-                result = voice_service.to_dict(voice, with_samples=True)
-        except Exception:
-            remove_tree(storage)
-            raise
-        finally:
-            remove_tree(staging)
-        logger.info(f"Cloned voice {result['voices_id']} from {len(files)} sample(s) with {model['key']}")
-        report(1.0)
-        return result
+            # Heavy work (and progress reporting, which writes the jobs table) happens before the
+            # transaction, so the transaction itself is short and write-only.
+            staging = subdir("voices", "_staging") / uuid.uuid4().hex
+            storage: str | None = None
+            try:
+                records = []
+                for index, path in enumerate(files):
+                    records.append(self.prepare_sample(path, staging)["record"])
+                    report((index + 1) / (len(files) + 1) * 0.7)
+                total = sum(r["duration"] for r in records)
+                if total < CLONE_MIN_SECONDS:
+                    raise ValidationError(
+                        f"Need at least {CLONE_MIN_SECONDS:.0f} seconds of speech in total (got {total:.1f}s)",
+                        field="samples",
+                    )
+                profile = self.build_profile([r["path"] for r in records])
+                report(0.9)
 
-    def clone_async(self, sample_paths: list[str | Path], name: str, consent: dict,
+                with transaction() as session:
+                    voice = voice_service.create_in(
+                        session, name, source=CLONE, language=language, description=description,
+                        model_key=model["key"], users_id=users_id, consent_status=ConsentStatus.GRANTED.code,
+                    )
+                    storage = voice.storage_dir or str(voice_service.storage_dir(voice.voices_id))
+                    consent_service.record(session, voice.voices_id, {**consent_data, "confirmed": True})
+                    for record in records:
+                        stored = Path(storage) / "samples" / Path(record["path"]).name
+                        stored.parent.mkdir(parents=True, exist_ok=True)
+                        Path(record["path"]).replace(stored)
+                        voice.samples.append(VoiceSample(**{**record, "path": str(stored)}))
+                    voice.sample_count = len(records)
+                    voice.profile = profile
+                    session.flush()
+                    result = voice_service.to_dict(voice, with_samples=True)
+            except Exception:
+                remove_tree(storage)
+                raise
+            finally:
+                remove_tree(staging)
+            logger.info(f"Cloned voice {result['voices_id']} from {len(files)} sample(s) with {model['key']}")
+            report(1.0)
+            return result
+        except Exception as exc:
+            raise service_error(exc, "clone_service.clone")
+
+    def clone_async(self, sample_paths: Sequence[str | Path], name: str, consent: dict,
                     delete_samples_after: bool = False, **kwargs) -> dict:
         """Clone in the background. `delete_samples_after` removes temporary upload files."""
-        consent_service.validate(consent)  # report missing consent immediately
+        try:
+            consent_service.validate(consent)  # report missing consent immediately
 
-        def run(ctx):
-            try:
-                return {"voice": self.clone(sample_paths, name, consent, progress=ctx.progress, **kwargs)}
-            finally:
-                if delete_samples_after:
-                    for path in sample_paths:
-                        remove_file(path)
+            def run(ctx):
+                try:
+                    return {"voice": self.clone(sample_paths, name, consent, progress=ctx.progress, **kwargs)}
+                finally:
+                    if delete_samples_after:
+                        for path in sample_paths:
+                            remove_file(path)
 
-        return job_service.submit(JobType.VOICE_CLONE, run, title=f"Clone voice: {name}",
-                                  params={"name": name, "samples": len(sample_paths)})
+            return job_service.submit(JobType.VOICE_CLONE, run, title=f"Clone voice: {name}",
+                                      params={"name": name, "samples": len(sample_paths)})
+        except Exception as exc:
+            raise service_error(exc, "clone_service.clone_async")
+
+    def clone_upload(self, body: CloneRequest) -> dict:
+        """Clone from the uploaded multipart form (REST API). Returns the voice, or {"job": ...} in background.
+
+        Consent is checked before any upload is written; temporary uploads are always removed.
+        """
+        paths: list[Path] = []
+        try:
+            consent = {"confirmed": body.consent, "granted_by": body.granted_by,
+                       "speaker_name": body.speaker_name, "statement": body.statement}
+            consent_service.validate(consent)
+            options = {"language": body.language, "description": body.description,
+                       "model_key": body.model_key, "users_id": body.users_id}
+            paths = [save_upload(sample) for sample in body.samples]
+            if body.background:
+                job = self.clone_async(paths, body.name, consent, delete_samples_after=True, **options)
+                paths = []  # the job removes them when it finishes
+                return {"job": job}
+            return self.clone(paths, body.name, consent, **options)
+        except Exception as exc:
+            raise service_error(exc, "clone_service.clone_upload")
+        finally:
+            for path in paths:
+                remove_file(path)
 
     def preview(self, voices_id: int, text: str = PREVIEW_TEXT, model_key: str | None = None, progress=None) -> dict:
         from app.services.tts_service import tts_service
 
-        voice = voice_service.validate(voices_id)
-        if voice["status"] != Status.ACTIVE.code:
-            raise VoiceError("Only active voices can be previewed")
-        audio = tts_service.preview(text, voices_id=voices_id, model_key=model_key, progress=progress)
-        voice_service.update(voices_id, preview_audios_id=audio["audios_id"])
-        return audio
+        try:
+            voice = voice_service.validate(voices_id)
+            if voice["status"] != Status.ACTIVE.code:
+                raise VoiceError("Only active voices can be previewed")
+            audio = tts_service.preview(TTSRequest(text=text, voices_id=voices_id, model_key=model_key),
+                                        progress=progress)
+            voice_service.update(voices_id, preview_audios_id=audio["audios_id"])
+            return audio
+        except Exception as exc:
+            raise service_error(exc, "clone_service.preview")
 
     def preview_async(self, voices_id: int, text: str = PREVIEW_TEXT, model_key: str | None = None) -> dict:
-        return job_service.submit(
-            JobType.TTS,
-            lambda ctx: {"audio": self.preview(voices_id, text, model_key, progress=ctx.progress)},
-            title=f"Preview voice {voices_id}", params={"voices_id": voices_id},
-        )
+        try:
+            return job_service.submit(
+                JobType.TTS,
+                lambda ctx: {"audio": self.preview(voices_id, text, model_key, progress=ctx.progress)},
+                title=f"Preview voice {voices_id}", params={"voices_id": voices_id},
+            )
+        except Exception as exc:
+            raise service_error(exc, "clone_service.preview_async")
 
 
 clone_service = CloneService()

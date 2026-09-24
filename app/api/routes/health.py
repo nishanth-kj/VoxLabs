@@ -8,9 +8,11 @@ router = APIRouter(prefix="/api", tags=["Health"])
 
 @router.get("/health")
 def health() -> ApiResponse:
-    return ApiResponse.success(system_service.health())
+    data = system_service.health()
+    return ApiResponse(data).success()
 
 
 @router.get("/presets")
 def presets() -> ApiResponse:
-    return ApiResponse.success(system_service.presets())
+    data = system_service.presets()
+    return ApiResponse(data).success()

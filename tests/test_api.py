@@ -24,8 +24,8 @@ def ok(response) -> dict:
 def failed(response) -> dict:
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["status"] == 0 and body["error"], body
-    return body
+    assert body["status"] == 0 and body["data"] is None, body
+    return body["error"]
 
 
 def test_health_envelope(client):
@@ -34,12 +34,14 @@ def test_health_envelope(client):
 
 def test_errors_use_envelope_with_http_200(client):
     assert failed(client.get("/api/voices/999")) == {
-        "status": 0, "data": {"type": "NotFoundError", "field": "voices_id"}, "error": "Voice 999 not found"}
+        "error_code": 404, "error_message": "The requested item was not found.",
+        "field": {"voices_id": "Voice 999 not found"}}
     invalid = failed(client.post("/api/tts", json={"text": "hi", "speed": 9}))
-    assert invalid["data"]["type"] == "ValidationError"
+    assert invalid["error_code"] == 422
+    assert invalid["field"] == {"speed": "speed must be between 0.5 and 2.0"}
     missing_field = failed(client.post("/api/tts", json={}))
-    assert missing_field["data"] == {"type": "ValidationError", "field": "text"}
-    assert failed(client.get("/api/nope"))["data"]["type"] == "HTTPError"
+    assert missing_field["error_message"] == "Some input values are invalid." and "text" in missing_field["field"]
+    assert failed(client.get("/api/nope"))["error_code"] == 404
 
 
 def test_users_single_save_endpoint(client):
@@ -72,14 +74,14 @@ def test_clone_route_requires_consent_and_voice_save(client, voice_wav):
     form = {"name": "API voice", "consent": "false", "granted_by": "me", "speaker_name": "me"}
     with open(voice_wav, "rb") as fh:
         refused = failed(client.post("/api/voices/clone", data=form, files={"samples": ("s.wav", fh, "audio/wav")}))
-    assert refused["data"]["type"] == "ConsentError"
+    assert refused["error_code"] == 403
     with open(voice_wav, "rb") as fh:
         form["consent"] = "true"
         voice = ok(client.post("/api/voices/clone", data=form, files={"samples": ("s.wav", fh, "audio/wav")}))
     voices_id = voice["voices_id"]
     assert ok(client.post("/api/voices", json={"voices_id": voices_id, "name": "Renamed"}))["name"] == "Renamed"
     ok(client.post("/api/voices", json={"voices_id": voices_id, "status": Status.DELETED.code}))
-    assert failed(client.get(f"/api/voices/{voices_id}"))["data"]["type"] == "NotFoundError"
+    assert failed(client.get(f"/api/voices/{voices_id}"))["error_code"] == 404
     preset = ok(client.post("/api/voices", json={"name": "Aria", "engine_voice": "en-US-AriaNeural"}))
     assert preset["source"] == "preset"
 
@@ -109,5 +111,5 @@ def test_scripts_projects_models(client):
 def test_optional_token_auth(client):
     system_service.update_settings(api_token="secret")
     ok(client.get("/api/health"))
-    assert failed(client.get("/api/voices"))["data"]["type"] == "AuthError"
+    assert failed(client.get("/api/voices"))["error_code"] == 401
     ok(client.get("/api/voices", headers={"Authorization": "Bearer secret"}))

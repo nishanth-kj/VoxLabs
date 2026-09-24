@@ -5,6 +5,7 @@ import pytest
 
 from app.constants.audio import AI_GENERATED_TAG
 from app.exceptions import ValidationError
+from app.models.request import AudioExportRequest, AudioProcessRequest
 from app.services.audio_service import audio_service
 from app.utils import audio as au
 from app.utils.hashing import sha256_file
@@ -34,7 +35,7 @@ def test_analyze_reports_quality(voice_wav, tmp_path):
 def test_process_is_non_destructive(voice_wav):
     source = audio_service.import_file(voice_wav)
     before = sha256_file(source["path"])
-    processed = audio_service.process(source["audios_id"], preset="Podcast")
+    processed = audio_service.process(AudioProcessRequest(audios_id=source["audios_id"], preset="Podcast"))
     assert processed["audios_id"] != source["audios_id"]
     assert processed["parent_audios_id"] == source["audios_id"]
     assert sha256_file(source["path"]) == before
@@ -81,7 +82,7 @@ def test_render_edits_split_join_and_export(voice_wav, tmp_path):
     assert a["duration"] + b["duration"] == pytest.approx(4.0, abs=0.01)
     joined = audio_service.join([a["audios_id"], b["audios_id"]], gap_ms=500)
     assert joined["duration"] == pytest.approx(4.5, abs=0.01)
-    exported = audio_service.export(joined["audios_id"], tmp_path / "out.flac", "flac")
+    exported = audio_service.export(AudioExportRequest(audios_id=joined["audios_id"], format="flac"), tmp_path / "out.flac")
     assert Path(exported).exists() and au.info(exported)["format"] == "flac"
 
 

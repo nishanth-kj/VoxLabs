@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.constants.status import Status
-from app.exceptions import ConsentError
+from app.exceptions import ConsentError, service_error
 from app.models import VoiceConsent
 from app.utils.database import read_session, serialize
 from app.utils.logger import logger
@@ -23,20 +23,23 @@ class ConsentService:
 
     def validate(self, consent: dict | None) -> dict:
         """Raise ConsentError unless consent was explicitly confirmed and attributed."""
-        consent = consent or {}
-        if consent.get("confirmed") is not True:
-            raise ConsentError("Voice cloning requires explicit consent from the speaker", field="consent")
-        granted_by = (consent.get("granted_by") or "").strip()
-        speaker = (consent.get("speaker_name") or "").strip()
-        if not granted_by:
-            raise ConsentError("Enter who is granting consent", field="granted_by")
-        if not speaker:
-            raise ConsentError("Enter the name of the person whose voice is cloned", field="speaker_name")
-        return {
-            "granted_by": granted_by,
-            "speaker_name": speaker,
-            "statement": (consent.get("statement") or "").strip() or self.statement_for(speaker),
-        }
+        try:
+            consent = consent or {}
+            if consent.get("confirmed") is not True:
+                raise ConsentError("Voice cloning requires explicit consent from the speaker", field="consent")
+            granted_by = (consent.get("granted_by") or "").strip()
+            speaker = (consent.get("speaker_name") or "").strip()
+            if not granted_by:
+                raise ConsentError("Enter who is granting consent", field="granted_by")
+            if not speaker:
+                raise ConsentError("Enter the name of the person whose voice is cloned", field="speaker_name")
+            return {
+                "granted_by": granted_by,
+                "speaker_name": speaker,
+                "statement": (consent.get("statement") or "").strip() or self.statement_for(speaker),
+            }
+        except Exception as exc:
+            raise service_error(exc, "consent_service.validate")
 
     def record(self, session: Session, voices_id: int, consent: dict) -> VoiceConsent:
         data = self.validate(consent)
@@ -72,11 +75,14 @@ class ConsentService:
         return len(rows)
 
     def history(self, voices_id: int) -> list[dict]:
-        with read_session() as session:
-            rows = session.scalars(
-                select(VoiceConsent).where(VoiceConsent.voices_id == voices_id).order_by(VoiceConsent.created_at)
-            )
-            return [serialize(r) for r in rows]
+        try:
+            with read_session() as session:
+                rows = session.scalars(
+                    select(VoiceConsent).where(VoiceConsent.voices_id == voices_id).order_by(VoiceConsent.created_at)
+                )
+                return [serialize(r) for r in rows]
+        except Exception as exc:
+            raise service_error(exc, "consent_service.history")
 
 
 consent_service = ConsentService()

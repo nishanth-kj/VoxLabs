@@ -3,12 +3,15 @@ from app.exceptions.base import (
     AudioError,
     AuthError,
     ConsentError,
+    InternalError,
+    JobCancelled,
     JobError,
     ModelError,
     NotFoundError,
     ProjectError,
     ValidationError,
     VoiceError,
+    service_error,
 )
 
 __all__ = [
@@ -16,10 +19,13 @@ __all__ = [
     "AudioError",
     "AuthError",
     "ConsentError",
+    "InternalError",
+    "JobCancelled",
     "JobError",
     "ModelError",
     "NotFoundError",
     "ProjectError",
     "ValidationError",
     "VoiceError",
+    "service_error",
 ]

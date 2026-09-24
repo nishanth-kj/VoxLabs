@@ -6,6 +6,7 @@ import pytest
 
 from app.constants.status import Status
 from app.exceptions import JobError, NotFoundError, ValidationError
+from app.models.request import TTSRequest
 from app.services.job_service import job_service
 from app.services.project_service import project_service
 from app.services.script_service import script_service
@@ -77,7 +78,7 @@ def test_job_cancellation_and_listeners():
 
 
 def test_async_tts_job():
-    job = tts_service.generate_async("Background speech.")
+    job = tts_service.generate_async(TTSRequest(text="Background speech."))
     result = job_service.wait(job["jobs_id"], timeout=30)
     assert result["status"] == Status.COMPLETED.code and result["result"]["audio"]["ai_generated"]
 

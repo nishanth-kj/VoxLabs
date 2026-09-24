@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.exceptions import AppError
+from app.models.request import SectionRequest
 from app.services.audio_service import audio_service
 from app.services.project_service import project_service
 from app.services.script_service import script_service
@@ -226,7 +227,8 @@ class StudioPage(BasePage):
         section = self._section(self.sections.currentRow())
         if section:
             voices_id = self.voice.voices_id()
-            self.run(lambda: script_service.update_section(section["script_sections_id"], voices_id=voices_id),
+            self.run(lambda: script_service.update_section(
+                SectionRequest(script_sections_id=section["script_sections_id"], voices_id=voices_id)),
                      lambda _s: self._load_script(self.script["scripts_id"]))
 
     def _generate_section(self):

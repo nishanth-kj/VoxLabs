@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.constants.audio import ENHANCE_PRESETS, EXPORT_FORMATS
+from app.models.request import AudioExportRequest, AudioProcessRequest
 from app.services.audio_service import audio_service
 from app.services.project_service import project_service
 from app.services.system_service import system_service
@@ -475,7 +476,7 @@ class EditorPage(BasePage):
             self.error("No edits to render yet")
             return
         audios_id, ops = self.audio["audios_id"], list(self.ops)
-        job = audio_service.process_async(audios_id, ops=ops)
+        job = audio_service.process_async(AudioProcessRequest(audios_id=audios_id, ops=ops))
         self.follow(job, lambda r: (self.state.notify("audio"), self._rendered(r["audio"])))
 
     def _rendered(self, audio):
@@ -495,7 +496,8 @@ class EditorPage(BasePage):
         if not path:
             return
         audios_id, ops = self.audio["audios_id"], list(self.ops)
-        self.run(lambda: audio_service.export(audio_service.materialize(audios_id, ops)["audios_id"], path, fmt),
+        self.run(lambda: audio_service.export(
+            AudioExportRequest(audios_id=audio_service.materialize(audios_id, ops)["audios_id"], format=fmt), path),
                  lambda p: self.prop_labels["Edits"].setText(f"Exported to {p}"))
 
     def autosave(self):

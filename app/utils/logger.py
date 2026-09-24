@@ -52,7 +52,7 @@ def _setup() -> logging.Logger:
     log = logging.getLogger("voxlabs")
     log.setLevel(os.getenv("LOG_LEVEL", "INFO").upper())
     if not log.handlers:
-        console = logging.StreamHandler(sys.stdout)
+        console = logging.StreamHandler(sys.stderr)  # stdout is reserved for the MCP stdio transport
         console.setFormatter(logging.Formatter(LOG_FORMAT))
         log.addHandler(console)
         log.addHandler(MemoryLogHandler())

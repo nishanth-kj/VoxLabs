@@ -17,6 +17,7 @@ dependencies = [
     "librosa>=0.10.2",
     "gtts>=2.5.0",
     "edge-tts>=6.1.0",
+    "mcp>=1.12",
 ]
 
 [project.optional-dependencies]

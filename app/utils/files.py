@@ -5,6 +5,9 @@ import re
 import shutil
 import uuid
 from pathlib import Path
+from tempfile import NamedTemporaryFile
+
+from fastapi import UploadFile
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -72,3 +75,11 @@ def copy_file(src: str | Path, dst: str | Path) -> Path:
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, dst)
     return dst
+
+
+def save_upload(upload: UploadFile) -> Path:
+    """Stream an uploaded file into data/cache/uploads. Callers remove it when done (services keep copies)."""
+    suffix = Path(upload.filename or "").suffix.lower()
+    with NamedTemporaryFile(delete=False, suffix=suffix, dir=subdir("cache", "uploads")) as handle:
+        shutil.copyfileobj(upload.file, handle)
+    return Path(handle.name)

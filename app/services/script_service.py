@@ -15,8 +15,9 @@ from app.constants.audio import PAUSE_PARAGRAPH_MS, PAUSE_SECTION_MS
 from app.constants.audio_source import AudioSource
 from app.constants.jobs import JobType
 from app.constants.status import Status
-from app.exceptions import NotFoundError, ValidationError
+from app.exceptions import NotFoundError, ValidationError, service_error
 from app.models import Audio, Script, ScriptSection, Take
+from app.models.request import GenerateScriptRequest, ScriptRequest, SectionRequest, TTSRequest
 from app.services.audio_service import audio_service
 from app.services.job_service import job_service
 from app.services.system_service import system_service
@@ -25,7 +26,7 @@ from app.utils import audio as au
 from app.utils.database import deleted_result, read_session, serialize, transaction
 from app.utils.files import remove_file, subdir, unique_path
 from app.utils.logger import logger
-from app.utils.validation import require_name
+from app.utils.validation import Validation
 
 DEFAULT_SPEAKER = "*"
 
@@ -171,52 +172,69 @@ class ScriptService:
 
     # ------------------------------------------------------------ CRUD
 
-    def create(self, title: str, body: str = "", projects_id: int | None = None,
+    def create(self, title: str | None, body: str = "", projects_id: int | None = None,
                speaker_map: dict | None = None, settings: dict | None = None) -> dict:
-        with transaction() as session:
-            script = Script(title=require_name(title, "title", 200), body=body, projects_id=projects_id,
-                            speaker_map=speaker_map or {}, settings=settings or {})
-            session.add(script)
-            session.flush()
-            self._sync_sections(session, script)
-            logger.info(f"Created script {script.scripts_id} with {len(script.sections)} sections")
-            return self.to_dict(script)
+        try:
+            with transaction() as session:
+                script = Script(title=Validation.require_name(title, "title", 200), body=body, projects_id=projects_id,
+                                speaker_map=speaker_map or {}, settings=settings or {})
+                session.add(script)
+                session.flush()
+                self._sync_sections(session, script)
+                logger.info(f"Created script {script.scripts_id} with {len(script.sections)} sections")
+                return self.to_dict(script)
+        except Exception as exc:
+            raise service_error(exc, "script_service.create")
 
     def get(self, scripts_id: int) -> dict:
-        with read_session() as session:
-            return self.to_dict(self._get(session, scripts_id))
+        try:
+            with read_session() as session:
+                return self.to_dict(self._get(session, scripts_id))
+        except Exception as exc:
+            raise service_error(exc, "script_service.get")
 
     def list_scripts(self, projects_id: int | None = None) -> list[dict]:
-        with read_session() as session:
-            query = select(Script)
-            if projects_id is not None:
-                query = query.where(Script.projects_id == projects_id)
-            return [self.to_dict(s, with_sections=False) for s in session.scalars(query.order_by(Script.updated_at.desc()))]
+        try:
+            with read_session() as session:
+                query = select(Script)
+                if projects_id is not None:
+                    query = query.where(Script.projects_id == projects_id)
+                return [self.to_dict(s, with_sections=False) for s in session.scalars(query.order_by(Script.updated_at.desc()))]
+        except Exception as exc:
+            raise service_error(exc, "script_service.list_scripts")
 
     def update(self, scripts_id: int, title: str | None = None, body: str | None = None,
                speaker_map: dict | None = None, settings: dict | None = None) -> dict:
-        with transaction() as session:
-            script = self._get(session, scripts_id)
-            if title is not None:
-                script.title = require_name(title, "title", 200)
-            if speaker_map is not None:
-                script.speaker_map = {k: v for k, v in speaker_map.items() if v}
-            if settings is not None:
-                script.settings = {**(script.settings or {}), **settings}
-            if body is not None and body != script.body or settings and "speak_headings" in settings:
-                script.body = body if body is not None else script.body
-                self._sync_sections(session, script)
-            return self.to_dict(script)
+        try:
+            with transaction() as session:
+                script = self._get(session, scripts_id)
+                if title is not None:
+                    script.title = Validation.require_name(title, "title", 200)
+                if speaker_map is not None:
+                    script.speaker_map = {k: v for k, v in speaker_map.items() if v}
+                if settings is not None:
+                    script.settings = {**(script.settings or {}), **settings}
+                if body is not None and body != script.body or settings and "speak_headings" in settings:
+                    script.body = body if body is not None else script.body
+                    self._sync_sections(session, script)
+                return self.to_dict(script)
+        except Exception as exc:
+            raise service_error(exc, "script_service.update")
 
-    def save(self, scripts_id: int | None = None, status: int | None = None, **fields) -> dict:
-        """One entry point: create (no id), delete (status = Deleted) or update."""
-        if scripts_id is None:
-            return self.create(**fields)
-        if status == Status.DELETED.code:
-            self.delete(scripts_id)
-            return deleted_result("scripts_id", scripts_id)
-        fields.pop("projects_id", None)  # a script stays in its project
-        return self.update(scripts_id, **fields)
+    def save(self, body: ScriptRequest) -> dict:
+        """One entry point: create (no id), delete (status = Deleted) or update.
+
+        On update `projects_id` is ignored: a script stays in its project.
+        """
+        try:
+            if body.scripts_id is None:
+                return self.create(body.title, body.body or "", body.projects_id, body.speaker_map, body.settings)
+            if body.status == Status.DELETED.code:
+                self.delete(body.scripts_id)
+                return deleted_result("scripts_id", body.scripts_id)
+            return self.update(body.scripts_id, body.title, body.body, body.speaker_map, body.settings)
+        except Exception as exc:
+            raise service_error(exc, "script_service.save")
 
     def _sync_sections(self, session: Session, script: Script) -> None:
         """Re-parse the body, keeping existing sections (and their takes) whose text is unchanged."""
@@ -235,47 +253,61 @@ class ScriptService:
         session.flush()
 
     def delete(self, scripts_id: int) -> None:
-        with transaction() as session:
-            script = self._get(session, scripts_id)
-            audio_ids = [t.audios_id for s in script.sections for t in s.takes]
-            session.delete(script)
-        for audios_id in audio_ids:
-            try:
-                audio_service.delete(audios_id)
-            except NotFoundError:
-                pass
+        try:
+            with transaction() as session:
+                script = self._get(session, scripts_id)
+                audio_ids = [t.audios_id for s in script.sections for t in s.takes]
+                session.delete(script)
+            for audios_id in audio_ids:
+                try:
+                    audio_service.delete(audios_id)
+                except NotFoundError:
+                    pass
+        except Exception as exc:
+            raise service_error(exc, "script_service.delete")
 
     # ------------------------------------------------------------ speakers / sections
 
     def map_speakers(self, scripts_id: int, mapping: dict[str, int | None]) -> dict:
         """Assign voices to speakers ("*" = narrator/default). Manual overrides replace auto mapping."""
-        with transaction() as session:
-            script = self._get(session, scripts_id)
-            merged = {**(script.speaker_map or {}), **mapping}
-            script.speaker_map = {k: v for k, v in merged.items() if v}
-            return self.to_dict(script)
+        try:
+            with transaction() as session:
+                script = self._get(session, scripts_id)
+                merged = {**(script.speaker_map or {}), **mapping}
+                script.speaker_map = {k: v for k, v in merged.items() if v}
+                return self.to_dict(script)
+        except Exception as exc:
+            raise service_error(exc, "script_service.map_speakers")
 
     def auto_map_speakers(self, scripts_id: int, voices_ids: list[int]) -> dict:
         """Round-robin available voices onto unmapped speakers."""
-        script = self.get(scripts_id)
-        mapping = dict(script["speaker_map"])
-        free = [v for v in voices_ids if v not in mapping.values()] or voices_ids
-        for index, speaker in enumerate(s for s in script["speakers"] if s not in mapping):
-            if free:
-                mapping[speaker] = free[index % len(free)]
-        return self.map_speakers(scripts_id, mapping)
+        try:
+            script = self.get(scripts_id)
+            mapping = dict(script["speaker_map"])
+            free = [v for v in voices_ids if v not in mapping.values()] or voices_ids
+            for index, speaker in enumerate(s for s in script["speakers"] if s not in mapping):
+                if free:
+                    mapping[speaker] = free[index % len(free)]
+            return self.map_speakers(scripts_id, mapping)
+        except Exception as exc:
+            raise service_error(exc, "script_service.auto_map_speakers")
 
-    def update_section(self, script_sections_id: int, **fields) -> dict:
-        unknown = set(fields) - set(SECTION_FIELDS)
-        if unknown:
-            raise ValidationError(f"Cannot update section fields: {', '.join(sorted(unknown))}")
-        with transaction() as session:
-            section = self._section(session, script_sections_id)
-            for key, value in fields.items():
-                setattr(section, key, value)
-            if "text" in fields:
-                section.script.body = self._body_from_sections(section.script)
-            return self.section_dict(section)
+    def update_section(self, body: SectionRequest) -> dict:
+        """Change the fields that were set in `body` (unset fields are left alone)."""
+        try:
+            fields = body.model_dump(exclude_unset=True, exclude={"script_sections_id"})
+            unknown = set(fields) - set(SECTION_FIELDS)
+            if unknown:
+                raise ValidationError(f"Cannot update section fields: {', '.join(sorted(unknown))}")
+            with transaction() as session:
+                section = self._section(session, body.script_sections_id)
+                for key, value in fields.items():
+                    setattr(section, key, value)
+                if "text" in fields:
+                    section.script.body = self._body_from_sections(section.script)
+                return self.section_dict(section)
+        except Exception as exc:
+            raise service_error(exc, "script_service.update_section")
 
     def _body_from_sections(self, script: Script) -> str:
         """Rebuild the body after a section edit so body and sections stay in sync."""
@@ -290,197 +322,238 @@ class ScriptService:
         return "\n\n".join(lines)
 
     def reorder(self, scripts_id: int, ordered_ids: list[int]) -> dict:
-        with transaction() as session:
-            script = self._get(session, scripts_id)
-            by_id = {s.script_sections_id: s for s in script.sections}
-            if set(ordered_ids) != set(by_id):
-                raise ValidationError("Reorder must include every section exactly once", field="ordered_ids")
-            for position, section_id in enumerate(ordered_ids):
-                by_id[section_id].position = position
-            script.sections.sort(key=lambda s: s.position)
-            script.body = self._body_from_sections(script)
-            return self.to_dict(script)
+        try:
+            with transaction() as session:
+                script = self._get(session, scripts_id)
+                by_id = {s.script_sections_id: s for s in script.sections}
+                if set(ordered_ids) != set(by_id):
+                    raise ValidationError("Reorder must include every section exactly once", field="ordered_ids")
+                for position, section_id in enumerate(ordered_ids):
+                    by_id[section_id].position = position
+                script.sections.sort(key=lambda s: s.position)
+                script.body = self._body_from_sections(script)
+                return self.to_dict(script)
+        except Exception as exc:
+            raise service_error(exc, "script_service.reorder")
 
     def resolve_voice(self, section: dict, script: dict) -> int | None:
-        mapping = script.get("speaker_map") or {}
-        return (section.get("voices_id") or mapping.get(section.get("speaker") or "")
-                or mapping.get(DEFAULT_SPEAKER) or system_service.get_setting("default_voices_id"))
+        try:
+            mapping = script.get("speaker_map") or {}
+            return (section.get("voices_id") or mapping.get(section.get("speaker") or "")
+                    or mapping.get(DEFAULT_SPEAKER) or system_service.get_setting("default_voices_id"))
+        except Exception as exc:
+            raise service_error(exc, "script_service.resolve_voice")
 
     # ------------------------------------------------------------ generation
 
     def generate_section(self, script_sections_id: int, seed: int | None = None,
                          progress: Callable[[float], None] | None = None) -> dict:
         """Generate a new take for one section and select it."""
-        with read_session() as session:
-            section = self._section(session, script_sections_id)
-            section_data = self.section_dict(section)
-            script = self.to_dict(section.script, with_sections=False)
-        defaults = script.get("settings") or {}
-        params = {
-            key: section_data.get(key) if section_data.get(key) is not None else defaults.get(key)
-            for key in ("speed", "pitch", "emotion", "style")
-        }
-        audio = tts_service.generate(
-            section_data["text"],
-            self.resolve_voice(section_data, script),
-            defaults.get("model_key"),
-            projects_id=script.get("projects_id"),
-            name=f"{script['title']} · {section_data['heading'] or 'section'} {section_data['position'] + 1}",
-            seed=seed,
-            progress=progress,
-            **{k: v for k, v in params.items() if v is not None},
-        )
-        with transaction() as session:
-            section = self._section(session, script_sections_id)
-            for take in section.takes:
-                take.selected = False
-            number = max((t.take_number for t in section.takes), default=0) + 1
-            section.takes.append(Take(audios_id=audio["audios_id"], take_number=number, selected=True))
-            session.flush()
-            return self.section_dict(section)
+        try:
+            with read_session() as session:
+                section = self._section(session, script_sections_id)
+                section_data = self.section_dict(section)
+                script = self.to_dict(section.script, with_sections=False)
+            defaults = script.get("settings") or {}
+            params = {
+                key: section_data.get(key) if section_data.get(key) is not None else defaults.get(key)
+                for key in ("speed", "pitch", "emotion", "style")
+            }
+            request = TTSRequest(
+                text=section_data["text"],
+                voices_id=self.resolve_voice(section_data, script),
+                model_key=defaults.get("model_key"),
+                projects_id=script.get("projects_id"),
+                name=f"{script['title']} · {section_data['heading'] or 'section'} {section_data['position'] + 1}",
+                seed=seed,
+                **{k: v for k, v in params.items() if v is not None},
+            )
+            audio = tts_service.generate(request, progress=progress)
+            with transaction() as session:
+                section = self._section(session, script_sections_id)
+                for take in section.takes:
+                    take.selected = False
+                number = max((t.take_number for t in section.takes), default=0) + 1
+                section.takes.append(Take(audios_id=audio["audios_id"], take_number=number, selected=True))
+                session.flush()
+                return self.section_dict(section)
+        except Exception as exc:
+            raise service_error(exc, "script_service.generate_section")
 
     def generate_all(self, scripts_id: int, regenerate: bool = False,
                      progress: Callable[[float], None] | None = None) -> dict:
-        script = self.get(scripts_id)
-        todo = [s for s in script["sections"] if regenerate or not s["selected_audios_id"]]
-        for index, section in enumerate(todo):
-            self.generate_section(section["script_sections_id"])
-            if progress:
-                progress((index + 1) / max(len(todo), 1))
-        return self.get(scripts_id)
+        try:
+            script = self.get(scripts_id)
+            todo = [s for s in script["sections"] if regenerate or not s["selected_audios_id"]]
+            for index, section in enumerate(todo):
+                self.generate_section(section["script_sections_id"])
+                if progress:
+                    progress((index + 1) / max(len(todo), 1))
+            return self.get(scripts_id)
+        except Exception as exc:
+            raise service_error(exc, "script_service.generate_all")
 
     def select_take(self, takes_id: int) -> dict:
-        with transaction() as session:
-            take = session.get(Take, takes_id)
-            if take is None:
-                raise NotFoundError(f"Take {takes_id} not found", field="takes_id")
-            for other in take.section.takes:
-                other.selected = other.takes_id == takes_id
-            return self.section_dict(take.section)
+        try:
+            with transaction() as session:
+                take = session.get(Take, takes_id)
+                if take is None:
+                    raise NotFoundError(f"Take {takes_id} not found", field="takes_id")
+                for other in take.section.takes:
+                    other.selected = other.takes_id == takes_id
+                return self.section_dict(take.section)
+        except Exception as exc:
+            raise service_error(exc, "script_service.select_take")
 
     def delete_take(self, takes_id: int) -> dict:
-        with transaction() as session:
-            take = session.get(Take, takes_id)
-            if take is None:
-                raise NotFoundError(f"Take {takes_id} not found", field="takes_id")
-            section = take.section
-            audios_id, was_selected = take.audios_id, take.selected
-            section.takes.remove(take)
-            if was_selected and section.takes:
-                section.takes[-1].selected = True
-            session.flush()
-            result = self.section_dict(section)
-        audio_service.delete(audios_id)
-        return result
+        try:
+            with transaction() as session:
+                take = session.get(Take, takes_id)
+                if take is None:
+                    raise NotFoundError(f"Take {takes_id} not found", field="takes_id")
+                section = take.section
+                audios_id, was_selected = take.audios_id, take.selected
+                section.takes.remove(take)
+                if was_selected and section.takes:
+                    section.takes[-1].selected = True
+                session.flush()
+                result = self.section_dict(section)
+            audio_service.delete(audios_id)
+            return result
+        except Exception as exc:
+            raise service_error(exc, "script_service.delete_take")
 
     def render(self, scripts_id: int, progress: Callable[[float], None] | None = None) -> dict:
         """Join the selected takes (plus optional intro/outro) into the final audio."""
-        script = self.get(scripts_id)
-        settings = script.get("settings") or {}
-        missing = [s["position"] + 1 for s in script["sections"] if not s["selected_audios_id"]]
-        if not script["sections"]:
-            raise ValidationError("The script has no sections to render")
-        if missing:
-            raise ValidationError(f"Generate these sections first: {', '.join(map(str, missing[:10]))}")
+        try:
+            script = self.get(scripts_id)
+            settings = script.get("settings") or {}
+            missing = [s["position"] + 1 for s in script["sections"] if not s["selected_audios_id"]]
+            if not script["sections"]:
+                raise ValidationError("The script has no sections to render")
+            if missing:
+                raise ValidationError(f"Generate these sections first: {', '.join(map(str, missing[:10]))}")
 
-        clips: list[tuple[int, int]] = [(s["selected_audios_id"], s["pause_after_ms"] or 0) for s in script["sections"]]
-        narrator = self.resolve_voice({"speaker": DEFAULT_SPEAKER}, script)
-        for key, where in (("intro_text", 0), ("outro_text", None)):
-            if (settings.get(key) or "").strip():
-                extra = tts_service.generate(settings[key], narrator, settings.get("model_key"),
-                                             projects_id=script["projects_id"], name=key.split("_")[0].title())
-                clip = (extra["audios_id"], PAUSE_SECTION_MS)
-                clips.insert(0, clip) if where == 0 else clips.append(clip)
+            clips: list[tuple[int, int]] = [(s["selected_audios_id"], s["pause_after_ms"] or 0) for s in script["sections"]]
+            narrator = self.resolve_voice({"speaker": DEFAULT_SPEAKER}, script)
+            for key, where in (("intro_text", 0), ("outro_text", None)):
+                if (settings.get(key) or "").strip():
+                    extra = tts_service.generate(TTSRequest(
+                        text=settings[key], voices_id=narrator, model_key=settings.get("model_key"),
+                        projects_id=script["projects_id"], name=key.split("_")[0].title()))
+                    clip = (extra["audios_id"], PAUSE_SECTION_MS)
+                    clips.insert(0, clip) if where == 0 else clips.append(clip)
 
-        sources = [audio_service.get(audios_id) for audios_id, _ in clips]
-        sr = max(s["sample_rate"] for s in sources)
-        parts = []
-        for index, (source, (_, pause)) in enumerate(zip(sources, clips)):
-            y, _ = au.load(source["path"], sr=sr)
-            parts.append(y)
-            if index < len(clips) - 1:
-                parts.append(au.silence(pause / 1000, sr))
-            if progress:
-                progress((index + 1) / len(clips) * 0.8)
-        y = au.concat(parts)
-        steps = audio_service.resolve_steps(preset=settings.get("preset") or "Raw")
-        y = audio_service.process_array(y, sr, steps) if steps else y
-        path = au.save(unique_path(subdir("audio", "renders"), script["title"], "wav"), y, sr, ai_generated=True)
+            sources = [audio_service.get(audios_id) for audios_id, _ in clips]
+            sr = max(s["sample_rate"] for s in sources)
+            parts = []
+            for index, (source, (_, pause)) in enumerate(zip(sources, clips)):
+                y, _ = au.load(source["path"], sr=sr)
+                parts.append(y)
+                if index < len(clips) - 1:
+                    parts.append(au.silence(pause / 1000, sr))
+                if progress:
+                    progress((index + 1) / len(clips) * 0.8)
+            y = au.concat(parts)
+            steps = audio_service.resolve_steps(preset=settings.get("preset") or "Raw")
+            y = audio_service.process_array(y, sr, steps) if steps else y
+            path = au.save(unique_path(subdir("audio", "renders"), script["title"], "wav"), y, sr, ai_generated=True)
 
-        with transaction() as session:
-            audio = audio_service.register(
-                session, path, AudioSource.RENDERED, name=f"{script['title']} (final)", ai_generated=True,
-                params={"scripts_id": scripts_id, "takes": [c[0] for c in clips], "preset": settings.get("preset")},
-                projects_id=script["projects_id"], y=y, sr=sr,
-            )
-            old_final = self._get(session, scripts_id).final_audios_id
-            self._get(session, scripts_id).final_audios_id = audio.audios_id
-            result = audio_service.to_dict(audio)
-        if old_final:
             with transaction() as session:
-                old = session.get(Audio, old_final)
-                if old is not None:
-                    path_to_remove = old.path
-                    session.delete(old)
-                else:
-                    path_to_remove = None
-            remove_file(path_to_remove)
-        if progress:
-            progress(1.0)
-        logger.info(f"Rendered script {scripts_id}: {result['duration']:.1f}s")
-        return result
+                audio = audio_service.register(
+                    session, path, AudioSource.RENDERED, name=f"{script['title']} (final)", ai_generated=True,
+                    params={"scripts_id": scripts_id, "takes": [c[0] for c in clips], "preset": settings.get("preset")},
+                    projects_id=script["projects_id"], y=y, sr=sr,
+                )
+                old_final = self._get(session, scripts_id).final_audios_id
+                self._get(session, scripts_id).final_audios_id = audio.audios_id
+                result = audio_service.to_dict(audio)
+            if old_final:
+                with transaction() as session:
+                    old = session.get(Audio, old_final)
+                    if old is not None:
+                        path_to_remove = old.path
+                        session.delete(old)
+                    else:
+                        path_to_remove = None
+                remove_file(path_to_remove)
+            if progress:
+                progress(1.0)
+            logger.info(f"Rendered script {scripts_id}: {result['duration']:.1f}s")
+            return result
+        except Exception as exc:
+            raise service_error(exc, "script_service.render")
 
-    def generate(self, scripts_id: int, regenerate: bool = False,
+    def generate(self, scripts_id: int, body: GenerateScriptRequest | None = None,
                  progress: Callable[[float], None] | None = None) -> dict:
-        """Generate every missing section and render the final audio."""
-        sub = (lambda lo, hi: (lambda v: progress(lo + (hi - lo) * v))) if progress else (lambda lo, hi: None)
-        self.generate_all(scripts_id, regenerate, progress=sub(0.0, 0.85))
-        return {"script": self.get(scripts_id), "audio": self.render(scripts_id, progress=sub(0.85, 1.0))}
+        """Generate every missing section (all of them with `body.regenerate`) and render the final audio."""
+        try:
+            regenerate = bool(body and body.regenerate)
+            sub = (lambda lo, hi: (lambda v: progress(lo + (hi - lo) * v))) if progress else (lambda lo, hi: None)
+            self.generate_all(scripts_id, regenerate, progress=sub(0.0, 0.85))
+            return {"script": self.get(scripts_id), "audio": self.render(scripts_id, progress=sub(0.85, 1.0))}
+        except Exception as exc:
+            raise service_error(exc, "script_service.generate")
 
     def timeline(self, scripts_id: int, estimate_seconds_per_char: float = 0.065) -> list[dict]:
         """Clips laid out in render order; missing sections get an estimated length."""
-        script = self.get(scripts_id)
-        clips, t = [], 0.0
-        speakers = detect_speakers(script["sections"])
-        for section in script["sections"]:
-            audios_id = section["selected_audios_id"]
-            duration = audio_service.get(audios_id)["duration"] if audios_id else \
-                max(0.5, len(section["text"]) * estimate_seconds_per_char)
-            label = f"{section['speaker'] + ': ' if section['speaker'] else ''}{section['text'][:40]}"
-            clips.append({
-                "start": t, "end": t + duration, "label": label, "key": section["script_sections_id"],
-                "audios_id": audios_id, "missing": audios_id is None,
-                "group": speakers.index(section["speaker"]) + 1 if section["speaker"] in speakers else 0,
-            })
-            t += duration + (section["pause_after_ms"] or 0) / 1000
-        return clips
+        try:
+            script = self.get(scripts_id)
+            clips, t = [], 0.0
+            speakers = detect_speakers(script["sections"])
+            for section in script["sections"]:
+                audios_id = section["selected_audios_id"]
+                duration = audio_service.get(audios_id)["duration"] if audios_id else \
+                    max(0.5, len(section["text"]) * estimate_seconds_per_char)
+                label = f"{section['speaker'] + ': ' if section['speaker'] else ''}{section['text'][:40]}"
+                clips.append({
+                    "start": t, "end": t + duration, "label": label, "key": section["script_sections_id"],
+                    "audios_id": audios_id, "missing": audios_id is None,
+                    "group": speakers.index(section["speaker"]) + 1 if section["speaker"] in speakers else 0,
+                })
+                t += duration + (section["pause_after_ms"] or 0) / 1000
+            return clips
+        except Exception as exc:
+            raise service_error(exc, "script_service.timeline")
 
     # ------------------------------------------------------------ background wrappers
 
-    def generate_async(self, scripts_id: int, regenerate: bool = False) -> dict:
-        script = self.get(scripts_id)
-        return job_service.submit(JobType.SCRIPT_RENDER,
-                                  lambda ctx: self.generate(scripts_id, regenerate, progress=ctx.progress),
-                                  title=f"Render script: {script['title']}", params={"scripts_id": scripts_id})
+    def generate_async(self, scripts_id: int, body: GenerateScriptRequest | None = None) -> dict:
+        try:
+            script = self.get(scripts_id)
+            return job_service.submit(JobType.SCRIPT_RENDER,
+                                      lambda ctx: self.generate(scripts_id, body, progress=ctx.progress),
+                                      title=f"Render script: {script['title']}", params={"scripts_id": scripts_id})
+        except Exception as exc:
+            raise service_error(exc, "script_service.generate_async")
 
     def generate_section_async(self, script_sections_id: int, seed: int | None = None) -> dict:
-        return job_service.submit(
-            JobType.SECTION_GENERATE,
-            lambda ctx: {"section": self.generate_section(script_sections_id, seed, progress=ctx.progress)},
-            title=f"Generate section {script_sections_id}", params={"script_sections_id": script_sections_id},
-        )
+        try:
+            return job_service.submit(
+                JobType.SECTION_GENERATE,
+                lambda ctx: {"section": self.generate_section(script_sections_id, seed, progress=ctx.progress)},
+                title=f"Generate section {script_sections_id}", params={"script_sections_id": script_sections_id},
+            )
+        except Exception as exc:
+            raise service_error(exc, "script_service.generate_section_async")
 
     def generate_all_async(self, scripts_id: int, regenerate: bool = False) -> dict:
-        return job_service.submit(
-            JobType.SCRIPT_RENDER,
-            lambda ctx: {"script": self.generate_all(scripts_id, regenerate, progress=ctx.progress)},
-            title=f"Generate script {scripts_id}", params={"scripts_id": scripts_id},
-        )
+        try:
+            return job_service.submit(
+                JobType.SCRIPT_RENDER,
+                lambda ctx: {"script": self.generate_all(scripts_id, regenerate, progress=ctx.progress)},
+                title=f"Generate script {scripts_id}", params={"scripts_id": scripts_id},
+            )
+        except Exception as exc:
+            raise service_error(exc, "script_service.generate_all_async")
 
     def render_async(self, scripts_id: int) -> dict:
-        return job_service.submit(JobType.PROJECT_RENDER,
-                                  lambda ctx: {"audio": self.render(scripts_id, progress=ctx.progress)},
-                                  title=f"Render script {scripts_id}", params={"scripts_id": scripts_id})
+        try:
+            return job_service.submit(JobType.PROJECT_RENDER,
+                                      lambda ctx: {"audio": self.render(scripts_id, progress=ctx.progress)},
+                                      title=f"Render script {scripts_id}", params={"scripts_id": scripts_id})
+        except Exception as exc:
+            raise service_error(exc, "script_service.render_async")
 
 
 script_service = ScriptService()

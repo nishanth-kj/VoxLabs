@@ -131,7 +131,7 @@ def extract_voice_profile(path: str | Path) -> dict:
     y, sr = audio_utils.load(path, sr=22050)
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
     return {
-        "mfcc_mean": np.mean(mfcc, axis=1).round(4).tolist(),
+        "mfcc_mean": mfcc.mean(axis=1).round(4).tolist(),
         "mfcc_std": np.std(mfcc, axis=1).round(4).tolist(),
         "pitch_hz": round(audio_utils.estimate_pitch_hz(y, sr), 2),
     }

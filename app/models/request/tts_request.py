@@ -1,8 +1,10 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class TTSRequest(BaseModel):
-    text: str = Field(..., min_length=1)
+    """Speech generation settings. `text` is checked by the service (required, max length)."""
+
+    text: str
     voices_id: int | None = None
     model_key: str | None = None
     speed: float = 1.0

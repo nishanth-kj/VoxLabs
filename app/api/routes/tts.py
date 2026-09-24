@@ -9,12 +9,11 @@ router = APIRouter(prefix="/api/tts", tags=["TTS"])
 
 @router.post("")
 def generate(body: TTSRequest) -> ApiResponse:
-    params = body.model_dump(exclude={"text", "background"})
-    if body.background:
-        return ApiResponse.success({"job": tts_service.generate_async(body.text, **params)})
-    return ApiResponse.success(tts_service.generate(body.text, **params))
+    data = {"job": tts_service.generate_async(body)} if body.background else tts_service.generate(body)
+    return ApiResponse(data).success()
 
 
 @router.post("/regenerate")
 def regenerate(body: RegenerateRequest) -> ApiResponse:
-    return ApiResponse.success(tts_service.regenerate(body.audios_id, seed=body.seed))
+    data = tts_service.regenerate(body)
+    return ApiResponse(data).success()

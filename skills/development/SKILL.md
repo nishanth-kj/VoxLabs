@@ -28,7 +28,7 @@ uv run pytest
 2. **Data.** If you need a new column or table, edit the model file and declare `<table>_id`, `status` (`Integer`, `default=Status.ACTIVE.code`), `created_at` and `updated_at` explicitly. If a table needs its own numbered state, add a `<name>_status` column and a new BaseEnum const.
 3. **Slow?** Add a `*_async` wrapper using `job_service.submit(JobType.X, fn, title=…)`. `fn(ctx)` should call `ctx.progress(v)`.
 4. **UI.** In the page, call `self.run(fn, on_done)` for quick calls and `self.follow(job, on_done)` for jobs. Never call services that do I/O directly in a slot.
-5. **API.** Add a request class in `app/models/request/` (one class per file) and a thin route that calls the service and returns `ApiResponse.success(data)`.
+5. **API.** Add a request class in `app/models/request/` (one class per file) and a thin route that calls the service and returns `ApiResponse(data=...).success()`.
    - Responses are always HTTP 200, and errors propagate to the envelope handler.
    - A CRUD resource gets a single `POST /api/<resource>` backed by the service's `save()`: no id → create, id → update, id + Deleted status → delete.
 6. **Tests.** Add service tests, and route tests where useful. Run `uv run pytest`.

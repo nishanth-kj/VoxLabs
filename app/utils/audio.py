@@ -130,7 +130,7 @@ def peak_db(y: np.ndarray) -> float:
 
 
 def rms_db(y: np.ndarray) -> float:
-    rms = float(np.sqrt(np.mean(np.square(y)))) if y.size else 0.0
+    rms = float(np.sqrt(np.square(y).mean())) if y.size else 0.0
     return 20 * np.log10(rms + EPS)
 
 
@@ -141,16 +141,16 @@ def frame_rms_db(y: np.ndarray, sr: int, frame_ms: float = 20.0) -> np.ndarray:
     if n == 0:
         return np.array([rms_db(mono)])
     frames = mono[: n * frame].reshape(n, frame)
-    return 20 * np.log10(np.sqrt(np.mean(frames**2, axis=1)) + EPS)
+    return 20 * np.log10(np.sqrt((frames**2).mean(axis=1)) + EPS)
 
 
 def silence_ratio(y: np.ndarray, sr: int, threshold_db: float) -> float:
     levels = frame_rms_db(y, sr)
-    return float(np.mean(levels < threshold_db)) if levels.size else 1.0
+    return float((levels < threshold_db).mean()) if levels.size else 1.0
 
 
 def clipping_ratio(y: np.ndarray, level: float) -> float:
-    return float(np.mean(np.abs(y) >= level)) if y.size else 0.0
+    return float((np.abs(y) >= level).mean()) if y.size else 0.0
 
 
 def waveform_peaks(y: np.ndarray, buckets: int) -> np.ndarray:
@@ -216,7 +216,7 @@ def biquad(kind: str, fc: float, sr: int, q: float = 0.7071, gain_db: float = 0.
 
 def apply_biquad(y: np.ndarray, coeffs: tuple[np.ndarray, np.ndarray]) -> np.ndarray:
     b, a = coeffs
-    return signal.lfilter(b, a, y, axis=0).astype(np.float32)
+    return np.asarray(signal.lfilter(b, a, y, axis=0), dtype=np.float32)
 
 
 def loudness_lufs(y: np.ndarray, sr: int) -> float:
@@ -224,19 +224,19 @@ def loudness_lufs(y: np.ndarray, sr: int) -> float:
     mono = to_mono(y).astype(np.float64)
     if mono.size < int(0.4 * sr):
         return rms_db(mono) - 0.691
-    weighted = signal.lfilter(*biquad("highshelf", 1681.97, sr, q=0.7072, gain_db=4.0), mono)
-    weighted = signal.lfilter(*biquad("highpass", 38.14, sr, q=0.5003), weighted)
+    weighted = np.asarray(signal.lfilter(*biquad("highshelf", 1681.97, sr, q=0.7072, gain_db=4.0), mono))
+    weighted = np.asarray(signal.lfilter(*biquad("highpass", 38.14, sr, q=0.5003), weighted))
     block, step = int(0.4 * sr), int(0.1 * sr)
     energies = np.array(
-        [np.mean(weighted[i : i + block] ** 2) for i in range(0, len(weighted) - block + 1, step)]
+        [(weighted[i : i + block] ** 2).mean() for i in range(0, len(weighted) - block + 1, step)]
     )
     lk = -0.691 + 10 * np.log10(energies + EPS)
     gated = energies[lk > -70]
     if gated.size == 0:
         return -70.0
-    relative = -0.691 + 10 * np.log10(np.mean(gated) + EPS) - 10
+    relative = -0.691 + 10 * np.log10(gated.mean() + EPS) - 10
     gated = energies[(lk > -70) & (lk > relative)]
-    return float(-0.691 + 10 * np.log10(np.mean(gated) + EPS)) if gated.size else -70.0
+    return float(-0.691 + 10 * np.log10(gated.mean() + EPS)) if gated.size else -70.0
 
 
 # ---------------------------------------------------------------- basic transforms

@@ -36,7 +36,7 @@ uv run pytest tests/test_script_service.py -k render
 1. Put the logic in the relevant service, or a new one if it is a genuinely new area. Validate input with `app/utils/validation.py` and raise `AppError` subclasses.
 2. If it touches several rows, wrap them in one `transaction()`.
 3. If it is slow, add a `*_async` wrapper that uses `job_service.submit()`.
-4. Call it from the UI with `BasePage.run()` / `follow()`. For the API, add a request class in `app/models/request/` and a thin route in `app/api/routes/` that returns `ApiResponse.success(...)`. Responses are always HTTP 200.
+4. Call it from the UI with `BasePage.run()` / `follow()`. For the API, add a request class in `app/models/request/` and a thin route in `app/api/routes/` that returns `ApiResponse(data=...).success()`. Responses are always HTTP 200.
 5. Add tests next to the existing ones.
 
 ## Adding a model engine

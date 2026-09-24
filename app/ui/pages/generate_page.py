@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.constants.audio import EMOTIONS, ENHANCE_PRESETS, EXPORT_FORMATS, PAUSE_SENTENCE_MS, PROCESS_STEPS, STYLES
+from app.models.request import AudioExportRequest, TTSRequest
 from app.services.audio_service import audio_service
 from app.services.system_service import system_service
 from app.services.tts_service import tts_service
@@ -215,9 +216,9 @@ class GeneratePage(BasePage):
         params = self.params()
         try:
             if self.sentence_mode.isChecked():
-                job = tts_service.generate_sentences_async(text, gap_ms=params.pop("pause_ms"), **params)
+                job = tts_service.generate_sentences_async(TTSRequest(text=text, **params))
             else:
-                job = tts_service.generate_async(text, **params)
+                job = tts_service.generate_async(TTSRequest(text=text, **params))
         except Exception as exc:
             self.error(exc)
             return
@@ -276,5 +277,5 @@ class GeneratePage(BasePage):
         start_dir = system_service.get_setting("output_dir") or ""
         path, _ = QFileDialog.getSaveFileName(self, "Export audio", f"{start_dir}/speech.{fmt}", f"*.{fmt}")
         if path:
-            self.run(lambda: audio_service.export(self.combined["audios_id"], path, fmt),
+            self.run(lambda: audio_service.export(AudioExportRequest(audios_id=self.combined["audios_id"], format=fmt), path),
                      lambda p: self.save_label.setText(f"Saved {p}"))

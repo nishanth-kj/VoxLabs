@@ -23,13 +23,14 @@ from app.constants.audio import (
 from app.constants.audio_source import AudioSource
 from app.constants.jobs import JobType
 from app.constants.status import Status
-from app.exceptions import AudioError, NotFoundError, ValidationError
+from app.exceptions import AudioError, NotFoundError, ValidationError, service_error
 from app.models import Audio
+from app.models.request import AudioExportRequest, AudioImportRequest, AudioProcessRequest
 from app.utils import audio as au
 from app.utils.database import read_session, serialize, transaction
-from app.utils.files import copy_file, extension, remove_file, subdir, unique_path
+from app.utils.files import copy_file, extension, remove_file, save_upload, subdir, unique_path
 from app.utils.logger import logger
-from app.utils.validation import require_audio_file, require_choice
+from app.utils.validation import Validation
 
 
 class AudioService:
@@ -86,8 +87,11 @@ class AudioService:
         return data
 
     def get(self, audios_id: int) -> dict:
-        with read_session() as session:
-            return self.to_dict(self._get(session, audios_id))
+        try:
+            with read_session() as session:
+                return self.to_dict(self._get(session, audios_id))
+        except Exception as exc:
+            raise service_error(exc, "audio_service.get")
 
     def _get(self, session: Session, audios_id: int) -> Audio:
         audio = session.get(Audio, audios_id)
@@ -96,154 +100,201 @@ class AudioService:
         return audio
 
     def list_audios(self, projects_id: int | None = None, limit: int = 100) -> list[dict]:
-        with read_session() as session:
-            query = select(Audio).where(Audio.status != Status.DELETED.code)
-            if projects_id is not None:
-                query = query.where(Audio.projects_id == projects_id)
-            rows = session.scalars(query.order_by(Audio.created_at.desc()).limit(limit))
-            return [self.to_dict(a) for a in rows]
+        try:
+            with read_session() as session:
+                query = select(Audio).where(Audio.status != Status.DELETED.code)
+                if projects_id is not None:
+                    query = query.where(Audio.projects_id == projects_id)
+                rows = session.scalars(query.order_by(Audio.created_at.desc()).limit(limit))
+                return [self.to_dict(a) for a in rows]
+        except Exception as exc:
+            raise service_error(exc, "audio_service.list_audios")
 
     def rename(self, audios_id: int, name: str) -> dict:
-        with transaction() as session:
-            audio = self._get(session, audios_id)
-            audio.name = name.strip() or audio.name
-            return self.to_dict(audio)
+        try:
+            with transaction() as session:
+                audio = self._get(session, audios_id)
+                audio.name = name.strip() or audio.name
+                return self.to_dict(audio)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.rename")
 
     def delete(self, audios_id: int) -> None:
-        with transaction() as session:
-            audio = self._get(session, audios_id)
-            paths = {audio.path, audio.original_path}
-            session.delete(audio)
-        for path in paths:
-            remove_file(path)
-        logger.info(f"Deleted audio {audios_id}")
+        try:
+            with transaction() as session:
+                audio = self._get(session, audios_id)
+                paths = {audio.path, audio.original_path}
+                session.delete(audio)
+            for path in paths:
+                remove_file(path)
+            logger.info(f"Deleted audio {audios_id}")
+        except Exception as exc:
+            raise service_error(exc, "audio_service.delete")
 
     # ------------------------------------------------------------ analysis
 
     def analyze(self, path: str | Path) -> dict:
         """Metadata plus quality checks used by the clone and import flows."""
-        path = require_audio_file(path)
-        y, sr = au.load(path)
-        meta = au.info(path)
-        peak = au.peak_db(y)
-        rms = au.rms_db(y)
-        silence = au.silence_ratio(y, sr, SILENCE_THRESHOLD_DB)
-        clipping = au.clipping_ratio(y, CLIPPING_LEVEL)
-        levels = au.frame_rms_db(y, sr)
-        noise_floor = float(np.percentile(levels, 10)) if levels.size else -120.0
-        snr = float(np.percentile(levels, 90)) - noise_floor if levels.size else 0.0
+        try:
+            path = Validation.require_audio_file(path)
+            y, sr = au.load(path)
+            meta = au.info(path)
+            peak = au.peak_db(y)
+            rms = au.rms_db(y)
+            silence = au.silence_ratio(y, sr, SILENCE_THRESHOLD_DB)
+            clipping = au.clipping_ratio(y, CLIPPING_LEVEL)
+            levels = au.frame_rms_db(y, sr)
+            noise_floor = float(np.percentile(levels, 10)) if levels.size else -120.0
+            snr = float(np.percentile(levels, 90)) - noise_floor if levels.size else 0.0
 
-        issues = []
-        if clipping > 0.001:
-            issues.append("Clipping detected — record at a lower level")
-        if rms < -35:
-            issues.append("Very quiet recording")
-        if silence > 0.5:
-            issues.append("More than half of the sample is silence")
-        if snr < 15:
-            issues.append("High background noise")
-        if meta["sample_rate"] < 16000:
-            issues.append("Low sample rate (under 16 kHz)")
-        score = max(0, 100 - 25 * len(issues))
-        return {
-            **meta,
-            "duration": round(meta["duration"], 3),
-            "peak_db": round(peak, 2),
-            "rms_db": round(rms, 2),
-            "loudness_lufs": round(au.loudness_lufs(y, sr), 2),
-            "silence_ratio": round(silence, 3),
-            "clipping_ratio": round(clipping, 5),
-            "noise_floor_db": round(noise_floor, 2),
-            "snr_db": round(snr, 2),
-            "quality_score": score,
-            "issues": issues,
-        }
+            issues = []
+            if clipping > 0.001:
+                issues.append("Clipping detected — record at a lower level")
+            if rms < -35:
+                issues.append("Very quiet recording")
+            if silence > 0.5:
+                issues.append("More than half of the sample is silence")
+            if snr < 15:
+                issues.append("High background noise")
+            if meta["sample_rate"] < 16000:
+                issues.append("Low sample rate (under 16 kHz)")
+            score = max(0, 100 - 25 * len(issues))
+            return {
+                **meta,
+                "duration": round(meta["duration"], 3),
+                "peak_db": round(peak, 2),
+                "rms_db": round(rms, 2),
+                "loudness_lufs": round(au.loudness_lufs(y, sr), 2),
+                "silence_ratio": round(silence, 3),
+                "clipping_ratio": round(clipping, 5),
+                "noise_floor_db": round(noise_floor, 2),
+                "snr_db": round(snr, 2),
+                "quality_score": score,
+                "issues": issues,
+            }
+        except Exception as exc:
+            raise service_error(exc, "audio_service.analyze")
 
     def waveform(self, audios_id: int, buckets: int = 2000) -> dict:
-        audio = self.get(audios_id)
-        y, sr = au.load(audio["path"])
-        return {"peaks": au.waveform_peaks(y, buckets).tolist(), "duration": au.duration(y, sr), "sample_rate": sr}
+        try:
+            audio = self.get(audios_id)
+            y, sr = au.load(audio["path"])
+            return {"peaks": au.waveform_peaks(y, buckets).tolist(), "duration": au.duration(y, sr), "sample_rate": sr}
+        except Exception as exc:
+            raise service_error(exc, "audio_service.waveform")
 
     # ------------------------------------------------------------ import / export
 
     def import_file(self, path: str | Path, projects_id: int | None = None, name: str | None = None) -> dict:
         """Copy an external file into the library (original kept) and add a WAV working copy."""
-        src = require_audio_file(path)
-        y, sr = au.load(src)
-        original = copy_file(src, unique_path(subdir("audio", "originals"), src.stem, extension(src)))
-        working = au.save(unique_path(subdir("audio"), src.stem, "wav"), y, sr)
-        with transaction() as session:
-            audio = self.register(
-                session, working, AudioSource.IMPORTED, name=name or src.stem, original_path=original,
-                projects_id=projects_id, y=y, sr=sr,
-            )
-            logger.info(f"Imported audio {audio.audios_id} ({audio.duration:.1f}s)")
-            return self.to_dict(audio)
+        try:
+            src = Validation.require_audio_file(path)
+            y, sr = au.load(src)
+            original = copy_file(src, unique_path(subdir("audio", "originals"), src.stem, extension(src)))
+            working = au.save(unique_path(subdir("audio"), src.stem, "wav"), y, sr)
+            with transaction() as session:
+                audio = self.register(
+                    session, working, AudioSource.IMPORTED, name=name or src.stem, original_path=original,
+                    projects_id=projects_id, y=y, sr=sr,
+                )
+                logger.info(f"Imported audio {audio.audios_id} ({audio.duration:.1f}s)")
+                return self.to_dict(audio)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.import_file")
 
-    def export(self, audios_id: int, dest: str | Path, fmt: str | None = None, sample_rate: int | None = None) -> str:
-        audio = self.get(audios_id)
-        dest = Path(dest)
-        fmt = require_choice((fmt or extension(dest) or "wav").lower(), EXPORT_FORMATS, "format")
-        if extension(dest) != fmt:
-            dest = dest.with_suffix(f".{fmt}")
-        y, sr = au.load(audio["path"], sr=sample_rate)
-        au.save(dest, y, sr, fmt, ai_generated=audio["ai_generated"])
-        logger.info(f"Exported audio {audios_id} as {fmt}")
-        return str(dest)
+    def import_upload(self, body: AudioImportRequest) -> dict:
+        """import_file for an uploaded file (REST API); the temporary upload is always removed."""
+        path = None
+        try:
+            path = save_upload(body.file)
+            return self.import_file(path, body.projects_id, Path(body.file.filename or "audio").stem)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.import_upload")
+        finally:
+            remove_file(path)
+
+    def export(self, body: AudioExportRequest, dest: str | Path | None = None) -> str:
+        """Write the audio in `body.format` to `dest` (default: a new file under data/exports)."""
+        try:
+            audio = self.get(body.audios_id)
+            fmt = Validation.require_choice((body.format or "wav").lower(), EXPORT_FORMATS, "format")
+            dest = Path(dest) if dest else unique_path(subdir("exports"), audio["name"], fmt)
+            if extension(dest) != fmt:
+                dest = dest.with_suffix(f".{fmt}")
+            y, sr = au.load(audio["path"], sr=body.sample_rate)
+            au.save(dest, y, sr, fmt, ai_generated=audio["ai_generated"])
+            logger.info(f"Exported audio {body.audios_id} as {fmt}")
+            return str(dest)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.export")
 
     # ------------------------------------------------------------ enhancement pipeline
 
     def resolve_steps(self, steps: dict | None = None, preset: str | None = None) -> dict:
         """Merge a preset with explicit step settings; `{"step": None}` disables a step."""
-        resolved: dict = {}
-        if preset:
-            if preset not in ENHANCE_PRESETS:
-                raise ValidationError(f"Unknown preset '{preset}'", field="preset")
-            resolved.update({k: dict(v) for k, v in ENHANCE_PRESETS[preset].items()})
-        for step, options in (steps or {}).items():
-            if step not in PROCESS_STEPS:
-                raise ValidationError(f"Unknown processing step '{step}'", field="steps")
-            if options is None or options is False:
-                resolved.pop(step, None)
-            else:
-                resolved[step] = dict(options) if isinstance(options, dict) else {}
-        return resolved
+        try:
+            resolved: dict = {}
+            if preset:
+                if preset not in ENHANCE_PRESETS:
+                    raise ValidationError(f"Unknown preset '{preset}'", field="preset")
+                resolved.update({k: dict(v) for k, v in ENHANCE_PRESETS[preset].items()})
+            for step, options in (steps or {}).items():
+                if step not in PROCESS_STEPS:
+                    raise ValidationError(f"Unknown processing step '{step}'", field="steps")
+                if options is None or options is False:
+                    resolved.pop(step, None)
+                else:
+                    resolved[step] = dict(options) if isinstance(options, dict) else {}
+            return resolved
+        except Exception as exc:
+            raise service_error(exc, "audio_service.resolve_steps")
 
     def process_array(self, y: np.ndarray, sr: int, steps: dict) -> np.ndarray:
         """Run enabled steps in canonical order. Pure function of its inputs."""
-        for step in PROCESS_STEPS:
-            if step in steps:
-                y = getattr(self, f"_{step}")(y, sr, **(steps[step] or {}))
-        return np.clip(y, -1.0, 1.0).astype(np.float32)
+        try:
+            for step in PROCESS_STEPS:
+                if step in steps:
+                    y = getattr(self, f"_{step}")(y, sr, **(steps[step] or {}))
+            return np.clip(y, -1.0, 1.0).astype(np.float32)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.process_array")
 
-    def process(self, audios_id: int, steps: dict | None = None, preset: str | None = None) -> dict:
-        """Enhance an audio into a new processed file; the source stays untouched."""
-        resolved = self.resolve_steps(steps, preset)
-        source = self.get(audios_id)
-        y, sr = au.load(source["path"])
-        out = self.process_array(y, sr, resolved)
-        path = au.save(unique_path(subdir("audio"), f"{source['name']}_processed", "wav"), out, sr,
-                       ai_generated=source["ai_generated"])
-        with transaction() as session:
-            audio = self.register(
-                session, path, AudioSource.PROCESSED, name=f"{source['name']} (processed)",
-                ai_generated=source["ai_generated"], original_path=source["original_path"] or source["path"],
-                params={"steps": resolved, "preset": preset}, projects_id=source["projects_id"],
-                parent_audios_id=audios_id, y=out, sr=sr,
-            )
-            logger.info(f"Processed audio {audios_id} -> {audio.audios_id} steps={list(resolved)}")
-            return self.to_dict(audio)
+    def process(self, body: AudioProcessRequest) -> dict:
+        """Enhance with `steps`/`preset`, or render the edit list in `ops`, into a new audio.
 
-    def process_async(self, audios_id: int, steps: dict | None = None, preset: str | None = None,
-                      ops: list[dict] | None = None) -> dict:
+        The source stays untouched.
+        """
+        try:
+            if body.ops is not None:
+                return self.render_edits(body.audios_id, body.ops)
+            audios_id, preset = body.audios_id, body.preset
+            resolved = self.resolve_steps(body.steps, preset)
+            source = self.get(audios_id)
+            y, sr = au.load(source["path"])
+            out = self.process_array(y, sr, resolved)
+            path = au.save(unique_path(subdir("audio"), f"{source['name']}_processed", "wav"), out, sr,
+                           ai_generated=source["ai_generated"])
+            with transaction() as session:
+                audio = self.register(
+                    session, path, AudioSource.PROCESSED, name=f"{source['name']} (processed)",
+                    ai_generated=source["ai_generated"], original_path=source["original_path"] or source["path"],
+                    params={"steps": resolved, "preset": preset}, projects_id=source["projects_id"],
+                    parent_audios_id=audios_id, y=out, sr=sr,
+                )
+                logger.info(f"Processed audio {audios_id} -> {audio.audios_id} steps={list(resolved)}")
+                return self.to_dict(audio)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.process")
+
+    def process_async(self, body: AudioProcessRequest) -> dict:
         from app.services.job_service import job_service
 
-        def run(_ctx):
-            audio = self.render_edits(audios_id, ops) if ops is not None else self.process(audios_id, steps, preset)
-            return {"audio": audio}
-
-        return job_service.submit(JobType.AUDIO_PROCESS, run, title=f"Process audio {audios_id}",
-                                  params={"audios_id": audios_id, "preset": preset})
+        try:
+            return job_service.submit(JobType.AUDIO_PROCESS, lambda _ctx: {"audio": self.process(body)},
+                                      title=f"Process audio {body.audios_id}",
+                                      params={"audios_id": body.audios_id, "preset": body.preset})
+        except Exception as exc:
+            raise service_error(exc, "audio_service.process_async")
 
     # Individual steps (all mono float32 in, float32 out).
 
@@ -281,7 +332,7 @@ class AudioService:
 
     def _envelope_db(self, y, sr, time_ms: float):
         coeff = np.exp(-1.0 / (sr * time_ms / 1000))
-        power = signal.lfilter([1 - coeff], [1, -coeff], y.astype(np.float64) ** 2)
+        power = np.asarray(signal.lfilter([1 - coeff], [1, -coeff], y.astype(np.float64) ** 2))
         return 10 * np.log10(np.maximum(power, 1e-12))
 
     def _compress(self, y, sr, threshold_db: float = -20.0, ratio: float = 3.0, makeup_db: float = 0.0):
@@ -316,124 +367,145 @@ class AudioService:
 
     def apply_edit_ops(self, y: np.ndarray, sr: int, ops: list[dict]) -> np.ndarray:
         """Replay an edit list on source audio. Times are seconds; clips are cached WAV paths."""
-        for op in ops:
-            kind = op.get("op")
-            a = int(round(float(op.get("start", 0)) * sr))
-            b = int(round(float(op.get("end", 0)) * sr))
-            a, b = max(0, min(a, len(y))), max(0, min(b, len(y)))
-            if kind in ("delete", "cut"):
-                y = np.concatenate([y[:a], y[b:]])
-            elif kind in ("crop", "trim"):
-                y = y[a:b]
-            elif kind in ("insert", "paste"):
-                clip, _ = au.load(op["clip"], sr=sr)
-                at = max(0, min(int(round(float(op["at"]) * sr)), len(y)))
-                y = np.concatenate([y[:at], clip, y[at:]])
-            elif kind == "append":
-                clip, _ = au.load(op["clip"], sr=sr)
-                gap = au.silence(float(op.get("gap", 0.0)), sr)
-                y = np.concatenate([y, gap, clip])
-            elif kind == "silence":
-                at = max(0, min(int(round(float(op["at"]) * sr)), len(y)))
-                y = np.concatenate([y[:at], au.silence(float(op["duration"]), sr), y[at:]])
-            elif kind == "duplicate":
-                y = np.concatenate([y[:b], y[a:b], y[b:]])
-            elif kind == "move":
-                segment = y[a:b]
-                rest = np.concatenate([y[:a], y[b:]])
-                to = max(0, min(int(round(float(op["to"]) * sr)), len(rest)))
-                y = np.concatenate([rest[:to], segment, rest[to:]])
-            elif kind in ("gain", "volume"):
-                y = np.concatenate([y[:a], au.gain(y[a:b], float(op["db"])), y[b:]])
-            elif kind == "fade_in":
-                y = np.concatenate([y[:a], au.fade(y[a:b], sr, fade_in_s=(b - a) / sr), y[b:]])
-            elif kind == "fade_out":
-                y = np.concatenate([y[:a], au.fade(y[a:b], sr, fade_out_s=(b - a) / sr), y[b:]])
-            elif kind == "normalize":
-                y = np.concatenate([y[:a], self._normalize(y[a:b], sr, float(op.get("peak_db", -1.0))), y[b:]])
-            elif kind == "enhance":
-                steps = self.resolve_steps(op.get("steps"), op.get("preset"))
-                if b <= a:
-                    y = self.process_array(y, sr, steps)
+        try:
+            for op in ops:
+                kind = op.get("op")
+                a = int(round(float(op.get("start", 0)) * sr))
+                b = int(round(float(op.get("end", 0)) * sr))
+                a, b = max(0, min(a, len(y))), max(0, min(b, len(y)))
+                if kind in ("delete", "cut"):
+                    y = np.concatenate([y[:a], y[b:]])
+                elif kind in ("crop", "trim"):
+                    y = y[a:b]
+                elif kind in ("insert", "paste"):
+                    clip, _ = au.load(op["clip"], sr=sr)
+                    at = max(0, min(int(round(float(op["at"]) * sr)), len(y)))
+                    y = np.concatenate([y[:at], clip, y[at:]])
+                elif kind == "append":
+                    clip, _ = au.load(op["clip"], sr=sr)
+                    gap = au.silence(float(op.get("gap", 0.0)), sr)
+                    y = np.concatenate([y, gap, clip])
+                elif kind == "silence":
+                    at = max(0, min(int(round(float(op["at"]) * sr)), len(y)))
+                    y = np.concatenate([y[:at], au.silence(float(op["duration"]), sr), y[at:]])
+                elif kind == "duplicate":
+                    y = np.concatenate([y[:b], y[a:b], y[b:]])
+                elif kind == "move":
+                    segment = y[a:b]
+                    rest = np.concatenate([y[:a], y[b:]])
+                    to = max(0, min(int(round(float(op["to"]) * sr)), len(rest)))
+                    y = np.concatenate([rest[:to], segment, rest[to:]])
+                elif kind in ("gain", "volume"):
+                    y = np.concatenate([y[:a], au.gain(y[a:b], float(op["db"])), y[b:]])
+                elif kind == "fade_in":
+                    y = np.concatenate([y[:a], au.fade(y[a:b], sr, fade_in_s=(b - a) / sr), y[b:]])
+                elif kind == "fade_out":
+                    y = np.concatenate([y[:a], au.fade(y[a:b], sr, fade_out_s=(b - a) / sr), y[b:]])
+                elif kind == "normalize":
+                    y = np.concatenate([y[:a], self._normalize(y[a:b], sr, float(op.get("peak_db", -1.0))), y[b:]])
+                elif kind == "enhance":
+                    steps = self.resolve_steps(op.get("steps"), op.get("preset"))
+                    if b <= a:
+                        y = self.process_array(y, sr, steps)
+                    else:
+                        y = np.concatenate([y[:a], self.process_array(y[a:b], sr, steps), y[b:]])
                 else:
-                    y = np.concatenate([y[:a], self.process_array(y[a:b], sr, steps), y[b:]])
-            else:
-                raise ValidationError(f"Unknown edit operation '{kind}'", field="ops")
-        return y.astype(np.float32)
+                    raise ValidationError(f"Unknown edit operation '{kind}'", field="ops")
+            return y.astype(np.float32)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.apply_edit_ops")
 
     def save_clip(self, y: np.ndarray, sr: int) -> str:
         """Persist a clipboard selection so paste/insert ops can reference it."""
-        return str(au.save(unique_path(subdir("cache", "clips"), "clip", "wav"), y, sr))
+        try:
+            return str(au.save(unique_path(subdir("cache", "clips"), "clip", "wav"), y, sr))
+        except Exception as exc:
+            raise service_error(exc, "audio_service.save_clip")
 
     def render_edits(self, audios_id: int, ops: list[dict], name: str | None = None) -> dict:
-        source = self.get(audios_id)
-        y, sr = au.load(source["path"])
-        out = self.apply_edit_ops(y, sr, ops)
-        if out.size == 0:
-            raise AudioError("The edit removes all audio")
-        path = au.save(unique_path(subdir("audio"), f"{source['name']}_edit", "wav"), out, sr,
-                       ai_generated=source["ai_generated"])
-        with transaction() as session:
-            audio = self.register(
-                session, path, AudioSource.RENDERED, name=name or f"{source['name']} (edited)",
-                ai_generated=source["ai_generated"], original_path=source["original_path"] or source["path"],
-                params={"ops": ops}, projects_id=source["projects_id"], parent_audios_id=audios_id, y=out, sr=sr,
-            )
-            return self.to_dict(audio)
+        try:
+            source = self.get(audios_id)
+            y, sr = au.load(source["path"])
+            out = self.apply_edit_ops(y, sr, ops)
+            if out.size == 0:
+                raise AudioError("The edit removes all audio")
+            path = au.save(unique_path(subdir("audio"), f"{source['name']}_edit", "wav"), out, sr,
+                           ai_generated=source["ai_generated"])
+            with transaction() as session:
+                audio = self.register(
+                    session, path, AudioSource.RENDERED, name=name or f"{source['name']} (edited)",
+                    ai_generated=source["ai_generated"], original_path=source["original_path"] or source["path"],
+                    params={"ops": ops}, projects_id=source["projects_id"], parent_audios_id=audios_id, y=out, sr=sr,
+                )
+                return self.to_dict(audio)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.render_edits")
 
     def materialize(self, audios_id: int, ops: list[dict] | None) -> dict:
         """The audio as edited: a new rendered audio when there are edits, else the source itself."""
-        return self.render_edits(audios_id, ops) if ops else self.get(audios_id)
+        try:
+            return self.render_edits(audios_id, ops) if ops else self.get(audios_id)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.materialize")
 
     def join(self, audios_ids: list[int], gap_ms: int = 0, name: str = "Joined audio",
              projects_id: int | None = None) -> dict:
-        if len(audios_ids) < 2:
-            raise ValidationError("Select at least two audio files to join", field="audios_ids")
-        sources = [self.get(i) for i in audios_ids]
-        sr = max(s["sample_rate"] for s in sources)
-        parts = []
-        for index, source in enumerate(sources):
-            y, _ = au.load(source["path"], sr=sr)
-            if index:
-                parts.append(au.silence(gap_ms / 1000, sr))
-            parts.append(y)
-        out = au.concat(parts)
-        ai = any(s["ai_generated"] for s in sources)
-        path = au.save(unique_path(subdir("audio"), name, "wav"), out, sr, ai_generated=ai)
-        with transaction() as session:
-            audio = self.register(session, path, AudioSource.RENDERED, name=name, ai_generated=ai,
-                                  params={"joined": audios_ids, "gap_ms": gap_ms}, projects_id=projects_id,
-                                  y=out, sr=sr)
-            return self.to_dict(audio)
+        try:
+            if len(audios_ids) < 2:
+                raise ValidationError("Select at least two audio files to join", field="audios_ids")
+            sources = [self.get(i) for i in audios_ids]
+            sr = max(s["sample_rate"] for s in sources)
+            parts = []
+            for index, source in enumerate(sources):
+                y, _ = au.load(source["path"], sr=sr)
+                if index:
+                    parts.append(au.silence(gap_ms / 1000, sr))
+                parts.append(y)
+            out = au.concat(parts)
+            ai = any(s["ai_generated"] for s in sources)
+            path = au.save(unique_path(subdir("audio"), name, "wav"), out, sr, ai_generated=ai)
+            with transaction() as session:
+                audio = self.register(session, path, AudioSource.RENDERED, name=name, ai_generated=ai,
+                                      params={"joined": audios_ids, "gap_ms": gap_ms}, projects_id=projects_id,
+                                      y=out, sr=sr)
+                return self.to_dict(audio)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.join")
 
     def split(self, audios_id: int, at_seconds: float) -> list[dict]:
-        source = self.get(audios_id)
-        y, sr = au.load(source["path"])
-        at = int(at_seconds * sr)
-        if not 0 < at < len(y):
-            raise ValidationError("Split point must be inside the audio", field="at")
-        results = []
-        with transaction() as session:
-            for part, suffix in ((y[:at], "A"), (y[at:], "B")):
-                path = au.save(unique_path(subdir("audio"), f"{source['name']}_{suffix}", "wav"), part, sr,
-                               ai_generated=source["ai_generated"])
-                audio = self.register(session, path, AudioSource.RENDERED, name=f"{source['name']} ({suffix})",
-                                      ai_generated=source["ai_generated"], parent_audios_id=audios_id,
-                                      projects_id=source["projects_id"], y=part, sr=sr)
-                results.append(self.to_dict(audio))
-        return results
+        try:
+            source = self.get(audios_id)
+            y, sr = au.load(source["path"])
+            at = int(at_seconds * sr)
+            if not 0 < at < len(y):
+                raise ValidationError("Split point must be inside the audio", field="at")
+            results = []
+            with transaction() as session:
+                for part, suffix in ((y[:at], "A"), (y[at:], "B")):
+                    path = au.save(unique_path(subdir("audio"), f"{source['name']}_{suffix}", "wav"), part, sr,
+                                   ai_generated=source["ai_generated"])
+                    audio = self.register(session, path, AudioSource.RENDERED, name=f"{source['name']} ({suffix})",
+                                          ai_generated=source["ai_generated"], parent_audios_id=audios_id,
+                                          projects_id=source["projects_id"], y=part, sr=sr)
+                    results.append(self.to_dict(audio))
+            return results
+        except Exception as exc:
+            raise service_error(exc, "audio_service.split")
 
     def convert(self, audios_id: int, sample_rate: int) -> dict:
         """Resample into a new WAV (format conversion on the way out is `export`)."""
-        source = self.get(audios_id)
-        y, sr = au.load(source["path"], sr=sample_rate)
-        path = au.save(unique_path(subdir("audio"), f"{source['name']}_{sample_rate}", "wav"), y, sr,
-                       ai_generated=source["ai_generated"])
-        with transaction() as session:
-            audio = self.register(session, path, AudioSource.PROCESSED, name=f"{source['name']} ({sample_rate} Hz)",
-                                  ai_generated=source["ai_generated"], parent_audios_id=audios_id,
-                                  projects_id=source["projects_id"], y=y, sr=sr)
-            return self.to_dict(audio)
+        try:
+            source = self.get(audios_id)
+            y, sr = au.load(source["path"], sr=sample_rate)
+            path = au.save(unique_path(subdir("audio"), f"{source['name']}_{sample_rate}", "wav"), y, sr,
+                           ai_generated=source["ai_generated"])
+            with transaction() as session:
+                audio = self.register(session, path, AudioSource.PROCESSED, name=f"{source['name']} ({sample_rate} Hz)",
+                                      ai_generated=source["ai_generated"], parent_audios_id=audios_id,
+                                      projects_id=source["projects_id"], y=y, sr=sr)
+                return self.to_dict(audio)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.convert")
 
 
 audio_service = AudioService()

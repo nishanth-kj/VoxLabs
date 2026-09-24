@@ -2,6 +2,7 @@ import pytest
 
 from app.constants.audio import PAUSE_PARAGRAPH_MS, PAUSE_SECTION_MS
 from app.exceptions import ValidationError
+from app.models.request import SectionRequest
 from app.services.script_service import detect_speakers, outline, parse_script, script_service
 from app.services.voice_service import voice_service
 
@@ -62,7 +63,8 @@ def test_voice_mapping_and_overrides():
     script = script_service.map_speakers(script["scripts_id"], {"Student": a["voices_id"]})
     student = script["sections"][1]
     assert script_service.resolve_voice(student, script) == a["voices_id"]
-    section = script_service.update_section(student["script_sections_id"], voices_id=b["voices_id"])
+    section = script_service.update_section(
+        SectionRequest(script_sections_id=student["script_sections_id"], voices_id=b["voices_id"]))
     assert script_service.resolve_voice(section, script) == b["voices_id"]
 
 

@@ -14,15 +14,11 @@ from sqlalchemy import select
 
 from app.constants.jobs import JOB_ACTIVE_STATUSES, JOB_FINISHED_STATUSES, JOB_WORKERS
 from app.constants.status import Status
-from app.exceptions import AppError, JobError, NotFoundError
+from app.exceptions import AppError, JobCancelled, JobError, NotFoundError, service_error
 from app.models import Job
 from app.utils.database import read_session, serialize, transaction
 from app.utils.logger import logger
 from app.utils.time import utcnow
-
-
-class JobCancelled(Exception):
-    pass
 
 
 class JobContext:
@@ -104,22 +100,25 @@ class JobService:
 
     def submit(self, job_type: str, fn: JobFn, *, title: str = "", params: dict | None = None,
                users_id: int | None = None) -> dict:
-        with transaction() as session:
-            job = Job(job_type=job_type, title=title or job_type, params=params or {}, status=Status.PENDING.code,
-                      users_id=users_id)
-            session.add(job)
-            session.flush()
-            data = self.to_dict(job)
-        jobs_id = data["jobs_id"]
-        context = JobContext(jobs_id, self)
-        with self._lock:
-            if self._executor is None:
-                self._executor = ThreadPoolExecutor(max_workers=JOB_WORKERS, thread_name_prefix="voxlabs-job")
-            self._contexts[jobs_id] = context
-            self._futures[jobs_id] = self._executor.submit(self._run, context, fn)
-        logger.info(f"Job {jobs_id} queued ({job_type})")
-        self._notify(data)
-        return data
+        try:
+            with transaction() as session:
+                job = Job(job_type=job_type, title=title or job_type, params=params or {}, status=Status.PENDING.code,
+                          users_id=users_id)
+                session.add(job)
+                session.flush()
+                data = self.to_dict(job)
+            jobs_id = data["jobs_id"]
+            context = JobContext(jobs_id, self)
+            with self._lock:
+                if self._executor is None:
+                    self._executor = ThreadPoolExecutor(max_workers=JOB_WORKERS, thread_name_prefix="voxlabs-job")
+                self._contexts[jobs_id] = context
+                self._futures[jobs_id] = self._executor.submit(self._run, context, fn)
+            logger.info(f"Job {jobs_id} queued ({job_type})")
+            self._notify(data)
+            return data
+        except Exception as exc:
+            raise service_error(exc, "job_service.submit")
 
     def _run(self, context: JobContext, fn: JobFn) -> None:
         jobs_id = context.jobs_id
@@ -146,66 +145,84 @@ class JobService:
                 self._futures.pop(jobs_id, None)
 
     def get(self, jobs_id: int) -> dict:
-        with read_session() as session:
-            job = session.get(Job, jobs_id)
-            if job is None:
-                raise NotFoundError(f"Job {jobs_id} not found", field="jobs_id")
-            return self.to_dict(job)
+        try:
+            with read_session() as session:
+                job = session.get(Job, jobs_id)
+                if job is None:
+                    raise NotFoundError(f"Job {jobs_id} not found", field="jobs_id")
+                return self.to_dict(job)
+        except Exception as exc:
+            raise service_error(exc, "job_service.get")
 
     def list_jobs(self, active_only: bool = False, limit: int = 50) -> list[dict]:
-        with read_session() as session:
-            query = select(Job)
-            if active_only:
-                query = query.where(Job.status.in_(list(JOB_ACTIVE_STATUSES)))
-            return [self.to_dict(j) for j in session.scalars(query.order_by(Job.created_at.desc()).limit(limit))]
+        try:
+            with read_session() as session:
+                query = select(Job)
+                if active_only:
+                    query = query.where(Job.status.in_(list(JOB_ACTIVE_STATUSES)))
+                return [self.to_dict(j) for j in session.scalars(query.order_by(Job.created_at.desc()).limit(limit))]
+        except Exception as exc:
+            raise service_error(exc, "job_service.list_jobs")
 
     def cancel(self, jobs_id: int) -> dict:
-        job = self.get(jobs_id)
-        if job["finished"]:
-            raise JobError(f"Job {jobs_id} already finished", field="jobs_id")
-        with self._lock:
-            context = self._contexts.get(jobs_id)
-            future = self._futures.get(jobs_id)
-        if context:
-            context._cancel.set()
-        if future is not None and future.cancel():
-            # Never started: finalize here because _run will not execute.
-            return self._update(jobs_id, status=Status.CANCELLED.code, finished_at=utcnow())
-        if context is None:
-            # Orphaned (e.g. from a previous run); mark it cancelled directly.
-            return self._update(jobs_id, status=Status.CANCELLED.code, finished_at=utcnow())
-        return self.get(jobs_id)
+        try:
+            job = self.get(jobs_id)
+            if job["finished"]:
+                raise JobError(f"Job {jobs_id} already finished", field="jobs_id")
+            with self._lock:
+                context = self._contexts.get(jobs_id)
+                future = self._futures.get(jobs_id)
+            if context:
+                context._cancel.set()
+            if future is not None and future.cancel():
+                # Never started: finalize here because _run will not execute.
+                return self._update(jobs_id, status=Status.CANCELLED.code, finished_at=utcnow())
+            if context is None:
+                # Orphaned (e.g. from a previous run); mark it cancelled directly.
+                return self._update(jobs_id, status=Status.CANCELLED.code, finished_at=utcnow())
+            return self.get(jobs_id)
+        except Exception as exc:
+            raise service_error(exc, "job_service.cancel")
 
     def wait(self, jobs_id: int, timeout: float = 60.0) -> dict:
-        with self._lock:
-            future = self._futures.get(jobs_id)
-        if future is not None:
-            try:
-                future.result(timeout=timeout)
-            except Exception:
-                pass
-        return self.get(jobs_id)
+        try:
+            with self._lock:
+                future = self._futures.get(jobs_id)
+            if future is not None:
+                try:
+                    future.result(timeout=timeout)
+                except Exception:
+                    pass
+            return self.get(jobs_id)
+        except Exception as exc:
+            raise service_error(exc, "job_service.wait")
 
     def recover_interrupted(self) -> int:
         """Mark jobs left Queued/Running by a previous session as failed."""
-        with transaction() as session:
-            rows = session.scalars(
-                select(Job).where(Job.status.in_(list(JOB_ACTIVE_STATUSES)))
-            ).all()
-            for job in rows:
-                if job.jobs_id not in self._contexts:
-                    job.status = Status.FAILED.code
-                    job.error = "Interrupted: VoxLabs was closed while this job was running"
-                    job.finished_at = utcnow()
-            return len(rows)
+        try:
+            with transaction() as session:
+                rows = session.scalars(
+                    select(Job).where(Job.status.in_(list(JOB_ACTIVE_STATUSES)))
+                ).all()
+                for job in rows:
+                    if job.jobs_id not in self._contexts:
+                        job.status = Status.FAILED.code
+                        job.error = "Interrupted: VoxLabs was closed while this job was running"
+                        job.finished_at = utcnow()
+                return len(rows)
+        except Exception as exc:
+            raise service_error(exc, "job_service.recover_interrupted")
 
     def shutdown(self, wait: bool = False) -> None:
-        with self._lock:
-            for context in self._contexts.values():
-                context._cancel.set()
-            executor, self._executor = self._executor, None
-        if executor:
-            executor.shutdown(wait=wait, cancel_futures=True)
+        try:
+            with self._lock:
+                for context in self._contexts.values():
+                    context._cancel.set()
+                executor, self._executor = self._executor, None
+            if executor:
+                executor.shutdown(wait=wait, cancel_futures=True)
+        except Exception as exc:
+            raise service_error(exc, "job_service.shutdown")
 
 
 job_service = JobService()
