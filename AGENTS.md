@@ -2,65 +2,73 @@
 
 Guidance for AI coding agents working in the VoxLabs repository.
 
-## Project Overview
+## What VoxLabs is
 
-VoxLabs is an AI voice cloning and TTS platform with three cooperating pieces:
+- VoxLabs is a Python desktop application.
+- PySide6 is the UI.
+- FastAPI is optional REST API support.
+- Services contain application logic.
+- Models represent data.
+- Utils contain reusable technical infrastructure.
+- SQLite is the default database.
+- uv manages the Python project.
+- There is no web application.
 
-- **`api/`** — FastAPI backend (Python 3.12+, `uv`-managed). Class-based **Routes → Services** architecture: `api/routes/` holds `APIRouter` handlers (`SystemRoutes`, `VoiceRoutes`, `TTSRoutes`), `api/services/` holds the business logic they call into (`SystemService`, `VoiceService`, `TTSService`, `EdgeTTSService`). Audio DSP (time-stretch, pitch-shift, energy) lives in the `EmotionalTTSEngine` and uses `librosa`.
-- **`desktop/`** — the product UI: a Tauri (Rust) shell wrapping a Next.js 16 / TypeScript frontend, statically exported (`output: "export"`) and bundled into the native app. It calls the FastAPI backend over HTTP; it does not import Python.
-- **`site/`** — Next.js 16 / React 19 / TypeScript **landing page**. It tells visitors to download the desktop app. It is not a web Studio.
+Its features are voice cloning (with recorded consent), TTS, script/lesson-to-audio, a non-destructive audio editor, enhancement, projects and takes, local model management, and background jobs.
 
-All API responses follow `{ "status": 1|0, "data": {...}, "error": null|string }`.
+## Layers
 
-## Setup & Common Commands
-
-First-time setup: `npm install` from the repo root. Its `postinstall` (`scripts/bootstrap.mjs`) checks for `uv`, Rust, and FFmpeg, installs whichever is missing, then runs `uv sync` in `api/` and `npm install` in `desktop/`. Re-running it is safe/idempotent. Rust's own dependencies (`desktop/src-tauri/Cargo.toml`) need no separate step — Cargo fetches and builds them automatically on the first `tauri dev`/`tauri build`.
-
-Backend (from `api/`):
-```bash
-uv sync
-uv run uvicorn main:app --reload --port 8000
+```text
+PySide6 UI (app/ui)      REST API (app/api)
+          \                 /
+           Services (app/services)      ← all application logic, transactions
+           /                \
+   Models (app/models)    Utils (app/utils)
+           \                /
+              SQLite (data/database/voxlabs.db)
 ```
 
-Landing site (from `site/`):
+- The UI and the API call the **same** service singletons (`from app.services.tts_service import tts_service`). There is exactly one implementation of each feature.
+- Never go UI → database, UI → AI model, API → database or API → AI model directly.
+- API routes only receive, validate, call a service and return `ApiResponse.success(data)`. Every API response is **HTTP 200**; success or failure is the envelope `{"status": 1|0, "data": ..., "error": null|str}` (`app/models/response/api_response.py`).
+- Each CRUD resource has **one** `POST /api/<resource>` save endpoint: no id → create, id → update, id + `status: Status.DELETED.code` → delete. The dispatch lives in the service's `save()` method.
+- Request bodies are Pydantic classes in `app/models/request/`, and response classes live in `app/models/response/`, one class per file.
+- Do not add repositories, controllers, managers, use-cases, DI frameworks or extra service layers.
+
+## Commands
+
 ```bash
-npm install
-npm run dev      # landing page
-npm run build
-npm run lint      # eslint
-npm run test      # vitest
+uv sync                               # install (add --extra piper / xtts / f5 / chatterbox for engines)
+uv run python -m app.main             # desktop app
+uv run uvicorn app.api.app:app        # REST API only (binds 127.0.0.1)
+uv run pytest                         # tests (Qt tests run with QT_QPA_PLATFORM=offscreen)
 ```
-
-Desktop app (from `desktop/`):
-```bash
-npm install
-npm run tauri dev     # native window
-npm run dev           # browser-only, at :3010, no Rust build needed
-```
-
-Shortcut from the repo root: `npm run dev` (API + browser-only frontend, the default for day-to-day work) or `npm run dev:desktop` (API + native window). See root `package.json`.
-
-Full stack via Docker: `docker-compose up -d --build` (landing site on `:3000`, API on `:8000`).
 
 ## Conventions
 
-- **Backend**: keep new HTTP handlers thin — request/response glue only in `routes/`, all logic in `services/`. Match the existing standardized JSON envelope for every endpoint.
-- **Desktop app**: the frontend is plain TypeScript/React calling `api.ts` (`desktop/src/lib/api.ts`), which talks to the FastAPI backend over HTTP — never add a Python/PyQt6 GUI back in. Keep `next.config.ts`'s `output: "export"` intact; Tauri bundles the static export, not a Node server.
-- **Landing site**: use existing shadcn/Radix primitives in `site/components/` rather than adding new UI libraries. Keep download/GitHub URLs in `site/lib/links.ts`. Do not reintroduce a web Studio — the product is the desktop app.
-- Do not commit secrets; use `.env` (see `.env.example`).
+- **Database** (`app/utils/database.py`). Every model declares its own `<table>_id` integer primary key, `status`, `created_at` and `updated_at` columns explicitly in its model file. `Base` is a plain `DeclarativeBase`. Tables are plural (`voices`, `voice_samples`, …).
+- **Status.** Constants are `BaseEnum` classes (`app/constants/base_enum.py`) whose members are `(code, value)`, e.g. `Status.IN_PROGRESS.code == 4` and `.value == "InProgress"`. Every table's `status` column is `Mapped[int] = mapped_column(Integer, default=Status.ACTIVE.code, …)`, and code always reads, writes and queries it with `.code` (`voice.status = Status.INACTIVE.code`, `Audio.status != Status.DELETED.code`). A table that needs its own numbered state gets a separate `<name>_status` column with its own BaseEnum, e.g. `voices.consent_status` → `ConsentStatus`. Never scatter raw status numbers.
+- **Transactions.** Services own them with `with transaction() as session:`. Models never commit. Helpers that take a `session` (e.g. `audio_service.register`, `voice_service.create_in`, `consent_service.record`) run inside the caller's transaction.
+- **Errors.** Services raise `AppError` subclasses from `app/exceptions`. The UI shows `exc.message`; the API returns it in the envelope (HTTP 200, `data.type` = class name). Stack traces are only logged.
+- **Long work.** Clone, TTS, render, model install/load and heavy processing go through `job_service.submit()` (thread pool). The UI follows jobs via `BasePage.follow()` and runs short calls with `BasePage.run()`. Never block the Qt thread.
+- **Models / engines.** All engine code lives in `app/utils/model.py` behind `ModelBackend`. Heavy libraries are imported lazily inside `load()`. Selection and device policy live in `ModelService`. New engines go in `MODEL_CATALOG` (`app/constants/models.py`) plus a backend class.
+- **Files.** Everything goes under `data/` (`app/utils/files.py`, override with `VOXLABS_DATA_DIR`). Only paths are stored in the database.
+- **Constants** hold fixed values only, never logic.
 
-## Safety & Ethics (non-negotiable for this project)
+## Safety guarantees (do not weaken without explicit user instruction)
 
-VoxLabs clones real people's voices, so agent changes must preserve these product guarantees — do not remove or weaken them without explicit user instruction:
+- Voice cloning requires explicit, attributed consent (`ConsentService.validate`), checked before any work. There is no bypass flag.
+- Processing is local-first. Online engines (gTTS, Edge) are off unless `allow_online_models` is enabled, and are labelled "online".
+- Generated audio is flagged `ai_generated` in the database and tagged "AI-generated by VoxLabs" in file metadata.
+- Revoking a voice deletes its samples and profile immediately. Deleting removes everything. Both must stay simple and complete.
+- The API binds to 127.0.0.1 by default. Exposing it on another host requires an API token.
 
-- Voice cloning requires explicit consent; don't add flows that bypass consent capture.
-- Processing stays local-first — no silent uploads of user audio/voice data to external/third-party services.
-- Generated audio must remain labeled as AI-generated.
-- Voice data deletion/revocation must stay simple and complete.
+## Docs map
 
-## Docs Map
-
-- [`docs/backend.md`](./docs/backend.md) — API architecture, DSP/emotion presets
-- [`docs/api.md`](./docs/api.md) — endpoint reference
-- [`docs/frontend.md`](./docs/frontend.md) — Studio UI, state management
-- [`docs/setup.md`](./docs/setup.md) — local dev & Docker setup
+- `docs/architecture.md`: layers, packages, background work
+- `docs/database.md`: tables, naming, status, transactions
+- `docs/audio-engine.md`: AudioService, DSP pipeline, editor ops
+- `docs/voice-cloning.md`, `docs/tts.md`, `docs/script-to-audio.md`: feature workflows
+- `docs/rest-api.md`: endpoints and the response envelope
+- `docs/development.md`: setup, testing, adding engines
+- `skills/`: task-oriented workflows for agents

@@ -1,192 +1,72 @@
-# 🎙️ VoxLabs
+# VoxLabs
 
-**Professional AI Voice Cloning Platform**
+**A local-first desktop studio for voice cloning, text-to-speech, narrated lessons and audio editing.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://python.org)
-[![Node.js 20+](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](./docker-compose.yml)
 
-> Ethical voice cloning with consent. Local-first processing. Multi-platform support.
+VoxLabs is a native Python desktop application (PySide6). An optional REST API exposes the same features to other programs. There is no web app.
 
----
+## Features
 
-## 📚 Documentation
+- **Voice cloning with consent.** Import or record samples, get a quality report, record who consented, then clone. Voices can be revoked, which deletes their data, or deleted completely.
+- **Text to speech.** Voice, model, speed, pitch, energy, emotion, style, pauses, pronunciations, temperature and seed. You can regenerate a single sentence.
+- **Script and lesson to audio.** Chapters, sections and speakers (`Teacher: …`) mapped to voices, with per-section settings, multiple takes, intro/outro, and a final render with a clean-up preset.
+- **Audio editor.** Non-destructive waveform editing: select, cut, copy, paste, delete, split, trim, move, duplicate, join, fade, volume, normalize, undo/redo and loop playback.
+- **Enhancement.** Denoise, EQ, compression, de-esser, limiter and loudness, with the presets Voice Clean, Podcast, Narration, Lesson, Studio and Raw. Originals are always kept.
+- **Projects.** Group scripts, takes and audio. Duplicate projects or export them to a zip. Editor state is autosaved.
+- **Local models.** Piper, XTTS v2, F5-TTS and Chatterbox run on this machine (CPU or CUDA). Online engines (Google, Microsoft Edge) are opt-in.
+- **Background jobs.** Long work never freezes the UI. You can see progress and cancel jobs.
 
-Detailed documentation is available in the [`docs/`](./docs) directory:
+All generated audio is flagged as AI-generated in the library and tagged in the file metadata.
 
-- [**Project Overview**](./docs/README.md)
-- [**Backend Guide**](./docs/backend.md) (Architecture, Audio Engine)
-- [**API Reference**](./docs/api.md) (Endpoints, JSON formats)
-- [**Frontend Guide**](./docs/frontend.md) (Studio UI, State Management)
-- [**Setup & Deployment**](./docs/setup.md) (Local Dev, Docker)
+## Quick start
 
----
-
-## ✨ Features
-
-- 🎤 **Voice Cloning** - Clone voices with explicit consent
-- 🎭 **Emotional TTS** - Control speed, pitch, and energy
-- 🔒 **100% Local** - No data uploads, complete privacy
-- 🌍 **Multi-Language** - Support for 100+ languages
-- 💻 **Desktop app** - Native studio (Tauri + Next.js); this site is the download page
-- ⚡ **Modern Stack** - FastAPI + Next.js landing site
-
----
-
-## 🚀 Quick Start
-
-For detailed setup instructions, see [Setup Guide](./docs/setup.md).
-
-### Docker (Recommended) ⭐
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). FFmpeg is optional: WAV, FLAC, OGG and MP3 work without it, and it adds M4A/AAC.
 
 ```bash
-docker-compose up -d --build
+uv sync                          # base install
+uv sync --extra piper            # + Piper, a fast offline TTS engine (recommended)
+uv run python -m app.main        # start the desktop app
 ```
 
-Access:
-- 🌐 Landing site: `http://localhost:3000`
-- 📚 API Docs: `http://localhost:8000/docs`
-
-### Local Dev (API + Web)
+On first launch, open **Models** and install *Piper · en_US Lessac*, a 63 MB download. For real zero-shot cloning, install one of the heavier engines:
 
 ```bash
-npm install && npm run dev
+uv sync --extra xtts             # Coqui XTTS v2 (non-commercial CPML license)
+uv sync --extra f5               # F5-TTS
+uv sync --extra chatterbox       # Chatterbox
 ```
 
-`npm install` checks for **uv**, **Rust**, and **FFmpeg** and installs whichever is missing, then installs the Python and desktop-app dependencies — no manual setup needed beyond Node.js. `npm run dev` then starts the FastAPI backend and the desktop app's frontend as a plain website — no Rust/Tauri build required. Open `http://localhost:3010` in your browser. Stops both cleanly with a single Ctrl+C.
+These pull in PyTorch. A CUDA GPU is strongly recommended.
 
-To run the native desktop window instead (Tauri), use `npm run dev:desktop`. To build the installer, run `npm run build:desktop`. Either one triggers Cargo to fetch and compile the Rust dependencies automatically the first time — no manual `cargo install` step.
+## Optional REST API
 
----
-
-## 📁 Project Structure
-
-```
-VoxLabs/
-├── api/                      # FastAPI Backend
-│   ├── main.py               # Entry point
-│   ├── engine/               # Audio processing logic
-│   └── static/               # Generated audio files
-├── desktop/                  # Tauri + Next.js desktop app (product UI)
-│   ├── src/                  # Next.js frontend (App Router)
-│   └── src-tauri/            # Rust shell
-├── site/                     # Next.js landing page (download the desktop app)
-│   ├── app/                  # App Router pages
-│   └── components/           # Landing UI
-├── docs/                     # Project Documentation
-├── docker-compose.yml        # Orchestration
-└── README.md                 # This file
+```bash
+uv run uvicorn app.api.app:app            # http://127.0.0.1:8000/docs
 ```
 
----
+The API can also be started from **Settings → REST API** inside the desktop app. It binds to `127.0.0.1` by default. Set `VOXLABS_API_TOKEN` (or the token in Settings) before exposing it anywhere else. See [docs/rest-api.md](./docs/rest-api.md).
 
-## 🛠️ Tech Stack
+## Data
 
-### Backend
-- **FastAPI** - Python web framework
-- **Librosa** - DSP & Audio analysis
-- **SoundFile** - Audio I/O
-- **Pydantic** - Data validation
+Everything lives in `data/`: the SQLite database, voices, audio, models, cache and exports. Set `VOXLABS_DATA_DIR` to put it somewhere else. Nothing is uploaded unless you enable an online engine.
 
-### Landing site
-- **Next.js 16** - React framework
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **Shadcn UI** - Components
-- **GSAP** - Animations
+## Documentation
 
-### Desktop
-- **Tauri** - Native Rust shell
-- **Next.js 16** - Frontend (statically exported), shared conventions with the landing site
+- [Architecture](./docs/architecture.md)
+- [Database](./docs/database.md)
+- [Audio engine](./docs/audio-engine.md)
+- [Voice cloning](./docs/voice-cloning.md)
+- [TTS](./docs/tts.md)
+- [Script to audio](./docs/script-to-audio.md)
+- [REST API](./docs/rest-api.md)
+- [Development](./docs/development.md)
 
-### DevOps
-- **Docker** - Containerization
+## Responsible use
 
----
+Only clone a voice with the speaker's explicit permission. VoxLabs records who granted consent and when. Revoking a voice deletes its samples and profile immediately. Do not use generated audio to deceive or impersonate anyone.
 
-## 🔐 Safety & Ethics
+## License
 
-VoxLabs is built with ethical AI practices at its core:
-
-✅ **Consent Required** - Explicit consent for all voice cloning operations  
-✅ **Local Storage** - No data uploads to external servers  
-✅ **AI Labels** - All generated audio labeled as AI-generated  
-✅ **Easy Deletion** - Simple voice data revocation  
-✅ **Transparent** - Open source and fully auditable  
-✅ **No Impersonation** - Designed to prevent malicious use  
-
----
-
-## 🎯 Use Cases
-
-- **Accessibility** - Text-to-speech for visually impaired users
-- **Content Creation** - Voiceovers for videos and podcasts
-- **Language Learning** - Practice pronunciation with native voices
-- **Personal Assistants** - Custom voice for smart home devices
-- **Game Development** - Character voices for indie games
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for:
-
-- Code of conduct
-- Development setup
-- Coding standards
-- Pull request process
-- Testing guidelines
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
-
-**Important Disclaimer:** Users are responsible for obtaining proper consent before cloning any voice and must comply with all applicable laws and regulations.
-
----
-
-## 🎯 Roadmap
-
-- [x] FastAPI backend with voice cloning
-- [x] Next.js landing site (desktop download)
-- [x] Docker deployment setup
-- [x] Emotional TTS controls
-- [x] Multi-language support
-- [x] Desktop app (Tauri + Next.js)
-- [ ] Mobile app
-- [ ] npm package (`@voxlabs/client`)
-- [ ] PyPI package (`voxlabs`)
-- [ ] Cloud deployment guides
-
----
-
-## 📞 Support & Contact
-
-- **Author**: nishanth-kj
-- **GitHub**: [@nishanth-kj](https://github.com/nishanth-kj)
-- **Issues**: [GitHub Issues](https://github.com/nishanth-kj/VoxLabs/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/nishanth-kj/VoxLabs/discussions)
-
----
-
-## 🙏 Acknowledgments
-
-- FastAPI for the excellent web framework
-- Next.js team for the React framework
-- Open source community for amazing tools
-- Contributors and supporters
-
----
-
-<div align="center">
-
-**Made with ❤️ for ethical AI voice technology**
-
-[Report Bug](https://github.com/nishanth-kj/VoxLabs/issues) • [Request Feature](https://github.com/nishanth-kj/VoxLabs/issues) • [Documentation](./CONTRIBUTING.md)
-
-⭐ **Star this repo if you find it useful!** ⭐
-
-</div>
+MIT. See [LICENSE](./LICENSE). Model weights have their own licenses (for example, XTTS v2 is non-commercial).

@@ -3,19 +3,9 @@
 Thumbs.db
 *.log
 *.log.*
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 .env
 .env.local
 .env.*.local
-.venv
-venv/
-ENV/
-env/
-dist/
-build/
 
 # Editor/IDE
 .vscode/
@@ -23,50 +13,32 @@ build/
 *.swp
 *.swo
 
-# Python / FastAPI
+# Python
+.venv/
+venv/
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-poetry.lock
-pdm.lock
-.uv/
-uv.lock
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
 
-# Node.js / Next.js
-node_modules/
-.next/
-out/
-next-env.d.ts
+# Build output (PyInstaller)
+build/
+dist/
+*.spec
 
-# Voice Project Data (Sensitive/Large)
+# VoxLabs runtime data: database, voices, audio, models (sensitive and large)
+data/
 voice_projects/
-voice_uploads/
-api/static/audio/
-api/voice_projects/
 static/audio/
 *.mp3
 *.wav
-
-# Tauri
-src-tauri/target/
-src-tauri/gen/
-src-tauri/Cargo.lock
 
 # Agent (Internal)
 .agent/

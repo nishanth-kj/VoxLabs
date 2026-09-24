@@ -1,246 +1,46 @@
 # Contributing to VoxLabs
 
-Thank you for your interest in contributing to VoxLabs! This document provides guidelines and instructions for contributing.
+Thanks for helping. VoxLabs is a Python desktop app (PySide6) with an optional FastAPI layer, both built on shared services. Please read [AGENTS.md](../AGENTS.md) and [architecture.md](./architecture.md) before making larger changes.
 
----
+## Code of conduct
 
-## 📋 Table of Contents
+Be respectful and constructive. Harassment, discrimination and publishing others' private information are not acceptable. This project clones real people's voices, so contributions must keep its consent, labelling and local-first guarantees intact.
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [Development Setup](#development-setup)
-- [Project Structure](#project-structure)
-- [Making Changes](#making-changes)
-- [Submitting Changes](#submitting-changes)
-- [Coding Standards](#coding-standards)
-- [Testing](#testing)
-- [Documentation](#documentation)
-
----
-
-## 🤝 Code of Conduct
-
-### Our Pledge
-
-We are committed to providing a welcoming and inclusive environment for all contributors.
-
-### Our Standards
-
-- ✅ Be respectful and inclusive
-- ✅ Accept constructive criticism gracefully
-- ✅ Focus on what's best for the community
-- ✅ Show empathy towards others
-
-### Unacceptable Behavior
-
-- ❌ Harassment or discriminatory language
-- ❌ Trolling or insulting comments
-- ❌ Personal or political attacks
-- ❌ Publishing others' private information
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Node.js** >= 20.0.0
-- **Python** >= 3.12
-- **uv** (for Python package management)
-- **Git**
-- **Docker** (optional, for containerized development)
-
-### Fork and Clone
+## Getting started
 
 ```bash
-# Fork the repository on GitHub
-# Then clone your fork
 git clone https://github.com/nishanth-kj/VoxLabs.git
 cd VoxLabs
-
-# Add upstream remote
-git remote add upstream https://github.com/nishanth-kj/VoxLabs.git
+uv sync                      # Python 3.12–3.13
+uv run pytest
+uv run python -m app.main
 ```
 
----
+See [development.md](./development.md) for environment variables, optional engines and packaging.
 
-## 💻 Development Setup
+## Making changes
 
-### 1. Install Dependencies
+1. Create a branch: `git checkout -b feature/short-description`.
+2. Put logic in `app/services/`. UI pages and API routes only call services.
+3. Follow the database conventions in [database.md](./database.md):
+   - explicit `<table>_id`, `status`, `created_at` and `updated_at` on every model;
+   - `status` stored as an Integer through `Status.X.code`.
+4. Keep slow work in background jobs (`job_service.submit`).
+5. Add or update tests in `tests/` and run `uv run pytest`.
+6. Update the relevant `docs/` page and `skills/` file when behaviour changes.
 
-**Landing site (Next.js):**
-```bash
-cd site
-npm install
-```
+## Coding style
 
-**Desktop app (Tauri + Next.js):**
-```bash
-cd desktop
-npm install
-```
+- Python 3.12, type hints on public functions, 120-character lines.
+- Match the surrounding code: small functions, plain dicts across the service boundary, no new frameworks without a clear need.
+- Manage dependencies with `uv add` only, and commit `pyproject.toml` and `uv.lock` together.
 
-**Backend (FastAPI):**
-```bash
-# Install uv if you haven't already
-pip install uv
+## Commit messages
 
-cd api
-# uv handles virtual environment and dependencies automatically when you run commands
-```
+Use [Conventional Commits](https://www.conventionalcommits.org/), for example `feat: add de-esser step` or `fix: keep takes when editing script body`.
 
-### 2. Environment Setup
+## Pull requests
 
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your settings
-```
-
-### 3. Start Development
-
-**Landing site:**
-```bash
-cd site
-npm run dev
-# → http://localhost:3000
-```
-
-**Desktop app:**
-```bash
-cd desktop
-npm install
-npm run tauri dev
-```
-
-**Backend:**
-```bash
-cd api
-uv run uvicorn main:app --reload --port 8000
-# → http://localhost:8000
-```
-
----
-
-## 📁 Project Structure
-
-```
-VoxLabs/
-├── api/                        # FastAPI Backend
-│   ├── engine/                # Voice Cloning & TTS Engine
-│   ├── main.py                # App Entry Point
-│   └── pyproject.toml         # Python Dependencies
-├── site/                       # Next.js Landing Page
-│   ├── app/                   # App Router Pages
-│   └── components/            # React Components
-├── desktop/                    # Tauri Desktop App (the product UI)
-│   ├── src/                   # Next.js Frontend
-│   └── src-tauri/             # Rust Shell
-├── docs/                       # Documentation
-└── docker-compose.yml          # Container Orchestration
-```
-
----
-
-## 🔧 Making Changes
-
-### Create a Branch
-
-```bash
-# Update your fork
-git fetch upstream
-git checkout main
-git merge upstream/main
-
-# Create feature branch
-git checkout -b feature/your-feature-name
-# or
-git checkout -b fix/your-bug-fix
-```
-
-### Branch Naming
-
-- `feature/` - New features
-- `fix/` - Bug fixes
-- `docs/` - Documentation changes
-- `refactor/` - Code refactoring
-- `test/` - Test additions/changes
-- `chore/` - Maintenance tasks
-
-### Commit Messages
-
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-<type>(<scope>): <description>
-
-[optional body]
-```
-
-**Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
-
-**Examples:**
-```bash
-git commit -m "feat(api): add voice cloning endpoint"
-git commit -m "fix(web): resolve audio playback issue"
-```
-
----
-
-## 📤 Submitting Changes
-
-### Before Submitting
-
-1. **Test your changes**
-2. **Build successfully**
-   ```bash
-   # Landing site
-   cd site && npm run build
-
-   # Desktop app
-   cd desktop && npm run tauri build
-   ```
-3. **Update documentation** if needed
-
-### Create Pull Request
-
-1. Push your branch:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-2. Go to GitHub and create a Pull Request.
-3. Our **PR Template** will automatically load. Please fill it out completely:
-   - **Description**: Summary of changes
-   - **Type of Change**: Bug fix, feature, etc.
-   - **Related Issues**: Link to issues (e.g., `Closes #123`)
-   - **Testing**: How you verified functionality
-
----
-
-## 🐛 Reporting Bugs
-
-Please use our **Bug Report Template** when opening a new issue.
-
-1. Check existing issues to avoid duplicates.
-2. Provide a clear description and steps to reproduce.
-3. Include environment details (OS, Browser, etc.).
-
-## 💡 Feature Requests
-
-Please use our **Feature Request Template** to suggest new ideas.
-
----
-
-## 📄 License
-
-By contributing to VoxLabs, you agree that your contributions will be licensed under the MIT License.
-
----
-
-## 📞 Questions?
-
-- **Discussions**: [GitHub Discussions](https://github.com/nishanth-kj/VoxLabs/discussions)
-- **Issues**: [GitHub Issues](https://github.com/nishanth-kj/VoxLabs/issues)
-
-**Happy Coding!** 🚀
+- Describe what changed and why, and how you tested it.
+- Include screenshots for UI changes.
+- CI runs `uv sync --frozen` and `uv run pytest` on Ubuntu with an offscreen Qt platform.
