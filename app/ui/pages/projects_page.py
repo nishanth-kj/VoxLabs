@@ -38,7 +38,7 @@ class NewProjectDialog(QDialog):
         form.addRow("Name", self.name)
         form.addRow("Type", self.kind)
         form.addRow("Description", self.description)
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
@@ -52,10 +52,10 @@ class ProjectsPage(BasePage):
         self.projects: list[dict] = []
         self.table = QTableWidget(0, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.itemDoubleClicked.connect(lambda _i: self.open())
         self.root.addWidget(self.table, 1)
         actions = QHBoxLayout()
@@ -134,7 +134,7 @@ class ProjectsPage(BasePage):
         if project and QMessageBox.question(
             self, "Delete project",
             f"Delete “{project['name']}” with its scripts, takes and audio files? This cannot be undone.",
-        ) == QMessageBox.Yes:
+        ) == QMessageBox.StandardButton.Yes:
             if self.state.projects_id == project["projects_id"]:
                 self.state.set_project(None)
             self.run(lambda: project_service.delete_project(project["projects_id"]), self._changed)

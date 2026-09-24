@@ -56,13 +56,13 @@ class StudioPage(BasePage):
         header.addWidget(edit)
         self.root.addLayout(header)
 
-        splitter = QSplitter(Qt.Vertical)
-        top = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        top = QSplitter(Qt.Orientation.Horizontal)
         self.sections = QTableWidget(0, 4)
         self.sections.setHorizontalHeaderLabels(["Section", "Speaker", "Text", "Take"])
-        self.sections.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.sections.setSelectionBehavior(QTableWidget.SelectRows)
-        self.sections.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.sections.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.sections.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.sections.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.sections.currentCellChanged.connect(lambda row, *_: self._select_row(row))
         top.addWidget(self.sections)
 
@@ -175,22 +175,23 @@ class StudioPage(BasePage):
         return script, script_service.timeline(scripts_id), voices, final
 
     def _show_script(self, data):
-        self.script, self.clips, names, final = data
-        self.sections.setRowCount(len(self.script["sections"]))
-        for row, section in enumerate(self.script["sections"]):
+        script, self.clips, names, final = data
+        self.script = script
+        self.sections.setRowCount(len(script["sections"]))
+        for row, section in enumerate(script["sections"]):
             take = next((t for t in section["takes"] if t["selected"]), None)
             values = [section["heading"] or section["chapter"], section["speaker"], section["text"],
                       f"#{take['take_number']} of {len(section['takes'])}" if take else "not generated"]
             for col, value in enumerate(values):
                 self.sections.setItem(row, col, QTableWidgetItem(value))
         self.timeline.set_clips(self.clips)
-        mapping = self.script["speaker_map"] or {}
+        mapping = script["speaker_map"] or {}
         self.mapping.setText("\n".join(f"{'Narrator' if k == '*' else k} → {names.get(v, 'default')}"
                                        for k, v in mapping.items()) or "Default voice for everyone")
         if final:
             audio, y, sr = final
             self.waveform.set_audio(y, sr)
-            self.player.load(audio["path"], f"{self.script['title']} · {format_duration(audio['duration'])}")
+            self.player.load(audio["path"], f"{script['title']} · {format_duration(audio['duration'])}")
         else:
             self.waveform.clear()
             self.player.load(None)
@@ -211,7 +212,7 @@ class StudioPage(BasePage):
             self.voice.set_voices_id(section["voices_id"])
 
     def _clip_clicked(self, clip):
-        for row, section in enumerate(self.script["sections"]):
+        for row, section in enumerate(self.script["sections"] if self.script else []):
             if section["script_sections_id"] == clip["key"]:
                 self.sections.selectRow(row)
         if clip["audios_id"]:
@@ -225,24 +226,27 @@ class StudioPage(BasePage):
 
     def _apply_voice(self):
         section = self._section(self.sections.currentRow())
-        if section:
-            voices_id = self.voice.voices_id()
+        if section and self.script:
+            voices_id, scripts_id = self.voice.voices_id(), self.script["scripts_id"]
             self.run(lambda: script_service.update_section(
                 SectionRequest(script_sections_id=section["script_sections_id"], voices_id=voices_id)),
-                     lambda _s: self._load_script(self.script["scripts_id"]))
+                     lambda _s: self._load_script(scripts_id))
 
     def _generate_section(self):
         section = self._section(self.sections.currentRow())
-        if section:
+        if section and self.script:
+            scripts_id = self.script["scripts_id"]
             job = script_service.generate_section_async(section["script_sections_id"])
-            self.follow(job, lambda _r: self._load_script(self.script["scripts_id"]))
+            self.follow(job, lambda _r: self._load_script(scripts_id))
 
     def _generate_all(self, regenerate):
         if self.script:
-            job = script_service.generate_all_async(self.script["scripts_id"], regenerate)
-            self.follow(job, lambda _r: self._load_script(self.script["scripts_id"]))
+            scripts_id = self.script["scripts_id"]
+            job = script_service.generate_all_async(scripts_id, regenerate)
+            self.follow(job, lambda _r: self._load_script(scripts_id))
 
     def _render(self):
         if self.script:
-            job = script_service.render_async(self.script["scripts_id"])
-            self.follow(job, lambda _r: (self._load_script(self.script["scripts_id"]), self.state.notify("audio")))
+            scripts_id = self.script["scripts_id"]
+            job = script_service.render_async(scripts_id)
+            self.follow(job, lambda _r: (self._load_script(scripts_id), self.state.notify("audio")))

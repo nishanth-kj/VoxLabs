@@ -70,7 +70,7 @@ class ClonePage(BasePage):
         self.table = QTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels(["Sample", "Duration", "Sample rate", "Loudness", "SNR", "Quality",
                                               "Issues"])
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
         self.table.setMinimumHeight(140)
         step2 = QGroupBox("2 · Audio analysis")
         s2 = QVBoxLayout(step2)
@@ -186,7 +186,7 @@ class ClonePage(BasePage):
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 if a and a["errors"] and col == 6:
-                    item.setForeground(Qt.red)
+                    item.setForeground(Qt.GlobalColor.red)
                 self.table.setItem(row, col, item)
         self.table.resizeColumnsToContents()
         self.total_label.setText(f"{len(self.samples)} sample(s), {total:.1f} s total" if self.samples
@@ -261,19 +261,23 @@ class ClonePage(BasePage):
         self.follow(job, self._cloned)
 
     def _cloned(self, result):
-        self.voice = result["voice"]
-        self.result_label.setText(f"Voice “{self.voice['name']}” created with {self.voice['sample_count']} sample(s). "
+        voice = self.voice = result["voice"]
+        self.result_label.setText(f"Voice “{voice['name']}” created with {voice['sample_count']} sample(s). "
                                   "Preview it, then save.")
         self.state.notify("voices")
         self._update_buttons()
 
     def preview(self):
+        if not self.voice:
+            return
         job = clone_service.preview_async(self.voice["voices_id"], self.preview_text.text())
         self.follow(job, lambda r: (self.player.load(r["audio"]["path"], "Preview"), self.player.play()))
 
     def save(self):
-        self.run(lambda: voice_service.update(self.voice["voices_id"], name=self.name.text(),
-                                              description=self.description.text()), self._saved)
+        if not self.voice:
+            return
+        voices_id, name, description = self.voice["voices_id"], self.name.text(), self.description.text()
+        self.run(lambda: voice_service.update(voices_id, name=name, description=description), self._saved)
 
     def _saved(self, _voice):
         self.state.notify("voices")

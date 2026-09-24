@@ -21,11 +21,11 @@ class ModelsPage(BasePage):
         self.root.addWidget(self.devices)
         self.table = QTableWidget(0, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.Stretch)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.root.addWidget(self.table, 1)
 
         actions = QHBoxLayout()
@@ -92,7 +92,7 @@ class ModelsPage(BasePage):
             accept = QMessageBox.question(
                 self, "Coqui Public Model License",
                 "XTTS v2 is licensed under the Coqui Public Model License (non-commercial use only). "
-                "Do you accept the license and want to download the model (~1.9 GB)?") == QMessageBox.Yes
+                "Do you accept the license and want to download the model (~1.9 GB)?") == QMessageBox.StandardButton.Yes
             if not accept:
                 return
         try:
@@ -120,7 +120,7 @@ class ModelsPage(BasePage):
     def remove(self):
         model = self._current()
         if model and QMessageBox.question(self, "Remove model",
-                                          f"Remove downloaded files for {model['name']}?") == QMessageBox.Yes:
+                                          f"Remove downloaded files for {model['name']}?") == QMessageBox.StandardButton.Yes:
             self.run(lambda: model_service.remove(model["key"]), self._changed)
 
     def health(self):
@@ -135,7 +135,7 @@ class ModelsPage(BasePage):
             return
         kinds = [ModelType.CLONE if model["model_type"] in (ModelType.CLONE, ModelType.EMBED) else ModelType.TTS]
         if model["model_type"] == ModelType.CLONE and model["speaks"] and QMessageBox.question(
-                self, "Set default", "Use it as the default speech model too?") == QMessageBox.Yes:
+                self, "Set default", "Use it as the default speech model too?") == QMessageBox.StandardButton.Yes:
             kinds.append(ModelType.TTS)
         self.run(lambda: [model_service.select(kind, model["key"]) for kind in kinds], self._changed)
 

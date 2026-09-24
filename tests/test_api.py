@@ -64,6 +64,15 @@ def test_tts_and_audio_routes(client):
     assert exported.status_code == 200 and exported.content[:4] == b"fLaC"
 
 
+def test_upload_forms_use_request_classes(client, voice_wav):
+    with open(voice_wav, "rb") as fh:
+        imported = ok(client.post("/api/audio/import", data={}, files={"file": ("take.wav", fh, "audio/wav")}))
+    assert imported["name"] == "take" and imported["source"] == "imported"
+    with open(voice_wav, "rb") as fh:
+        assert ok(client.post("/api/voices/analyze", files={"sample": ("s.wav", fh, "audio/wav")}))["ok"] is True
+    assert failed(client.get("/api/audio", params={"limit": 0}))["field"] == {"limit": "limit must be between 1 and 1000"}
+
+
 def test_background_job_route(client):
     job = ok(client.post("/api/tts", json={"text": "Queued speech.", "background": True}))["job"]
     job_service.wait(job["jobs_id"], timeout=30)

@@ -1,6 +1,7 @@
 """Desktop pages. `BasePage` gives every page the same helpers for background work."""
 
 from collections.abc import Callable
+from typing import Any
 
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
@@ -29,7 +30,7 @@ class BasePage(QWidget):
         self.busy.stop()
         show_error(self, exc)
 
-    def run(self, fn: Callable, on_done: Callable | None = None, busy: bool = True) -> None:
+    def run(self, fn: Callable[[], Any], on_done: Callable[[Any], object] | None = None, busy: bool = True) -> None:
         """Run a quick service call off the UI thread."""
         if busy:
             self.busy.start(indeterminate=True)
@@ -41,8 +42,8 @@ class BasePage(QWidget):
 
         run_async(fn, done, self.error, parent=self)
 
-    def follow(self, job: dict, on_done: Callable[[dict], None] | None = None,
-               on_fail: Callable[[], None] | None = None) -> None:
+    def follow(self, job: dict, on_done: Callable[[dict], object] | None = None,
+               on_fail: Callable[[], object] | None = None) -> None:
         """Show progress for a background job and call `on_done(result)` when it completes."""
         self.busy.start()
 

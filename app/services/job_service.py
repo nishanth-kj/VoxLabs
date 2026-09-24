@@ -88,6 +88,8 @@ class JobService:
     def _update(self, jobs_id: int, message: str | None = None, **fields) -> dict:
         with transaction() as session:
             job = session.get(Job, jobs_id)
+            if job is None:
+                raise NotFoundError(f"Job {jobs_id} not found", field="jobs_id")
             for key, value in fields.items():
                 setattr(job, key, value)
             if message:

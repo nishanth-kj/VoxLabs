@@ -32,13 +32,13 @@ class AudioPlayer(QWidget):
         self._loop = False
 
         style = self.style()
-        self.play_button = QPushButton(style.standardIcon(QStyle.SP_MediaPlay), "")
+        self.play_button = QPushButton(style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay), "")
         self.play_button.setToolTip("Play / pause (Space)")
         self.play_button.clicked.connect(self.toggle)
-        self.stop_button = QPushButton(style.standardIcon(QStyle.SP_MediaStop), "")
+        self.stop_button = QPushButton(style.standardIcon(QStyle.StandardPixmap.SP_MediaStop), "")
         self.stop_button.setToolTip("Stop")
         self.stop_button.clicked.connect(self.stop)
-        self.slider = QSlider(Qt.Horizontal)
+        self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 0)
         self.slider.sliderMoved.connect(lambda ms: self.player.setPosition(ms))
         self.time_label = QLabel("0:00.0 / 0:00.0")
@@ -85,7 +85,7 @@ class AudioPlayer(QWidget):
         self._range, self._loop = None, False
 
     def toggle(self) -> None:
-        if self.player.playbackState() == QMediaPlayer.PlayingState:
+        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
             self.player.pause()
         else:
             self.player.play()
@@ -101,7 +101,7 @@ class AudioPlayer(QWidget):
         return self.player.position() / 1000
 
     def is_playing(self) -> bool:
-        return self.player.playbackState() == QMediaPlayer.PlayingState
+        return self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState
 
     # ------------------------------------------------------------ internals
 
@@ -119,5 +119,5 @@ class AudioPlayer(QWidget):
         self.position_changed.emit(seconds)
 
     def _on_state(self, state) -> None:
-        icon = QStyle.SP_MediaPause if state == QMediaPlayer.PlayingState else QStyle.SP_MediaPlay
+        icon = QStyle.StandardPixmap.SP_MediaPause if state == QMediaPlayer.PlaybackState.PlayingState else QStyle.StandardPixmap.SP_MediaPlay
         self.play_button.setIcon(self.style().standardIcon(icon))

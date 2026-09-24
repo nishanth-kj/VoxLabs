@@ -21,14 +21,15 @@ uv run pytest
 ## Workflow for a feature
 
 1. **Service first.** Add or extend a method in `app/services/<area>_service.py`:
-   - validate with `app/utils/validation.py`;
+   - validate with `Validation` (`app/utils/validation.py`);
    - raise `AppError` subclasses;
    - wrap multi-row writes in `transaction()`;
-   - return plain dicts (`serialize()`).
+   - return plain dicts (`serialize()`);
+   - wrap the public method in `try: ... except Exception as exc: raise service_error(exc, "<service>.<method>")` and log with `logger`.
 2. **Data.** If you need a new column or table, edit the model file and declare `<table>_id`, `status` (`Integer`, `default=Status.ACTIVE.code`), `created_at` and `updated_at` explicitly. If a table needs its own numbered state, add a `<name>_status` column and a new BaseEnum const.
 3. **Slow?** Add a `*_async` wrapper using `job_service.submit(JobType.X, fn, title=…)`. `fn(ctx)` should call `ctx.progress(v)`.
 4. **UI.** In the page, call `self.run(fn, on_done)` for quick calls and `self.follow(job, on_done)` for jobs. Never call services that do I/O directly in a slot.
-5. **API.** Add a request class in `app/models/request/` (one class per file) and a thin route that calls the service and returns `ApiResponse(data=...).success()`.
+5. **API.** Add a request class in `app/models/request/` (one class per file; multipart forms too) and a thin route: validate path/query values with `Validation`, pass the full request body to the service, `return ApiResponse(data).success()`, annotated `-> ApiResponse`. No try/except in routes. For agents, add a matching tool in `app/api/mcp/tools.py`.
    - Responses are always HTTP 200, and errors propagate to the envelope handler.
    - A CRUD resource gets a single `POST /api/<resource>` backed by the service's `save()`: no id → create, id → update, id + Deleted status → delete.
 6. **Tests.** Add service tests, and route tests where useful. Run `uv run pytest`.

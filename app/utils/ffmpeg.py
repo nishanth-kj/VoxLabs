@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from app.exceptions import AudioError
+from app.utils.logger import logger
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -35,6 +36,7 @@ def run(args: list[str], timeout: float = 600) -> subprocess.CompletedProcess:
     exe = executable()
     if not exe:
         raise AudioError("FFmpeg is not installed or not on PATH")
+    logger.debug(f"FFmpeg {' '.join(args[:2])} ...")
     result = subprocess.run(
         [exe, "-hide_banner", "-loglevel", "error", "-y", *args],
         capture_output=True,
@@ -42,7 +44,9 @@ def run(args: list[str], timeout: float = 600) -> subprocess.CompletedProcess:
         creationflags=_NO_WINDOW,
     )
     if result.returncode != 0:
-        raise AudioError(f"FFmpeg failed: {result.stderr.decode(errors='ignore').strip()[:300]}")
+        detail = result.stderr.decode(errors="ignore").strip()[:300]
+        logger.error(f"FFmpeg exited with {result.returncode}: {detail}")
+        raise AudioError(f"FFmpeg failed: {detail}")
     return result
 
 

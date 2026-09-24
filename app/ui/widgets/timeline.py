@@ -18,7 +18,7 @@ class TimelineWidget(QWidget):
         super().__init__(parent)
         self.view_start = 0.0
         self.view_end = 1.0
-        self.cursor = 0.0
+        self.cursor_time = 0.0
         self.clips: list[dict] = []  # {"start", "end", "label", "key", "group"}
         self.setFixedHeight(56 if show_clips else 26)
 
@@ -27,7 +27,7 @@ class TimelineWidget(QWidget):
         self.update()
 
     def set_cursor(self, seconds: float):
-        self.cursor = seconds
+        self.cursor_time = seconds
         self.update()
 
     def set_clips(self, clips: list[dict]):
@@ -64,9 +64,9 @@ class TimelineWidget(QWidget):
             painter.fillRect(rect, color.lighter(150) if not clip.get("missing") else QColor(200, 200, 200))
             painter.setPen(color.darker(150))
             painter.drawRect(rect)
-            painter.drawText(rect.adjusted(3, 0, -2, 0), Qt.AlignVCenter | Qt.AlignLeft, clip.get("label", ""))
+            painter.drawText(rect.adjusted(3, 0, -2, 0), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, clip.get("label", ""))
         painter.setPen(QPen(QColor(230, 81, 0), 1.5))
-        cx = self._x(self.cursor)
+        cx = self._x(self.cursor_time)
         painter.drawLine(int(cx), 0, int(cx), self.height())
 
     def mousePressEvent(self, event):

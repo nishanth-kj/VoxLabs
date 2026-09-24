@@ -55,7 +55,7 @@ class AudioService:
         meta = au.info(path)
         loudness = None
         try:
-            if y is None:
+            if y is None or sr is None:
                 y, sr = au.load(path)
             loudness = round(au.loudness_lufs(y, sr), 2)
         except AudioError:
@@ -314,7 +314,7 @@ class AudioService:
         frame_energy = mag.mean(axis=0)
         noise = mag[:, frame_energy <= np.percentile(frame_energy, 15)].mean(axis=1, keepdims=True)
         mask = np.clip((mag - 1.5 * strength * noise) / (mag + 1e-10), 1.0 - strength, 1.0)
-        mask = ndimage.uniform_filter(mask, size=(3, 5))
+        mask = ndimage.uniform_filter(mask, size=(3, 5))  # pyright: ignore[reportArgumentType]
         _, out = signal.istft(spec * mask, sr, nperseg=1024)
         return out[: len(y)].astype(np.float32)
 

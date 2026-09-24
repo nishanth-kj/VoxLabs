@@ -13,7 +13,7 @@ Generate labelled speech audio from text with a chosen voice, model and speaking
 
 `tts_service.generate(text, voices_id, model_key, **params)` runs these steps:
 
-1. Validate text and parameters (`app/utils/validation.py`).
+1. Validate text and parameters (`Validation` in `app/utils/validation.py`). The input is one `TTSRequest` for the UI, the API and MCP.
 2. Apply pronunciations.
 3. Resolve the voice with `voice_service.voice_ref()` (enforces consent).
 4. Resolve the model with `model_service.resolve_speech_model()`: explicit → the voice's installed cloning model → default.

@@ -63,7 +63,7 @@ class ScriptPage(BasePage):
         self.section: dict | None = None
         self._loading = False
 
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
         self.root.addWidget(splitter, 1)
 
         # Left: script list
@@ -119,7 +119,7 @@ class ScriptPage(BasePage):
         regen_all = QPushButton("Regenerate all")
         regen_all.clicked.connect(lambda: self.generate_all(True))
         render = QPushButton("Render final audio")
-        render.clicked.connect(self.render)
+        render.clicked.connect(self.render_script)
         open_editor = QPushButton("Open final in editor")
         open_editor.clicked.connect(self._open_final)
         for button in (self.generate_all_button, regen_all, render, open_editor):
@@ -145,7 +145,7 @@ class ScriptPage(BasePage):
         layout = QVBoxLayout(widget)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(["Structure", "Speaker", "Take"])
-        self.tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.tree.currentItemChanged.connect(self._select_section)
         self.tree.itemActivated.connect(lambda item, _c: self._play_section(item))
         layout.addWidget(self.tree)
@@ -167,7 +167,7 @@ class ScriptPage(BasePage):
         layout = QVBoxLayout(widget)
         self.speaker_table = QTableWidget(0, 2)
         self.speaker_table.setHorizontalHeaderLabels(["Speaker", "Voice"])
-        self.speaker_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.speaker_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.speaker_table)
         row = QHBoxLayout()
         auto = QPushButton("Auto-assign voices")
@@ -283,7 +283,7 @@ class ScriptPage(BasePage):
         self.script_list.clear()
         for script in scripts:
             item = QListWidgetItem(script["title"])
-            item.setData(Qt.UserRole, script["scripts_id"])
+            item.setData(Qt.ItemDataRole.UserRole, script["scripts_id"])
             self.script_list.addItem(item)
             if script["scripts_id"] == current:
                 self.script_list.setCurrentItem(item)
@@ -297,7 +297,7 @@ class ScriptPage(BasePage):
     def _select_script(self, item, _previous=None):
         if item is not None:
             self.save()
-            self.open_script(item.data(Qt.UserRole))
+            self.open_script(item.data(Qt.ItemDataRole.UserRole))
 
     def _show_script(self, script):
         self._loading = True
@@ -326,12 +326,15 @@ class ScriptPage(BasePage):
                 self.player.load(None)
 
     def _show_structure(self):
+        script = self.script
+        if script is None:
+            return
         selected = self.section["script_sections_id"] if self.section else None
         self.tree.blockSignals(True)
         self.tree.clear()
         chapters, headings = {}, {}
         generated = 0
-        for section in self.script["sections"]:
+        for section in script["sections"]:
             chapter = chapters.get(section["chapter"])
             if chapter is None:
                 chapter = QTreeWidgetItem(self.tree, [section["chapter"] or "(no chapter)"])
@@ -348,21 +351,24 @@ class ScriptPage(BasePage):
             text = section["text"] if len(section["text"]) < 70 else section["text"][:67] + "…"
             item = QTreeWidgetItem(heading, [text, section["speaker"],
                                              f"#{take['take_number']}" if take else "—"])
-            item.setData(0, Qt.UserRole, section["script_sections_id"])
+            item.setData(0, Qt.ItemDataRole.UserRole, section["script_sections_id"])
             if section["script_sections_id"] == selected:
                 self.tree.setCurrentItem(item)
         self.tree.blockSignals(False)
-        total = len(self.script["sections"])
+        total = len(script["sections"])
         self.summary.setText(f"{total} sections · {generated} generated · "
-                             f"{len(self.script['speakers'])} speaker(s)")
+                             f"{len(script['speakers'])} speaker(s)")
 
     def _show_speakers(self):
-        mapping = self.script["speaker_map"] or {}
-        speakers = [DEFAULT_SPEAKER] + self.script["speakers"]
+        script = self.script
+        if script is None:
+            return
+        mapping = script["speaker_map"] or {}
+        speakers = [DEFAULT_SPEAKER] + script["speakers"]
         self.speaker_table.setRowCount(len(speakers))
         for row, speaker in enumerate(speakers):
             name = _readonly_item("Narrator (default)" if speaker == DEFAULT_SPEAKER else speaker)
-            name.setData(Qt.UserRole, speaker)
+            name.setData(Qt.ItemDataRole.UserRole, speaker)
             self.speaker_table.setItem(row, 0, name)
             selector = VoiceSelector(none_label="Default voice")
             selector.set_voices_id(mapping.get(speaker))
@@ -385,7 +391,7 @@ class ScriptPage(BasePage):
         if not self.script:
             return
         if QMessageBox.question(self, "Delete script",
-                                f"Delete “{self.script['title']}” and all its generated takes?") != QMessageBox.Yes:
+                                f"Delete “{self.script['title']}” and all its generated takes?") != QMessageBox.StandardButton.Yes:
             return
         scripts_id = self.script["scripts_id"]
         self.script = None
@@ -437,8 +443,10 @@ class ScriptPage(BasePage):
     def _mapping_from_table(self) -> dict:
         mapping = {}
         for row in range(self.speaker_table.rowCount()):
-            speaker = self.speaker_table.item(row, 0).data(Qt.UserRole)
-            mapping[speaker] = self.speaker_table.cellWidget(row, 1).voices_id()
+            item = self.speaker_table.item(row, 0)
+            selector = self.speaker_table.cellWidget(row, 1)
+            if item is not None and isinstance(selector, VoiceSelector):
+                mapping[item.data(Qt.ItemDataRole.UserRole)] = selector.voices_id()
         return mapping
 
     def save_mapping(self):
@@ -466,10 +474,12 @@ class ScriptPage(BasePage):
     # ------------------------------------------------------------ sections / takes
 
     def _section_by_id(self, section_id):
+        if self.script is None:
+            return None
         return next((s for s in self.script["sections"] if s["script_sections_id"] == section_id), None)
 
     def _select_section(self, item, _previous=None):
-        section_id = item.data(0, Qt.UserRole) if item else None
+        section_id = item.data(0, Qt.ItemDataRole.UserRole) if item else None
         self.section = self._section_by_id(section_id) if section_id else None
         self._show_section()
 
@@ -490,7 +500,7 @@ class ScriptPage(BasePage):
         for take in section["takes"]:
             label = f"Take {take['take_number']}" + ("  ✓ selected" if take["selected"] else "")
             item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, take)
+            item.setData(Qt.ItemDataRole.UserRole, take)
             self.takes.addItem(item)
 
     def save_section(self):
@@ -509,9 +519,12 @@ class ScriptPage(BasePage):
                  self._section_updated)
 
     def _section_updated(self, section):
-        for index, existing in enumerate(self.script["sections"]):
+        script = self.script
+        if script is None:
+            return
+        for index, existing in enumerate(script["sections"]):
             if existing["script_sections_id"] == section["script_sections_id"]:
-                self.script["sections"][index] = section
+                script["sections"][index] = section
         self.section = section
         self._show_structure()
         self._show_section()
@@ -526,21 +539,21 @@ class ScriptPage(BasePage):
     def select_take(self):
         item = self.takes.currentItem()
         if item:
-            takes_id = item.data(Qt.UserRole)["takes_id"]
+            takes_id = item.data(Qt.ItemDataRole.UserRole)["takes_id"]
             self.run(lambda: script_service.select_take(takes_id), self._section_updated)
 
     def delete_take(self):
         item = self.takes.currentItem()
         if item:
-            takes_id = item.data(Qt.UserRole)["takes_id"]
+            takes_id = item.data(Qt.ItemDataRole.UserRole)["takes_id"]
             self.run(lambda: script_service.delete_take(takes_id), self._section_updated)
 
     def _play_take(self, item):
         if item:
-            self._play_take_audio(item.data(Qt.UserRole)["audios_id"])
+            self._play_take_audio(item.data(Qt.ItemDataRole.UserRole)["audios_id"])
 
     def _play_section(self, item):
-        section = self._section_by_id(item.data(0, Qt.UserRole)) if item else None
+        section = self._section_by_id(item.data(0, Qt.ItemDataRole.UserRole)) if item else None
         if section and section["selected_audios_id"]:
             self._play_take_audio(section["selected_audios_id"])
 
@@ -559,7 +572,7 @@ class ScriptPage(BasePage):
         job = script_service.generate_all_async(self.script["scripts_id"], regenerate)
         self.follow(job, lambda r: self._show_script(r["script"]))
 
-    def render(self):
+    def render_script(self):
         if not self.script:
             return
         self.save()
@@ -568,8 +581,10 @@ class ScriptPage(BasePage):
 
     def _rendered(self, result):
         audio = result["audio"]
-        self.script["final_audios_id"] = audio["audios_id"]
-        self.player.load(audio["path"], f"{self.script['title']} (final) · {format_duration(audio['duration'])}")
+        if self.script is not None:
+            self.script["final_audios_id"] = audio["audios_id"]
+        title = self.script["title"] if self.script else audio["name"]
+        self.player.load(audio["path"], f"{title} (final) · {format_duration(audio['duration'])}")
         self.player.play()
         self.state.notify("audio")
 
@@ -580,5 +595,5 @@ class ScriptPage(BasePage):
 
 def _readonly_item(text: str) -> QTableWidgetItem:
     item = QTableWidgetItem(text)
-    item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
     return item

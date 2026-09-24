@@ -29,10 +29,10 @@ class JobsDialog(QDialog):
         self.resize(820, 380)
         self.table = QTableWidget(0, len(self.COLUMNS))
         self.table.setHorizontalHeaderLabels(self.COLUMNS)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         cancel = QPushButton("Cancel selected job")
         cancel.clicked.connect(self.cancel_selected)
         refresh = QPushButton("Refresh")
@@ -55,14 +55,14 @@ class JobsDialog(QDialog):
                       local_display_iso(job["started_at"]), local_display_iso(job["finished_at"]))
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
-                item.setData(Qt.UserRole, job["jobs_id"])
+                item.setData(Qt.ItemDataRole.UserRole, job["jobs_id"])
                 self.table.setItem(row, col, item)
 
     def cancel_selected(self):
         item = self.table.currentItem()
         if item is None:
             return
-        run_async(lambda: job_service.cancel(item.data(Qt.UserRole)), lambda _r: self.refresh(),
+        run_async(lambda: job_service.cancel(item.data(Qt.ItemDataRole.UserRole)), lambda _r: self.refresh(),
                   lambda exc: show_error(self, exc))
 
 

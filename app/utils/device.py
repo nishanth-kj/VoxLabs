@@ -9,7 +9,7 @@ from functools import lru_cache
 
 def torch_available() -> bool:
     try:
-        import torch  # noqa: F401
+        import torch  # noqa: F401  # pyright: ignore[reportMissingImports]
 
         return True
     except Exception:
@@ -42,7 +42,7 @@ def _nvidia_smi() -> list[dict]:
 
 def gpus() -> list[dict]:
     if torch_available():
-        import torch
+        import torch  # pyright: ignore[reportMissingImports]
 
         if torch.cuda.is_available():
             result = []
@@ -64,7 +64,7 @@ def cuda_usable() -> bool:
     """CUDA can actually run models (needs torch built with CUDA)."""
     if not torch_available():
         return False
-    import torch
+    import torch  # pyright: ignore[reportMissingImports]
 
     return bool(torch.cuda.is_available())
 
@@ -86,7 +86,7 @@ def summary() -> dict:
 def available_devices() -> list[str]:
     devices = ["cpu"]
     if cuda_usable():
-        import torch
+        import torch  # pyright: ignore[reportMissingImports]
 
         devices += [f"cuda:{i}" for i in range(torch.cuda.device_count())]
     return devices

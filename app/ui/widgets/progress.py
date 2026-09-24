@@ -27,7 +27,9 @@ def error_message(exc: BaseException | str) -> str:
 
 
 def show_error(parent: QWidget | None, exc: BaseException | str, title: str = "VoxLabs") -> None:
-    QMessageBox.warning(parent, title, error_message(exc))
+    message = error_message(exc)
+    logger.warning(f"{title}: {message}")
+    QMessageBox.warning(parent, title, message)
 
 
 class _Relay(QObject):

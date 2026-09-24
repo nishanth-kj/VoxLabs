@@ -15,6 +15,8 @@ from enum import Enum
 
 
 class BaseEnum(Enum):
+    _label: str
+
     def __new__(cls, code: int, value: str):
         member = object.__new__(cls)
         member._value_ = code

@@ -60,7 +60,7 @@ class HomePage(BasePage):
         widget.clear()
         for text, data in rows or [(empty, None)]:
             item = QListWidgetItem(text)
-            item.setData(Qt.UserRole, data)
+            item.setData(Qt.ItemDataRole.UserRole, data)
             widget.addItem(item)
 
     def refresh(self):
@@ -105,10 +105,10 @@ class HomePage(BasePage):
                                for j in active], "Nothing running")
 
     def _open_project(self, item):
-        if item.data(Qt.UserRole) is not None:
-            self.state.set_project(item.data(Qt.UserRole))
+        if item.data(Qt.ItemDataRole.UserRole) is not None:
+            self.state.set_project(item.data(Qt.ItemDataRole.UserRole))
             self.state.navigate.emit("studio")
 
     def _open_audio(self, item):
-        if item.data(Qt.UserRole) is not None:
-            self.state.open_audio.emit(item.data(Qt.UserRole))
+        if item.data(Qt.ItemDataRole.UserRole) is not None:
+            self.state.open_audio.emit(item.data(Qt.ItemDataRole.UserRole))

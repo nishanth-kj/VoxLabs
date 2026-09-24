@@ -19,6 +19,7 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.constants.status import Status
 from app.utils.files import subdir
+from app.utils.logger import logger
 from app.utils.time import iso
 
 
@@ -67,6 +68,7 @@ def init_db() -> None:
     import app.models  # noqa: F401 - registers every table on Base.metadata
 
     Base.metadata.create_all(get_engine())
+    logger.info(f"Database ready: {database_path()}")
 
 
 def new_session() -> Session:
@@ -82,8 +84,9 @@ def transaction() -> Iterator[Session]:
     try:
         yield session
         session.commit()
-    except Exception:
+    except Exception as exc:
         session.rollback()
+        logger.debug(f"Transaction rolled back: {exc!r}")
         raise
     finally:
         session.close()

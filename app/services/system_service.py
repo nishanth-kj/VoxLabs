@@ -104,7 +104,7 @@ class SystemService:
 
         try:
             ensure_data_dirs()
-            set_level(self.get_setting("log_level"))
+            set_level(self.get_setting("log_level") or "INFO")
             init_db()
             model_service.sync_catalog()
             interrupted = job_service.recover_interrupted()

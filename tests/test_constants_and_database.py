@@ -62,11 +62,16 @@ def test_timestamps_are_set_and_updated():
         session.flush()
         users_id = user.users_id
     with read_session() as session:
-        created = session.get(User, users_id).updated_at
+        user = session.get(User, users_id)
+        assert user is not None
+        created = user.updated_at
     with transaction() as session:
-        session.get(User, users_id).name = "Ada L."
+        user = session.get(User, users_id)
+        assert user is not None
+        user.name = "Ada L."
     with read_session() as session:
         user = session.get(User, users_id)
+        assert user is not None
         assert user.status == Status.ACTIVE.code
         assert user.updated_at >= created
         assert user.created_at is not None

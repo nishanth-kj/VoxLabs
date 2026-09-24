@@ -40,13 +40,14 @@ uv sync --extra chatterbox       # Chatterbox
 
 These pull in PyTorch. A CUDA GPU is strongly recommended.
 
-## Optional REST API
+## Optional REST API and MCP server
 
 ```bash
-uv run uvicorn app.api.app:app            # http://127.0.0.1:8000/docs
+uv run python -m app.api.app              # REST API + MCP over HTTP: http://127.0.0.1:8942/docs, /mcp
+uv run python -m app.api.app --stdio      # the same, plus MCP over stdin/stdout for local MCP clients
 ```
 
-The API can also be started from **Settings → REST API** inside the desktop app. It binds to `127.0.0.1` by default. Set `VOXLABS_API_TOKEN` (or the token in Settings) before exposing it anywhere else. See [docs/rest-api.md](./docs/rest-api.md).
+The API can also be started from **Settings → REST API** inside the desktop app. It binds to `127.0.0.1` by default. Set `VOXLABS_API_TOKEN` (or the token in Settings) before exposing it anywhere else. AI agents get the same services as MCP tools (voice cloning is left out, because consent must come from the speaker). See [docs/rest-api.md](./docs/rest-api.md).
 
 ## Data
 

@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
 
 from app.services.project_service import project_service
 from app.services.system_service import VERSION, system_service
+from app.utils.logger import logger
+from app.ui.pages import BasePage
 from app.ui.pages.clone_page import ClonePage
 from app.ui.pages.editor_page import EditorPage
 from app.ui.pages.generate_page import GeneratePage
@@ -92,15 +94,15 @@ class MainWindow(QMainWindow):
         self.sidebar = QListWidget()
         self.sidebar.setObjectName("Sidebar")
         self.sidebar.setFixedWidth(190)
-        self.sidebar.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.sidebar.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.stack = QStackedWidget()
-        self.pages: dict[str, object] = {}
+        self.pages: dict[str, BasePage] = {}
         for key, label, cls in PAGES:
             page = cls(self.state)
             self.pages[key] = page
             self.stack.addWidget(page)
             item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, key)
+            item.setData(Qt.ItemDataRole.UserRole, key)
             self.sidebar.addItem(item)
         self.sidebar.currentRowChanged.connect(self._show_row)
 
@@ -135,23 +137,29 @@ class MainWindow(QMainWindow):
 
     def go(self, key: str):
         for row in range(self.sidebar.count()):
-            if self.sidebar.item(row).data(Qt.UserRole) == key:
+            if self.sidebar.item(row).data(Qt.ItemDataRole.UserRole) == key:
                 self.sidebar.setCurrentRow(row)
                 return
 
     def _show_row(self, row: int):
         self.stack.setCurrentIndex(row)
         page = self.stack.currentWidget()
-        if hasattr(page, "refresh"):
+        if isinstance(page, BasePage):
+            logger.debug(f"Page: {page.title}")
             page.refresh()
 
     def _update_project_label(self):
         self.project_label.setText(f"Project: {self.state.project_name()}")
 
+    def _autosave_editor(self):
+        editor = self.pages["editor"]
+        if isinstance(editor, EditorPage):
+            editor.autosave()
+
     def _autosave_tick(self):
         if system_service.get_setting("autosave"):
-            self.pages["editor"].autosave()
+            self._autosave_editor()
 
     def closeEvent(self, event):
-        self.pages["editor"].autosave()
+        self._autosave_editor()
         super().closeEvent(event)

@@ -82,7 +82,7 @@ class SettingsPage(BasePage):
         self.api_port = QSpinBox()
         self.api_port.setRange(1, 65535)
         self.api_token = QLineEdit()
-        self.api_token.setEchoMode(QLineEdit.Password)
+        self.api_token.setEchoMode(QLineEdit.EchoMode.Password)
         self.api_token.setPlaceholderText("Required when the host is not 127.0.0.1")
         self.api_status = QLabel("")
         self.api_status.setObjectName("Hint")

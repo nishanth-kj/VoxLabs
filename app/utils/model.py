@@ -17,6 +17,7 @@ import wave
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import soundfile as sf
@@ -183,7 +184,7 @@ class EdgeBackend(ModelBackend):
             chunks = []
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
-                    chunks.append(chunk["data"])
+                    chunks.append(chunk.get("data") or b"")
             return b"".join(chunks)
 
         return _decode_bytes(asyncio.run(_run()))
@@ -192,12 +193,13 @@ class EdgeBackend(ModelBackend):
 # ---------------------------------------------------------------- local backends
 
 class PiperBackend(ModelBackend):
+    _voice: Any = None
     backend_id = Backend.PIPER
     native_params = frozenset({"speed"})
 
     def load(self):
         try:
-            from piper import PiperVoice
+            from piper import PiperVoice  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
             raise ModelError("Piper is not installed. Run: uv sync --extra piper") from exc
         model_path = self.model_dir / "model.onnx"
@@ -216,7 +218,7 @@ class PiperBackend(ModelBackend):
         buf = io.BytesIO()
         with wave.open(buf, "wb") as wav_file:
             try:  # piper-tts >= 1.3
-                from piper import SynthesisConfig
+                from piper import SynthesisConfig  # pyright: ignore[reportMissingImports]
 
                 self._voice.synthesize_wav(request.text, wav_file, syn_config=SynthesisConfig(length_scale=length_scale))
             except ImportError:  # piper-tts 1.2
@@ -225,13 +227,14 @@ class PiperBackend(ModelBackend):
 
 
 class XTTSBackend(ModelBackend):
+    _tts: Any = None
     backend_id = Backend.XTTS
     supports_cloning = True
     native_params = frozenset({"speed", "temperature"})
 
     def load(self):
         try:
-            from TTS.api import TTS
+            from TTS.api import TTS  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
             raise ModelError("XTTS is not installed. Run: uv sync --extra xtts") from exc
         os.environ.setdefault("TTS_HOME", str(self.model_dir))
@@ -247,18 +250,19 @@ class XTTSBackend(ModelBackend):
         kwargs = {"speed": request.speed}
         if request.temperature is not None:
             kwargs["temperature"] = request.temperature
-        wav = self._tts.tts(text=request.text, speaker_wav=refs, language=voice.language or "en", **kwargs)
+        wav = self._tts.tts(text=request.text, speaker_wav=refs, language=(voice.language if voice else None) or "en", **kwargs)
         return _torch_to_numpy(wav), int(self._tts.synthesizer.output_sample_rate)
 
 
 class F5Backend(ModelBackend):
+    _f5: Any = None
     backend_id = Backend.F5
     supports_cloning = True
     native_params = frozenset({"speed"})
 
     def load(self):
         try:
-            from f5_tts.api import F5TTS
+            from f5_tts.api import F5TTS  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
             raise ModelError("F5-TTS is not installed. Run: uv sync --extra f5") from exc
         os.environ.setdefault("HF_HOME", str(self.model_dir))
@@ -279,13 +283,14 @@ class F5Backend(ModelBackend):
 
 
 class ChatterboxBackend(ModelBackend):
+    _model: Any = None
     backend_id = Backend.CHATTERBOX
     supports_cloning = True
     native_params = frozenset({"temperature", "emotion"})
 
     def load(self):
         try:
-            from chatterbox.tts import ChatterboxTTS
+            from chatterbox.tts import ChatterboxTTS  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
             raise ModelError("Chatterbox is not installed. Run: uv sync --extra chatterbox") from exc
         os.environ.setdefault("HF_HOME", str(self.model_dir))
@@ -299,7 +304,7 @@ class ChatterboxBackend(ModelBackend):
     def synthesize(self, request, voice):
         refs = self._require_reference(voice)
         if request.seed is not None:
-            import torch
+            import torch  # pyright: ignore[reportMissingImports]
 
             torch.manual_seed(request.seed)
         exaggeration = {"neutral": 0.5, "calm": 0.3, "sad": 0.4}.get(request.emotion, 0.7)

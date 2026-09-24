@@ -206,7 +206,8 @@ class ProjectService:
                 for script in session.scalars(select(Script).where(Script.projects_id == projects_id)):
                     new_script = Script(projects_id=copy.projects_id, title=script.title, body=script.body,
                                         speaker_map=dict(script.speaker_map or {}), settings=dict(script.settings or {}),
-                                        final_audios_id=audio_map.get(script.final_audios_id))
+                                        final_audios_id=audio_map.get(script.final_audios_id)
+                                        if script.final_audios_id else None)
                     for section in script.sections:
                         fields = {k: getattr(section, k) for k in ("position", "chapter", "heading", "speaker", "text",
                                                                    "voices_id", "speed", "pitch", "emotion", "style",

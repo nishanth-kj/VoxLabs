@@ -12,7 +12,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.constants.jobs import JobType
-from app.constants.models import CLONING_BACKENDS, MODEL_CATALOG, Backend, ModelType
+from app.constants.models import CLONING_BACKENDS, DEFAULT_TTS_MODEL, MODEL_CATALOG, Backend, ModelType
 from app.constants.status import Status
 from app.exceptions import ModelError, NotFoundError, ValidationError, service_error
 from app.models import Model
@@ -334,7 +334,7 @@ class ModelService:
                     and self.get(voice["model_key"])["installed"]:
                 model = self.get(voice["model_key"])
             else:
-                model = self.get(system_service.get_setting("default_tts_model"))
+                model = self.get(system_service.get_setting("default_tts_model") or DEFAULT_TTS_MODEL)
             if not model["speaks"]:
                 raise ModelError(f"{model['name']} cannot generate speech")
             if not model["installed"]:

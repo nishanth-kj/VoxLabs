@@ -18,8 +18,8 @@ class WaveformWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumHeight(140)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMouseTracking(True)
         self._y = np.zeros(0, dtype=np.float32)
         self._sr = 1
@@ -27,7 +27,7 @@ class WaveformWidget(QWidget):
         self.duration = 0.0
         self.view_start = 0.0
         self.view_end = 0.0
-        self.cursor = 0.0
+        self.cursor_time = 0.0
         self.playhead: float | None = None
         self.selection: tuple[float, float] | None = None
         self._drag_from: float | None = None
@@ -39,7 +39,7 @@ class WaveformWidget(QWidget):
         self.duration = au.duration(self._y, sr)
         if not keep_view or self.view_end <= self.view_start or self.view_end > self.duration:
             self.view_start, self.view_end = 0.0, self.duration
-        self.cursor = min(self.cursor, self.duration)
+        self.cursor_time = min(self.cursor_time, self.duration)
         if self.selection and self.selection[1] > self.duration:
             self.selection = None
         self._peaks = None
@@ -68,7 +68,7 @@ class WaveformWidget(QWidget):
         self.view_changed.emit(self.view_start, self.view_end)
 
     def zoom(self, factor: float, around: float | None = None) -> None:
-        around = self.cursor if around is None else around
+        around = self.cursor_time if around is None else around
         span = (self.view_end - self.view_start) * factor
         span = min(max(span, 0.01), max(self.duration, 0.01))
         ratio = (around - self.view_start) / max(self.view_end - self.view_start, 1e-9)
@@ -99,7 +99,7 @@ class WaveformWidget(QWidget):
         for x, (lo, hi) in enumerate(self._peaks):
             painter.drawLine(QPointF(x, mid - hi * mid * 0.95), QPointF(x, mid - lo * mid * 0.95))
         painter.setPen(QPen(QColor(230, 81, 0), 1.5))
-        cx = self.time_to_x(self.cursor)
+        cx = self.time_to_x(self.cursor_time)
         painter.drawLine(QPointF(cx, 0), QPointF(cx, h))
         if self.playhead is not None:
             painter.setPen(QPen(QColor(46, 160, 67), 1.5))
@@ -107,7 +107,7 @@ class WaveformWidget(QWidget):
             painter.drawLine(QPointF(px, 0), QPointF(px, h))
         if self._y.size == 0:
             painter.setPen(palette.placeholderText().color())
-            painter.drawText(self.rect(), Qt.AlignCenter, "Open or import audio to edit")
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Open or import audio to edit")
 
     def resizeEvent(self, event):
         self._peaks = None
@@ -116,15 +116,15 @@ class WaveformWidget(QWidget):
     # ------------------------------------------------------------ interaction
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton and self.duration:
+        if event.button() == Qt.MouseButton.LeftButton and self.duration:
             t = self.x_to_time(event.position().x())
-            if event.modifiers() & Qt.ShiftModifier and self.selection:
+            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier and self.selection:
                 self.selection = (min(self.selection[0], t), max(self.selection[1], t))
                 self.selection_changed.emit(*self.selection)
             else:
                 self._drag_from = t
                 self.selection = None
-                self.cursor = t
+                self.cursor_time = t
                 self.cursor_moved.emit(t)
                 self.selection_changed.emit(t, t)
             self.update()
@@ -145,7 +145,7 @@ class WaveformWidget(QWidget):
         if not self.duration:
             return
         steps = event.angleDelta().y() / 120
-        if event.modifiers() & Qt.ControlModifier:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self.zoom(0.8**steps, self.x_to_time(event.position().x()))
         else:
             span = self.view_end - self.view_start

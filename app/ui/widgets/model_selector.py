@@ -1,3 +1,6 @@
+from typing import cast
+
+from PySide6.QtGui import QStandardItemModel
 from PySide6.QtWidgets import QComboBox
 
 from app.services.model_service import model_service
@@ -34,13 +37,17 @@ class ModelSelector(QComboBox):
                 note = " — online"
             self.addItem(model["name"] + note, model["key"])
             if self.only_usable and note and note != " — online":
-                item = self.model().item(self.count() - 1)
-                item.setEnabled(False)
+                item = self._items().item(self.count() - 1)
+                if item is not None:
+                    item.setEnabled(False)
         self._select_usable(current, preferred)
         self.blockSignals(False)
 
+    def _items(self) -> QStandardItemModel:
+        return cast(QStandardItemModel, self.model())
+
     def _usable(self, index: int) -> bool:
-        item = self.model().item(index)
+        item = self._items().item(index)
         return index >= 0 and (item is None or item.isEnabled())
 
     def _select_usable(self, *keys: str | None):

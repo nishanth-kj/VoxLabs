@@ -116,7 +116,7 @@ class CloneService:
         self,
         sample_paths: Sequence[str | Path],
         name: str,
-        consent: dict,
+        consent: dict | None,
         *,
         language: str = "en",
         description: str = "",
@@ -179,7 +179,7 @@ class CloneService:
         except Exception as exc:
             raise service_error(exc, "clone_service.clone")
 
-    def clone_async(self, sample_paths: Sequence[str | Path], name: str, consent: dict,
+    def clone_async(self, sample_paths: Sequence[str | Path], name: str, consent: dict | None,
                     delete_samples_after: bool = False, **kwargs) -> dict:
         """Clone in the background. `delete_samples_after` removes temporary upload files."""
         try:

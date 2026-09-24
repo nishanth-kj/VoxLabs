@@ -59,19 +59,19 @@ class LibraryDialog(QDialog):
             if audio["ai_generated"]:
                 label += " · AI"
             item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, audio["audios_id"])
+            item.setData(Qt.ItemDataRole.UserRole, audio["audios_id"])
             self.list.addItem(item)
         self.list.itemActivated.connect(lambda _i: self.accept())
-        buttons = QDialogButtonBox(QDialogButtonBox.Open | QDialogButtonBox.Cancel)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Open | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout = QVBoxLayout(self)
         layout.addWidget(self.list)
         layout.addWidget(buttons)
 
-    def selected(self):
+    def selected(self) -> int | None:
         item = self.list.currentItem()
-        return item.data(Qt.UserRole) if item else None
+        return item.data(Qt.ItemDataRole.UserRole) if item else None
 
 
 class EditorPage(BasePage):
@@ -93,7 +93,7 @@ class EditorPage(BasePage):
         self.root.addWidget(self.toolbar)
         self._build_actions()
 
-        splitter = QSplitter(Qt.Vertical)
+        splitter = QSplitter(Qt.Orientation.Vertical)
         wave_box = QWidget()
         wv = QVBoxLayout(wave_box)
         wv.setContentsMargins(0, 0, 0, 0)
@@ -125,13 +125,13 @@ class EditorPage(BasePage):
         wv.addLayout(transport)
         splitter.addWidget(wave_box)
 
-        bottom = QSplitter(Qt.Horizontal)
+        bottom = QSplitter(Qt.Orientation.Horizontal)
         props = QGroupBox("Properties")
         pf = QFormLayout(props)
         self.prop_labels = {}
         for key in ("File", "Duration", "Sample rate", "Selection", "Peak level", "Loudness", "Edits", "Label"):
             label = QLabel("—")
-            label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             self.prop_labels[key] = label
             pf.addRow(key, label)
         bottom.addWidget(props)
@@ -168,7 +168,7 @@ class EditorPage(BasePage):
         action.triggered.connect(slot)
         if shortcut:
             action.setShortcut(QKeySequence(shortcut))
-            action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+            action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
             action.setToolTip(f"{text} ({QKeySequence(shortcut).toString()})")
         self.addAction(action)
         if toolbar:
@@ -178,7 +178,7 @@ class EditorPage(BasePage):
     def _build_actions(self):
         self._action("Open…", self.choose_audio, "Ctrl+O")
         self._action("Import…", self.import_file, "Ctrl+I")
-        self._action("Render", self.render, "Ctrl+S")
+        self._action("Render", self.render_edits, "Ctrl+S")
         self._action("Export…", self.export, "Ctrl+E")
         self.toolbar.addSeparator()
         self.undo_action = self._action("Undo", self.undo, "Ctrl+Z")
@@ -211,8 +211,9 @@ class EditorPage(BasePage):
 
     def choose_audio(self):
         dialog = LibraryDialog(self, self.state.projects_id)
-        if dialog.exec() and dialog.selected():
-            self.open_audio(dialog.selected())
+        audios_id = dialog.selected() if dialog.exec() else None
+        if audios_id:
+            self.open_audio(audios_id)
 
     def import_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Import audio", "", AUDIO_FILTER)
@@ -273,7 +274,7 @@ class EditorPage(BasePage):
         labels["Sample rate"].setText(f"{self.sr} Hz · mono working copy")
         sel = self.waveform.selection
         labels["Selection"].setText(f"{sel[0]:.2f}s – {sel[1]:.2f}s ({sel[1] - sel[0]:.2f}s)" if sel
-                                    else f"cursor {self.waveform.cursor:.2f}s")
+                                    else f"cursor {self.waveform.cursor_time:.2f}s")
         labels["Peak level"].setText(f"{self.waveform.peak_level_db():.1f} dBFS")
         loudness = self.audio.get("loudness")
         labels["Loudness"].setText(f"{loudness:.1f} LUFS (source)" if loudness is not None else "—")
@@ -328,13 +329,13 @@ class EditorPage(BasePage):
 
     def _cursor_moved(self, seconds, move_waveform=False):
         if move_waveform:
-            self.waveform.cursor = seconds
+            self.waveform.cursor_time = seconds
             self.waveform.update()
         self.timeline.set_cursor(seconds)
         self._update_properties()
 
     def _seek(self, seconds):
-        self.waveform.cursor = seconds
+        self.waveform.cursor_time = seconds
         self.waveform.update()
         self._cursor_moved(seconds)
 
@@ -363,7 +364,7 @@ class EditorPage(BasePage):
         if not self.clip_path:
             self.error("Nothing copied yet")
             return
-        at = self.waveform.cursor
+        at = self.waveform.cursor_time
         self._push({"op": "paste", "at": at, "clip": self.clip_path})
 
     def delete(self):
@@ -386,12 +387,12 @@ class EditorPage(BasePage):
     def move_selection(self):
         sel = self._selection()
         if sel:
-            self._push({"op": "move", "start": sel[0], "end": sel[1], "to": self.waveform.cursor})
+            self._push({"op": "move", "start": sel[0], "end": sel[1], "to": self.waveform.cursor_time})
 
     def insert_silence(self):
         seconds, ok = QInputDialog.getDouble(self, "Insert silence", "Seconds:", 0.5, 0.01, 60, 2)
         if ok:
-            self._push({"op": "silence", "at": self.waveform.cursor, "duration": seconds})
+            self._push({"op": "silence", "at": self.waveform.cursor_time, "duration": seconds})
 
     def volume(self):
         db, ok = QInputDialog.getDouble(self, "Volume", "Gain (dB, negative is quieter):", -3.0, -40, 20, 1)
@@ -417,15 +418,16 @@ class EditorPage(BasePage):
 
     def join(self):
         dialog = LibraryDialog(self, self.state.projects_id)
-        if dialog.exec() and dialog.selected():
-            other = audio_service.get(dialog.selected())
+        audios_id = dialog.selected() if dialog.exec() else None
+        if audios_id:
+            other = audio_service.get(audios_id)
             self._push({"op": "append", "clip": other["path"], "gap": 0.3})
 
     def split(self):
         """Render the current edit and split it at the cursor into two new library files."""
         if not self.audio:
             return
-        at, ops, audios_id = self.waveform.cursor, list(self.ops), self.audio["audios_id"]
+        at, ops, audios_id = self.waveform.cursor_time, list(self.ops), self.audio["audios_id"]
         self.run(lambda: audio_service.split(audio_service.materialize(audios_id, ops)["audios_id"], at),
                  lambda parts: (self.state.notify("audio"), self.open_audio(parts[0]["audios_id"])))
 
@@ -450,12 +452,12 @@ class EditorPage(BasePage):
         if self.waveform.selection and self.loop.isChecked():
             self.play_selection()
         else:
-            self.player.play(self.waveform.cursor)
+            self.player.play(self.waveform.cursor_time)
 
     def play_from_cursor(self):
         if self.audio:
             self._ensure_preview()
-            self.player.play(self.waveform.cursor)
+            self.player.play(self.waveform.cursor_time)
 
     def play_selection(self):
         sel = self._selection()
@@ -469,7 +471,7 @@ class EditorPage(BasePage):
 
     # ------------------------------------------------------------ output
 
-    def render(self):
+    def render_edits(self):
         if not self.audio:
             return
         if not self.ops:

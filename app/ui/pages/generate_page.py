@@ -39,7 +39,7 @@ class GeneratePage(BasePage):
         self.sentences: list[dict] = []
         self.combined: dict | None = None
 
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
         self.root.addWidget(splitter, 1)
 
         # Left: text + results
@@ -240,7 +240,7 @@ class GeneratePage(BasePage):
         self.sentence_list.clear()
         for index, audio in enumerate(self.sentences):
             item = QListWidgetItem(f"{index + 1}. {audio['params'].get('text', '')}")
-            item.setData(Qt.UserRole, index)
+            item.setData(Qt.ItemDataRole.UserRole, index)
             self.sentence_list.addItem(item)
         if self.combined:
             self.player.load(self.combined["path"], "Generated speech")
@@ -251,15 +251,15 @@ class GeneratePage(BasePage):
     def _play_sentence(self, item):
         if item is None:
             return
-        audio = self.sentences[item.data(Qt.UserRole)]
-        self.player.load(audio["path"], f"Sentence {item.data(Qt.UserRole) + 1}")
+        audio = self.sentences[item.data(Qt.ItemDataRole.UserRole)]
+        self.player.load(audio["path"], f"Sentence {item.data(Qt.ItemDataRole.UserRole) + 1}")
         self.player.play()
 
     def regenerate_sentence(self):
         item = self.sentence_list.currentItem()
         if item is None:
             return
-        index = item.data(Qt.UserRole)
+        index = item.data(Qt.ItemDataRole.UserRole)
         job = tts_service.regenerate_sentence_async([a["audios_id"] for a in self.sentences], index,
                                                     self.pause.value(), self.state.projects_id)
         self.follow(job, lambda r: self._regenerated(index, r))
@@ -277,5 +277,6 @@ class GeneratePage(BasePage):
         start_dir = system_service.get_setting("output_dir") or ""
         path, _ = QFileDialog.getSaveFileName(self, "Export audio", f"{start_dir}/speech.{fmt}", f"*.{fmt}")
         if path:
-            self.run(lambda: audio_service.export(AudioExportRequest(audios_id=self.combined["audios_id"], format=fmt), path),
+            request = AudioExportRequest(audios_id=self.combined["audios_id"], format=fmt)
+            self.run(lambda: audio_service.export(request, path),
                      lambda p: self.save_label.setText(f"Saved {p}"))

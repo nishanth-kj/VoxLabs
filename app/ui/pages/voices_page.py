@@ -43,7 +43,8 @@ class VoiceEditDialog(QDialog):
         form.addRow("Name", self.name)
         form.addRow("Description", self.description)
         form.addRow("Language", self.language)
-        self.engine_voice = self.model = None
+        self.engine_voice: QLineEdit | None = None
+        self.model: ModelSelector | None = None
         if preset or voice.get("source") == "preset":
             self.model = ModelSelector(default_label="Default model")
             self.model.set_model_key(voice.get("model_key"))
@@ -51,15 +52,15 @@ class VoiceEditDialog(QDialog):
             self.engine_voice.setToolTip("Engine speaker id, e.g. an Edge voice such as en-GB-RyanNeural")
             form.addRow("Model", self.model)
             form.addRow("Engine voice", self.engine_voice)
-        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
 
     def values(self) -> dict:
-        values = {"name": self.name.text(), "description": self.description.text(),
-                  "language": self.language.text().strip() or "en"}
-        if self.model is not None:
+        values: dict[str, str | None] = {"name": self.name.text(), "description": self.description.text(),
+                                         "language": self.language.text().strip() or "en"}
+        if self.model is not None and self.engine_voice is not None:
             values["model_key"] = self.model.model_key()
             values["engine_voice"] = self.engine_voice.text().strip() or None
         return values
@@ -73,10 +74,10 @@ class VoicesPage(BasePage):
         self.voices: list[dict] = []
         self.table = QTableWidget(0, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.itemDoubleClicked.connect(lambda _i: self.preview())
         self.root.addWidget(self.table, 1)
 
@@ -111,7 +112,7 @@ class VoicesPage(BasePage):
                       _date(voice["created_at"]), _date(voice["updated_at"]))
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
-                item.setData(Qt.UserRole, voice["voices_id"])
+                item.setData(Qt.ItemDataRole.UserRole, voice["voices_id"])
                 self.table.setItem(row, col, item)
 
     def _current(self) -> dict | None:
@@ -177,14 +178,14 @@ class VoicesPage(BasePage):
             self, "Revoke voice",
             f"Revoke “{voice['name']}”? Its samples and voice profile are deleted immediately and it can no "
             "longer be used. The consent record is kept marked as revoked.",
-        ) == QMessageBox.Yes:
+        ) == QMessageBox.StandardButton.Yes:
             self.run(lambda: voice_service.revoke(voice["voices_id"]), self._changed)
 
     def delete(self):
         voice = self._current()
         if voice and QMessageBox.question(
             self, "Delete voice", f"Permanently delete “{voice['name']}”, its samples and consent records?"
-        ) == QMessageBox.Yes:
+        ) == QMessageBox.StandardButton.Yes:
             self.run(lambda: voice_service.delete(voice["voices_id"]), self._changed)
 
 

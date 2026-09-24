@@ -33,10 +33,10 @@ uv run pytest tests/test_script_service.py -k render
 
 ## Adding a feature
 
-1. Put the logic in the relevant service, or a new one if it is a genuinely new area. Validate input with `app/utils/validation.py` and raise `AppError` subclasses.
+1. Put the logic in the relevant service, or a new one if it is a genuinely new area. Validate input with `Validation` (`app/utils/validation.py`) and raise `AppError` subclasses. Wrap the public method body in `try: ... except Exception as exc: raise service_error(exc, "<service>.<method>")` and log what it did with `logger`.
 2. If it touches several rows, wrap them in one `transaction()`.
 3. If it is slow, add a `*_async` wrapper that uses `job_service.submit()`.
-4. Call it from the UI with `BasePage.run()` / `follow()`. For the API, add a request class in `app/models/request/` and a thin route in `app/api/routes/` that returns `ApiResponse(data=...).success()`. Responses are always HTTP 200.
+4. Call it from the UI with `BasePage.run()` / `follow()`. For the API, add a request class in `app/models/request/` and a thin route in `app/api/routes/`: validate path/query values with `Validation`, pass the full request body to the service, and return `ApiResponse(data).success()` (annotated `-> ApiResponse`). Responses are always HTTP 200. If agents should use it too, add a tool in `app/api/mcp/tools.py` that calls the same service through `respond()`.
 5. Add tests next to the existing ones.
 
 ## Adding a model engine
