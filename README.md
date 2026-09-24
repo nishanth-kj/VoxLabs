@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://python.org)
 
-VoxLabs is a native Python desktop application (PySide6). An optional REST API exposes the same features to other programs. There is no web app.
+VoxLabs is a native Python desktop application (PySide6). An optional REST API exposes the same features to other programs. There is no web app. [`site/`](./site) is only the landing page, which points visitors to the desktop download.
 
 ## Features
 

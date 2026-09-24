@@ -28,6 +28,12 @@ htmlcov/
 .coverage.*
 coverage.xml
 
+# Landing site (site/, Next.js)
+node_modules/
+.next/
+out/
+next-env.d.ts
+
 # Build output (PyInstaller)
 build/
 dist/

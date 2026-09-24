@@ -12,7 +12,7 @@ Guidance for AI coding agents working in the VoxLabs repository.
 - Utils contain reusable technical infrastructure.
 - SQLite is the default database.
 - uv manages the Python project.
-- There is no web application.
+- There is no web application. `site/` is only the static Next.js **landing page** that links to the desktop download; it is not a product UI and must not grow app features.
 
 Its features are voice cloning (with recorded consent), TTS, script/lesson-to-audio, a non-destructive audio editor, enhancement, projects and takes, local model management, and background jobs.
 
@@ -54,6 +54,13 @@ uv run pytest                         # tests (Qt tests run with QT_QPA_PLATFORM
 - **Models / engines.** All engine code lives in `app/utils/model.py` behind `ModelBackend`. Heavy libraries are imported lazily inside `load()`. Selection and device policy live in `ModelService`. New engines go in `MODEL_CATALOG` (`app/constants/models.py`) plus a backend class.
 - **Files.** Everything goes under `data/` (`app/utils/files.py`, override with `VOXLABS_DATA_DIR`). Only paths are stored in the database.
 - **Constants** hold fixed values only, never logic.
+
+## Landing site (`site/`)
+
+- Next.js / TypeScript marketing page deployed to GitHub Pages (`.github/workflows/deploy-nextjs.yml`).
+- Commands (from `site/`): `npm install`, `npm run dev`, `npm run build`, `npm run lint`, `npm run test`.
+- Keep download/GitHub URLs in `site/lib/links.ts`, and use the existing shadcn/Radix primitives in `site/components/`.
+- Never add a web Studio, TTS or cloning to it. The product is the desktop app.
 
 ## Safety guarantees (do not weaken without explicit user instruction)
 
