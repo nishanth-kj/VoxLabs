@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import QGridLayout, QGroupBox, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout
 
 from app.services.audio_service import audio_service
@@ -6,13 +6,24 @@ from app.services.job_service import job_service
 from app.services.model_service import model_service
 from app.services.project_service import project_service
 from app.services.voice_service import voice_service
+from app.ui import icons, theme
 from app.ui.pages import BasePage
 from app.ui.widgets.progress import JobBridge
 from app.utils.time import format_duration
 
 
+TILES = [
+    ("Clone a voice", "From consented samples", "clone", "clone"),
+    ("Generate speech", "Text to natural audio", "generate", "generate"),
+    ("Script to audio", "Lessons and dialogue", "script", "script"),
+    ("Edit audio", "Cut, fade, enhance", "editor", "editor"),
+    ("New project", "Organize your work", "projects", "projects"),
+]
+
+
 class HomePage(BasePage):
     title = "Home"
+    subtitle = "Your local voice studio. Everything stays on this computer."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)
@@ -23,17 +34,19 @@ class HomePage(BasePage):
         self.root.addWidget(self.banner)
 
         actions = QHBoxLayout()
-        for label, target in (("Clone Voice", "clone"), ("Generate Speech", "generate"),
-                              ("Create Script Audio", "script"), ("Open Audio Editor", "editor")):
-            button = QPushButton(label)
-            button.setMinimumHeight(40)
+        actions.setSpacing(10)
+        self._tiles: list[tuple[QPushButton, str]] = []
+        for label, hint, target, icon_name in TILES:
+            button = QPushButton(f"{label}\n{hint}")
+            button.setObjectName("Tile")
+            button.setMinimumHeight(64)
+            button.setIconSize(QSize(24, 24))
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.clicked.connect(lambda _c=False, t=target: state.navigate.emit(t))
             actions.addWidget(button)
-        new_project = QPushButton("New Project")
-        new_project.setMinimumHeight(40)
-        new_project.clicked.connect(lambda: state.navigate.emit("projects"))
-        actions.addWidget(new_project)
+            self._tiles.append((button, icon_name))
         self.root.addLayout(actions)
+        self.refresh_icons()
 
         grid = QGridLayout()
         self.projects = self._list(grid, "Recent Projects", 0, 0, self._open_project)
@@ -45,6 +58,10 @@ class HomePage(BasePage):
 
         JobBridge.instance().job_changed.connect(lambda _job: self._refresh_jobs() if self.isVisible() else None)
         state.data_changed.connect(lambda _what: self.refresh() if self.isVisible() else None)
+
+    def refresh_icons(self):
+        for button, name in self._tiles:
+            button.setIcon(icons.icon(name, theme.current().accent, size=24))
 
     def _list(self, grid, title, row, col, on_activate):
         box = QGroupBox(title)

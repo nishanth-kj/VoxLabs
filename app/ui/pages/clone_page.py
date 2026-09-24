@@ -37,6 +37,7 @@ AUDIO_FILTER = "Audio files (*.wav *.mp3 *.flac *.ogg *.m4a *.aac *.opus)"
 
 class ClonePage(BasePage):
     title = "Clone Voice"
+    subtitle = "Add or record clean samples, confirm the speaker's consent, then clone."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)
@@ -122,6 +123,7 @@ class ClonePage(BasePage):
         s5 = QVBoxLayout(step5)
         row = QHBoxLayout()
         self.clone_button = QPushButton("Clone voice")
+        self.clone_button.setObjectName("Primary")
         self.clone_button.clicked.connect(self.clone)
         self.preview_button = QPushButton("Preview")
         self.preview_button.clicked.connect(self.preview)

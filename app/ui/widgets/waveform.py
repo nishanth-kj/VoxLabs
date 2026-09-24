@@ -5,9 +5,11 @@ from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
+from app.ui import theme
 from app.utils import audio as au
 
-WAVE_COLOR = QColor(86, 156, 255)  # readable on light and dark palettes
+CURSOR_COLOR = QColor(255, 138, 61)
+PLAYHEAD_COLOR = QColor(52, 199, 89)
 
 
 class WaveformWidget(QWidget):
@@ -86,23 +88,27 @@ class WaveformWidget(QWidget):
     def paintEvent(self, _event):
         painter = QPainter(self)
         palette = self.palette()
-        painter.fillRect(self.rect(), palette.base())
+        colors = theme.current()
+        accent = QColor(colors.accent)
+        painter.fillRect(self.rect(), QColor(colors.surface))
         h, mid = self.height(), self.height() / 2
         if self.selection:
             x1, x2 = self.time_to_x(self.selection[0]), self.time_to_x(self.selection[1])
-            painter.fillRect(QRectF(x1, 0, x2 - x1, h), QColor(66, 133, 244, 60))
-        painter.setPen(QPen(palette.mid().color(), 1))
+            selection = QColor(accent)
+            selection.setAlpha(55)
+            painter.fillRect(QRectF(x1, 0, x2 - x1, h), selection)
+        painter.setPen(QPen(QColor(colors.border), 1))
         painter.drawLine(0, int(mid), self.width(), int(mid))
         if self._peaks is None:
             self._peaks = self._compute_peaks()
-        painter.setPen(QPen(WAVE_COLOR, 1))
+        painter.setPen(QPen(accent, 1))
         for x, (lo, hi) in enumerate(self._peaks):
             painter.drawLine(QPointF(x, mid - hi * mid * 0.95), QPointF(x, mid - lo * mid * 0.95))
-        painter.setPen(QPen(QColor(230, 81, 0), 1.5))
+        painter.setPen(QPen(CURSOR_COLOR, 1.5))
         cx = self.time_to_x(self.cursor_time)
         painter.drawLine(QPointF(cx, 0), QPointF(cx, h))
         if self.playhead is not None:
-            painter.setPen(QPen(QColor(46, 160, 67), 1.5))
+            painter.setPen(QPen(PLAYHEAD_COLOR, 1.5))
             px = self.time_to_x(self.playhead)
             painter.drawLine(QPointF(px, 0), QPointF(px, h))
         if self._y.size == 0:

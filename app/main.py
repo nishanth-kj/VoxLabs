@@ -18,7 +18,10 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("VoxLabs")
     app.setOrganizationName("VoxLabs")
-    app.setStyle("Fusion")
+
+    from app.ui.theme import apply_theme
+
+    apply_theme(app, system_service.get_setting("theme"))
 
     from app.ui.main_window import MainWindow
     from app.ui.widgets.progress import show_error

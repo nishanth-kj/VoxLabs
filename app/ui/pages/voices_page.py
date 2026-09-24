@@ -68,6 +68,7 @@ class VoiceEditDialog(QDialog):
 
 class VoicesPage(BasePage):
     title = "Voices"
+    subtitle = "Cloned and preset voices. Revoking a voice deletes its samples immediately."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)

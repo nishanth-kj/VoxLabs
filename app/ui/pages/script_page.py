@@ -56,6 +56,7 @@ Narrator: That's all for today. [pause 1s] See you next time.
 
 class ScriptPage(BasePage):
     title = "Script to Audio"
+    subtitle = "Lessons and dialogue: write \"Name: line\" for speakers and [pause 800ms] for pauses, then generate and render."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)
@@ -115,13 +116,14 @@ class ScriptPage(BasePage):
 
         bottom = QHBoxLayout()
         self.generate_all_button = QPushButton("Generate all")
+        self.generate_all_button.setObjectName("Primary")
         self.generate_all_button.clicked.connect(lambda: self.generate_all(False))
         regen_all = QPushButton("Regenerate all")
         regen_all.clicked.connect(lambda: self.generate_all(True))
         render = QPushButton("Render final audio")
         render.clicked.connect(self.render_script)
         open_editor = QPushButton("Open final in editor")
-        open_editor.clicked.connect(self._open_final)
+        open_editor.clicked.connect(self.open_final)
         for button in (self.generate_all_button, regen_all, render, open_editor):
             bottom.addWidget(button)
         bottom.addStretch()
@@ -588,7 +590,7 @@ class ScriptPage(BasePage):
         self.player.play()
         self.state.notify("audio")
 
-    def _open_final(self):
+    def open_final(self):
         if self.script and self.script.get("final_audios_id"):
             self.state.open_audio.emit(self.script["final_audios_id"])
 

@@ -33,6 +33,7 @@ from app.utils.time import format_duration
 
 class StudioPage(BasePage):
     title = "Studio"
+    subtitle = "The whole production at a glance: sections, voices, timeline and final render."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)

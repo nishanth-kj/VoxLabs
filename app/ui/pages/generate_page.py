@@ -33,6 +33,7 @@ from app.ui.widgets.voice_selector import VoiceSelector
 
 class GeneratePage(BasePage):
     title = "Generate Audio"
+    subtitle = "Type text, pick a voice and model, and generate speech. Output is labeled as AI-generated."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)
@@ -51,6 +52,7 @@ class GeneratePage(BasePage):
         lv.addWidget(self.text, 3)
         buttons = QHBoxLayout()
         self.generate_button = QPushButton("Generate")
+        self.generate_button.setObjectName("Primary")
         self.generate_button.setDefault(True)
         self.generate_button.clicked.connect(self.generate)
         self.sentence_mode = QCheckBox("Per sentence (allows regenerating single sentences)")

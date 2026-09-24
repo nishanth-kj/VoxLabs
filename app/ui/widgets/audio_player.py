@@ -4,9 +4,10 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtMultimedia import QAudioOutput, QMediaDevices, QMediaPlayer
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSlider, QStyle, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSlider, QWidget
 
 from app.services.system_service import system_service
+from app.ui import icons, theme
 from app.utils.time import format_duration
 
 
@@ -31,11 +32,11 @@ class AudioPlayer(QWidget):
         self._range: tuple[float, float] | None = None
         self._loop = False
 
-        style = self.style()
-        self.play_button = QPushButton(style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay), "")
+        self.play_button = QPushButton()
+        self.play_button.setObjectName("Primary")
         self.play_button.setToolTip("Play / pause (Space)")
         self.play_button.clicked.connect(self.toggle)
-        self.stop_button = QPushButton(style.standardIcon(QStyle.StandardPixmap.SP_MediaStop), "")
+        self.stop_button = QPushButton()
         self.stop_button.setToolTip("Stop")
         self.stop_button.clicked.connect(self.stop)
         self.slider = QSlider(Qt.Orientation.Horizontal)
@@ -57,7 +58,14 @@ class AudioPlayer(QWidget):
         self.player.positionChanged.connect(self._on_position)
         self.player.durationChanged.connect(lambda ms: self.slider.setRange(0, ms))
         self.player.playbackStateChanged.connect(self._on_state)
+        self.refresh_icons()
         self.setEnabled(False)
+
+    def refresh_icons(self) -> None:
+        colors = theme.current()
+        playing = self.is_playing()
+        self.play_button.setIcon(icons.icon("pause" if playing else "play", colors.accent_text))
+        self.stop_button.setIcon(icons.icon("stop"))
 
     # ------------------------------------------------------------ public
 
@@ -118,6 +126,5 @@ class AudioPlayer(QWidget):
                 self.clear_range()
         self.position_changed.emit(seconds)
 
-    def _on_state(self, state) -> None:
-        icon = QStyle.StandardPixmap.SP_MediaPause if state == QMediaPlayer.PlaybackState.PlayingState else QStyle.StandardPixmap.SP_MediaPlay
-        self.play_button.setIcon(self.style().standardIcon(icon))
+    def _on_state(self, _state) -> None:
+        self.refresh_icons()

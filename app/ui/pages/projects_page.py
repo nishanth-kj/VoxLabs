@@ -46,6 +46,7 @@ class NewProjectDialog(QDialog):
 
 class ProjectsPage(BasePage):
     title = "Projects"
+    subtitle = "Projects group scripts, takes, audio and editor state."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)

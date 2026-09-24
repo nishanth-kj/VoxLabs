@@ -27,11 +27,22 @@ from app.utils import device
 
 class SettingsPage(BasePage):
     title = "Settings"
+    subtitle = "Appearance, audio devices, defaults, the local API and logs."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)
         columns = QHBoxLayout()
         left, right = QFormLayout(), QFormLayout()
+
+        appearance = QGroupBox("Appearance")
+        appearance_form = QFormLayout(appearance)
+        self.theme = QComboBox()
+        for mode, label in (("system", "Match system"), ("dark", "Dark"), ("light", "Light")):
+            self.theme.addItem(label, mode)
+        self.native_title_bar = QCheckBox("Use the system title bar (applies after restart)")
+        appearance_form.addRow("Theme", self.theme)
+        appearance_form.addRow("", self.native_title_bar)
+        left.addRow(appearance)
 
         audio = QGroupBox("Audio")
         audio_form = QFormLayout(audio)
@@ -113,6 +124,7 @@ class SettingsPage(BasePage):
         columns.addLayout(right, 1)
         self.root.addLayout(columns, 1)
         save = QPushButton("Save settings")
+        save.setObjectName("Primary")
         save.clicked.connect(self.save)
         self.root.addWidget(save)
 
@@ -155,6 +167,8 @@ class SettingsPage(BasePage):
         self.api_token.setText(s["api_token"])
         self.autosave.setChecked(bool(s["autosave"]))
         self.log_level.setCurrentText(s["log_level"])
+        self._select(self.theme, s["theme"])
+        self.native_title_bar.setChecked(bool(s["native_title_bar"]))
         running = system_service.api_running()
         self.api_status.setText(f"Running at http://{s['api_host']}:{s['api_port']}/docs" if running
                                 else "Not running")
@@ -188,6 +202,8 @@ class SettingsPage(BasePage):
             "api_token": self.api_token.text().strip(),
             "autosave": self.autosave.isChecked(),
             "log_level": self.log_level.currentText(),
+            "theme": self.theme.currentData() or "system",
+            "native_title_bar": self.native_title_bar.isChecked(),
         }
 
         def apply():

@@ -25,7 +25,7 @@ The UI, the REST API and the MCP server import the same module-level service sin
 | `app/constants/` | Fixed values, one class per file: `base_enum`, `status`, `consent_status`, `response_status`, `error_code`, `error_message`, `project_type`, `audio_source`, `model_type`, `model_backend`, plus value modules `audio` (formats, presets, limits), `jobs` and `models` (catalog). |
 | `app/exceptions/` | `AppError` and its subclasses. Each declares an `ErrorCode` and `ErrorMessage` and carries a specific message plus an optional field. `service_error()` logs a failure once and turns unexpected exceptions into `InternalError`. |
 | `app/api/` | FastAPI app (`app.py`), thin routers in `routes/`, and the MCP server in `mcp/` (tools in `mcp/tools.py`, served over streamable HTTP at `/mcp` and over stdio with `--stdio`). Every REST response is HTTP 200 with `ApiResponse`. |
-| `app/ui/` | `main_window.py`, ten pages and shared widgets (player, waveform, timeline, selectors, job status). |
+| `app/ui/` | `main_window.py`, ten pages, shared widgets (title bar, nav bar, command palette, player, waveform, timeline, selectors, job status), `app_menu.py` (every command), `theme.py` (dark/light colors and the stylesheet) and `icons.py` (line icons). |
 
 ## How a request flows
 
@@ -43,6 +43,17 @@ The API route `POST /api/tts` validates a `TTSRequest` and passes the whole body
 - Every public service method is wrapped in `try: ... except Exception as exc: raise service_error(exc, "<service>.<method>")`. `AppError`s pass through (logged once as warnings). Anything else is logged with its traceback and raised as `InternalError`, so callers never see raw library exceptions. Helpers that only take a caller's `session` are not wrapped.
 - Routes and pages contain no error handling of their own. The API's exception handlers build the error envelope, and `BasePage.run()` / `follow()` show `exc.message` in a dialog, which is also logged.
 - `app/utils/logger.py` is the one logger (`voxlabs`). It writes to stderr, a memory buffer for **Settings → Logs** and `data/logs/voxlabs.log` in the desktop app. It never logs audio content, file bytes or credentials. stdout stays free for the MCP stdio transport.
+
+## Desktop UI
+
+The window follows the Electron / VS Code layout:
+
+- **Title bar** (`widgets/title_bar.py`): the VoxLabs logo, the full menu bar, a command center in the middle that opens the command palette, and the window buttons. The window is frameless and moves and resizes natively, so Windows snapping still works. **Settings → Appearance → Use the system title bar** switches back to a normal frame; the same menus then sit in a regular menu bar.
+- **Menus** (`app_menu.py`): File, Edit, View, Voice, Audio, Script, Tools and Help hold every command in the app. A page command navigates to its page and calls the page's own method, so a menu item, a palette entry and a page button all do the same thing. Shortcuts that only apply inside a page (the editor's Ctrl+X, Space, …) are shown as hints and handled by the page, so text boxes keep their own editing keys. The Edit menu acts on the focused text box, otherwise on the audio editor.
+- **Command palette** (`widgets/command_palette.py`, Ctrl+Shift+P or F1): searches every menu command.
+- **Sidebar** (`widgets/nav_bar.py`): icon + label navigation in sections, collapsible with Ctrl+B.
+- **Status bar**: the open project, the REST API / MCP state (click to start or stop it) and background jobs.
+- **Theme** (`theme.py`): dark, light or match the system (**View → Theme**). Colors live in `ThemeColors`; widgets that paint themselves (waveform) and icons read `theme.current()`, and `MainWindow.refresh_icons()` re-renders icons after a switch. Use object names such as `Primary`, `Tile`, `Hint` and `Banner` instead of inline colors.
 
 ## Background work
 

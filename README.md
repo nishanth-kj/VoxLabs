@@ -40,6 +40,10 @@ uv sync --extra chatterbox       # Chatterbox
 
 These pull in PyTorch. A CUDA GPU is strongly recommended.
 
+On a slow connection, large wheels (onnxruntime, PyTorch) can hit uv's download timeout. Raise it and retry, e.g. in PowerShell: `$env:UV_HTTP_TIMEOUT = "900"; uv sync --extra piper`.
+
+The window has an Electron-style layout: every command sits in the top menu (File, Edit, View, Voice, Audio, Script, Tools, Help), **Ctrl+Shift+P** searches all of them, **Ctrl+B** collapses the sidebar, and **View → Theme** switches between dark, light and your system theme.
+
 ## Optional REST API and MCP server
 
 ```bash

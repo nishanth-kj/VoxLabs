@@ -36,6 +36,7 @@ from app.models.request import AudioExportRequest, AudioProcessRequest
 from app.services.audio_service import audio_service
 from app.services.project_service import project_service
 from app.services.system_service import system_service
+from app.ui import icons
 from app.ui.pages import BasePage
 from app.ui.pages.clone_page import AUDIO_FILTER
 from app.ui.widgets.audio_player import AudioPlayer
@@ -76,6 +77,7 @@ class LibraryDialog(QDialog):
 
 class EditorPage(BasePage):
     title = "Audio Editor"
+    subtitle = "Non-destructive editing: every change is an edit you can undo; the source file is never changed."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)
@@ -90,6 +92,9 @@ class EditorPage(BasePage):
         self._saved_ops: list[dict] = []
 
         self.toolbar = QToolBar()
+        self.toolbar.setIconSize(icons.ICON_SIZE)
+        self.toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self._icon_actions: list[tuple[QAction, str]] = []
         self.root.addWidget(self.toolbar)
         self._build_actions()
 
@@ -114,13 +119,7 @@ class EditorPage(BasePage):
         play_sel.clicked.connect(self.play_selection)
         play_cursor = QPushButton("Play from cursor")
         play_cursor.clicked.connect(self.play_from_cursor)
-        zoom_in = QPushButton("Zoom +")
-        zoom_in.clicked.connect(lambda: self.waveform.zoom(0.5))
-        zoom_out = QPushButton("Zoom −")
-        zoom_out.clicked.connect(lambda: self.waveform.zoom(2.0))
-        fit = QPushButton("Fit")
-        fit.clicked.connect(lambda: self.waveform.set_view(0, self.waveform.duration))
-        for widget in (play_cursor, play_sel, self.loop, zoom_in, zoom_out, fit):
+        for widget in (play_cursor, play_sel, self.loop):
             transport.addWidget(widget)
         wv.addLayout(transport)
         splitter.addWidget(wave_box)
@@ -141,6 +140,7 @@ class EditorPage(BasePage):
         self.preset = QComboBox()
         self.preset.addItems([p for p in ENHANCE_PRESETS if p != "Raw"])
         apply_preset = QPushButton("Apply enhancement preset")
+        apply_preset.setObjectName("Primary")
         apply_preset.clicked.connect(lambda: self.enhance())
         ef.addRow("Preset", self.preset)
         ef.addRow(apply_preset)
@@ -163,43 +163,55 @@ class EditorPage(BasePage):
 
     # ------------------------------------------------------------ actions
 
-    def _action(self, text, slot, shortcut=None, toolbar=True):
+    def _action(self, text, slot, shortcut=None, toolbar=True, icon=None):
         action = QAction(text, self)
         action.triggered.connect(slot)
         if shortcut:
             action.setShortcut(QKeySequence(shortcut))
             action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
             action.setToolTip(f"{text} ({QKeySequence(shortcut).toString()})")
+        if icon:
+            action.setIcon(icons.icon(icon))
+            self._icon_actions.append((action, icon))
         self.addAction(action)
         if toolbar:
             self.toolbar.addAction(action)
         return action
 
+    def refresh_icons(self):
+        for action, name in self._icon_actions:
+            action.setIcon(icons.icon(name))
+
     def _build_actions(self):
-        self._action("Open…", self.choose_audio, "Ctrl+O")
-        self._action("Import…", self.import_file, "Ctrl+I")
-        self._action("Render", self.render_edits, "Ctrl+S")
-        self._action("Export…", self.export, "Ctrl+E")
+        self._action("Open…", self.choose_audio, "Ctrl+O", icon="open")
+        self._action("Import…", self.import_file, "Ctrl+I", icon="import")
+        self._action("Save edits as new audio", self.render_edits, "Ctrl+S", icon="save")
+        self._action("Export…", self.export, "Ctrl+E", icon="export")
         self.toolbar.addSeparator()
-        self.undo_action = self._action("Undo", self.undo, "Ctrl+Z")
-        self.redo_action = self._action("Redo", self.redo, "Ctrl+Shift+Z")
+        self.undo_action = self._action("Undo", self.undo, "Ctrl+Z", icon="undo")
+        self.redo_action = self._action("Redo", self.redo, "Ctrl+Shift+Z", icon="redo")
         self._action("Redo", self.redo, "Ctrl+Y", toolbar=False)
         self.toolbar.addSeparator()
-        self._action("Cut", self.cut, "Ctrl+X")
-        self._action("Copy", self.copy, "Ctrl+C")
-        self._action("Paste", self.paste, "Ctrl+V")
-        self._action("Delete", self.delete, "Delete")
-        self._action("Duplicate", self.duplicate, "Ctrl+D")
-        self._action("Trim to selection", self.crop, "Ctrl+T")
-        self._action("Move to cursor", self.move_selection)
-        self._action("Split at cursor", self.split)
-        self._action("Join…", self.join)
-        self._action("Insert silence", self.insert_silence)
+        self._action("Cut", self.cut, "Ctrl+X", icon="cut")
+        self._action("Copy", self.copy, "Ctrl+C", icon="copy")
+        self._action("Paste", self.paste, "Ctrl+V", icon="paste")
+        self._action("Delete", self.delete, "Delete", icon="delete")
+        self._action("Duplicate", self.duplicate, "Ctrl+D", icon="duplicate")
         self.toolbar.addSeparator()
-        self._action("Fade in", lambda: self._apply_range_op("fade_in"))
-        self._action("Fade out", lambda: self._apply_range_op("fade_out"))
-        self._action("Volume…", self.volume)
-        self._action("Normalize", lambda: self._apply_range_op("normalize", peak_db=-1.0))
+        self._action("Trim to selection", self.crop, "Ctrl+T", icon="trim")
+        self._action("Move selection to cursor", self.move_selection, icon="move")
+        self._action("Split at cursor", self.split, icon="split")
+        self._action("Join another audio…", self.join, icon="join")
+        self._action("Insert silence…", self.insert_silence, icon="silence")
+        self.toolbar.addSeparator()
+        self._action("Fade in", self.fade_in, icon="fade_in")
+        self._action("Fade out", self.fade_out, icon="fade_out")
+        self._action("Volume…", self.volume, icon="volume")
+        self._action("Normalize", self.normalize, icon="normalize")
+        self.toolbar.addSeparator()
+        self._action("Zoom in", self.zoom_in, icon="zoom_in")
+        self._action("Zoom out", self.zoom_out, icon="zoom_out")
+        self._action("Zoom to fit", self.zoom_fit, icon="fit")
         self._action("Play/Pause", self.toggle_play, "Space", toolbar=False)
         self._action("Select all", self.select_all, "Ctrl+A", toolbar=False)
         self._action("Cursor to start", lambda: self._cursor_moved(0.0, move_waveform=True), "Home", toolbar=False)
@@ -441,6 +453,24 @@ class EditorPage(BasePage):
                 self._preview_path = audio_service.save_clip(self.current, self.sr)
             self.player.load(self._preview_path, self.audio["name"])
             self._preview_dirty = False
+
+    def fade_in(self):
+        self._apply_range_op("fade_in")
+
+    def fade_out(self):
+        self._apply_range_op("fade_out")
+
+    def normalize(self):
+        self._apply_range_op("normalize", peak_db=-1.0)
+
+    def zoom_in(self):
+        self.waveform.zoom(0.5)
+
+    def zoom_out(self):
+        self.waveform.zoom(2.0)
+
+    def zoom_fit(self):
+        self.waveform.set_view(0, self.waveform.duration)
 
     def toggle_play(self):
         if not self.audio:

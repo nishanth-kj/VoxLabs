@@ -33,6 +33,9 @@ DEFAULT_SETTINGS = {
     "api_port": 8942,
     "api_token": "",
     "log_level": "INFO",
+    "theme": "system",
+    "native_title_bar": False,
+    "sidebar_collapsed": False,
 }
 
 

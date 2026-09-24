@@ -59,6 +59,7 @@ uv run pytest                         # tests (Qt tests run with QT_QPA_PLATFORM
 - **Models / engines.** All engine code lives in `app/utils/model.py` behind `ModelBackend`. Heavy libraries are imported lazily inside `load()`. Selection and device policy live in `ModelService`. New engines go in `MODEL_CATALOG` (`app/constants/models.py`) plus a backend class.
 - **Files.** Everything goes under `data/` (`app/utils/files.py`, override with `VOXLABS_DATA_DIR`). Only paths are stored in the database.
 - **Constants** hold fixed values only, never logic.
+- **Desktop UI.** Every user command must be reachable from the top menu (`app/ui/app_menu.py`), which also feeds the command palette. Style widgets through `app/ui/theme.py` (object names like `Primary`, `Tile`, `Hint`) and icons through `app/ui/icons.py`; do not hard-code colors in pages.
 
 ## Landing site (`site/`)
 

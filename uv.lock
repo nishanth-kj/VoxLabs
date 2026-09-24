@@ -4914,7 +4914,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "gtts", specifier = ">=2.5.0" },
     { name = "librosa", specifier = ">=0.10.2" },
-    { name = "mcp", specifier = ">=1.12" },
+    { name = "mcp", specifier = ">=2.2" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "piper-tts", marker = "extra == 'piper'", specifier = ">=1.2" },
     { name = "pydantic", specifier = ">=2.7" },

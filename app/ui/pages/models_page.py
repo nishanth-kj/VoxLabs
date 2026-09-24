@@ -12,6 +12,7 @@ COLUMNS = ("Model", "Type", "Size", "Status", "Loaded / device", "VRAM", "Capabi
 
 class ModelsPage(BasePage):
     title = "Models"
+    subtitle = "Install, load and choose speech and cloning engines."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)

@@ -17,7 +17,7 @@ dependencies = [
     "librosa>=0.10.2",
     "gtts>=2.5.0",
     "edge-tts>=6.1.0",
-    "mcp>=1.12",
+    "mcp>=2.2",
 ]
 
 [project.optional-dependencies]
@@ -25,9 +25,6 @@ piper = ["piper-tts>=1.2"]
 xtts = ["coqui-tts>=0.24"]
 f5 = ["f5-tts>=1.0"]
 chatterbox = ["chatterbox-tts>=0.1"]
-
-[project.scripts]
-voxlabs = "app.main:main"
 
 [dependency-groups]
 dev = [
