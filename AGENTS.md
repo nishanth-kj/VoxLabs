@@ -45,6 +45,7 @@ uv run python -m app.main             # desktop app
 uv run python -m app.api.app          # REST API + MCP over HTTP (binds 127.0.0.1)
 uv run python -m app.api.app --stdio  # the same, plus MCP over stdin/stdout
 uv run pytest                         # tests (Qt tests run with QT_QPA_PLATFORM=offscreen)
+uv run build                          # desktop app for this OS: dist/*.zip (Windows) / .dmg (macOS) / .tar.gz (Linux)
 ```
 
 ## Conventions

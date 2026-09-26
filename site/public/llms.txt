@@ -21,7 +21,7 @@
 ## Links
 
 - [Landing Page](https://nishanth-kj.github.io/VoxLabs/): Product overview, engine specifications, and platform downloads.
-- [Desktop Releases](https://github.com/nishanth-kj/VoxLabs/releases/latest): Standalone installers/archives for Windows (`VoxLabs-Windows-x64.zip`), macOS (`VoxLabs-macOS-arm64.dmg`), and Linux (`VoxLabs-Linux-x86_64.tar.gz`).
+- [Desktop Releases](https://github.com/nishanth-kj/VoxLabs/releases/latest): Installers for Windows (`VoxLabs-Windows-x64-Setup.exe`, `VoxLabs-Windows-x64.msi`, portable `VoxLabs-Windows-x64.zip`), macOS (`VoxLabs-macOS-arm64.dmg`, `VoxLabs-macOS-arm64.pkg`), and Linux (`VoxLabs-Linux-x86_64.deb`, `VoxLabs-Linux-x86_64.rpm`, portable `VoxLabs-Linux-x86_64.tar.gz`).
 - [Documentation](https://nishanth-kj.github.io/VoxLabs/docs/): Installation, voice cloning, TTS, script-to-audio, and privacy guide.
 - [Full LLM Technical Reference](https://nishanth-kj.github.io/VoxLabs/llms-full.txt): Complete technical specification of VoxLabs engines, DSP presets, REST API endpoints, and MCP tools.
 - [GitHub Repository](https://github.com/nishanth-kj/VoxLabs): Source code, architecture docs, and issue tracker.

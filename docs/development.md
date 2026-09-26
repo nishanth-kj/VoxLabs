@@ -53,4 +53,21 @@ The UI picks it up automatically through `ModelService.list_models()`.
 
 ## Packaging
 
-`uv run python scripts/build.py` builds a one-folder desktop bundle with PyInstaller into `dist/VoxLabs/`.
+Build the desktop app for the operating system you are on:
+
+```bash
+uv sync                      # add --extra piper --extra kokoro to bundle those engines
+uv run build                 # --no-package: stop at the bundle; --skip-self-test: do not launch it
+```
+
+It bundles the app with PyInstaller, starts the bundle once with `--self-test` (offscreen, throwaway data folder) to prove it runs, and packages it:
+
+| Built on | Output in `dist/` | Install |
+| --- | --- | --- |
+| Windows | `VoxLabs-Windows-x64.zip` | unzip, run `VoxLabs\VoxLabs.exe` |
+| macOS | `VoxLabs-macOS-arm64.dmg` | open, drag VoxLabs to Applications |
+| Linux | `VoxLabs-Linux-x86_64.tar.gz` | extract, run `VoxLabs/VoxLabs` |
+
+PyInstaller cannot cross-compile, so each package is built on its own OS. `.github/workflows/desktop.yml` runs the same command on Windows, macOS and Linux, and a `v*` tag publishes the three packages as a GitHub release. The builds are not code-signed yet, so SmartScreen and Gatekeeper ask for confirmation on first launch.
+
+A built app keeps its data in the user's app-data folder (`%LOCALAPPDATA%\VoxLabs`, `~/Library/Application Support/VoxLabs`, `~/.local/share/VoxLabs`); from source it stays in `./data`. `VOXLABS_DATA_DIR` overrides both. `uv run build` is the `build` command from `[project.scripts]` (it runs `scripts/build.py`); uv installs the project in editable mode so the command exists. Use `uv sync --inexact` when adding extras, so a sync never removes engines you installed.

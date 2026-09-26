@@ -23,7 +23,7 @@ from typing import Any
 import numpy as np
 import soundfile as sf
 
-from app.constants.models import EDGE_DEFAULT_VOICE, KOKORO_DEFAULT_VOICE, Backend
+from app.constants.models import EDGE_DEFAULT_VOICE, ENGINE_INSTALL_COMMAND, KOKORO_DEFAULT_VOICE, Backend
 from app.exceptions import ModelError
 from app.utils import audio as audio_utils
 from app.utils.logger import logger
@@ -279,7 +279,7 @@ class PiperBackend(ModelBackend):
         try:
             from piper import PiperVoice  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
-            raise ModelError("Piper is not installed. Run: uv sync --extra piper") from exc
+            raise ModelError(f"Piper is not installed. Run: {ENGINE_INSTALL_COMMAND.format(extra='piper')}") from exc
         model_path = self.model_dir / "model.onnx"
         if not model_path.exists():
             raise ModelError("Piper voice files are missing. Install the model first.")
@@ -321,7 +321,7 @@ class KokoroBackend(ModelBackend):
         try:
             from kokoro import KModel  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
-            raise ModelError("Kokoro is not installed. Run: uv sync --extra kokoro") from exc
+            raise ModelError(f"Kokoro is not installed. Run: {ENGINE_INSTALL_COMMAND.format(extra='kokoro')}") from exc
         os.environ.setdefault("HF_HOME", str(self.model_dir))
         config = self.model_dir / "config.json"
         weights = self.model_dir / "kokoro-v1_0.pth"
@@ -368,7 +368,7 @@ class XTTSBackend(ModelBackend):
         try:
             from TTS.api import TTS  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
-            raise ModelError("XTTS is not installed. Run: uv sync --extra xtts") from exc
+            raise ModelError(f"XTTS is not installed. Run: {ENGINE_INSTALL_COMMAND.format(extra='xtts')}") from exc
         model_path = self.model_dir / "model.pth"
         config_path = self.model_dir / "config.json"
         if model_path.is_file() and config_path.is_file():
@@ -401,7 +401,7 @@ class F5Backend(ModelBackend):
         try:
             from f5_tts.api import F5TTS  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
-            raise ModelError("F5-TTS is not installed. Run: uv sync --extra f5") from exc
+            raise ModelError(f"F5-TTS is not installed. Run: {ENGINE_INSTALL_COMMAND.format(extra='f5')}") from exc
         os.environ.setdefault("HF_HOME", str(self.model_dir))
         kwargs: dict[str, Any] = {"device": self.device}
         checkpoint = self.model_dir / "model_1250000.safetensors"
@@ -443,7 +443,7 @@ class ChatterboxBackend(ModelBackend):
         try:
             from chatterbox.tts import ChatterboxTTS  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
-            raise ModelError("Chatterbox is not installed. Run: uv sync --extra chatterbox") from exc
+            raise ModelError(f"Chatterbox is not installed. Run: {ENGINE_INSTALL_COMMAND.format(extra='chatterbox')}") from exc
         weights = ("ve.safetensors", "t3_cfg.safetensors", "s3gen.safetensors", "tokenizer.json", "conds.pt")
         if all((self.model_dir / name).is_file() for name in weights):
             self._model = ChatterboxTTS.from_local(self.model_dir, self.device)

@@ -3,6 +3,7 @@
 import os
 import re
 import shutil
+import sys
 import uuid
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -14,9 +15,24 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_SUBDIRS = ("database", "voices", "audio", "projects", "models", "jobs", "cache", "exports", "logs")
 
 
+def default_data_dir() -> Path:
+    """`data/` next to the code when run from source. A built app (PyInstaller) keeps data in the
+    user's app-data folder instead: its own folder can be read-only (Program Files, a signed .app)
+    and is replaced on every update."""
+    if not getattr(sys, "frozen", False):
+        return PROJECT_ROOT / "data"
+    if sys.platform == "win32":
+        base = Path(os.getenv("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        base = Path(os.getenv("XDG_DATA_HOME") or Path.home() / ".local" / "share")
+    return base / "VoxLabs"
+
+
 def data_dir() -> Path:
     """Root of all VoxLabs data. Override with VOXLABS_DATA_DIR."""
-    root = Path(os.getenv("VOXLABS_DATA_DIR") or PROJECT_ROOT / "data")
+    root = Path(os.getenv("VOXLABS_DATA_DIR") or default_data_dir())
     root.mkdir(parents=True, exist_ok=True)
     return root
 

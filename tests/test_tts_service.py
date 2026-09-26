@@ -117,7 +117,7 @@ def test_falls_back_to_an_installed_model(monkeypatch):
     system_service.update_settings(default_tts_model="piper-en-us-lessac-medium")  # not installed in tests
     audio = tts_service.generate(TTSRequest(text="Fallback please."))
     assert audio["params"]["model_key"] == "fake-tts"
-    with pytest.raises(ModelError, match="not installed"):
+    with pytest.raises(ModelError, match="not downloaded|engine"):
         tts_service.generate(TTSRequest(text="Explicit model.", model_key="piper-en-us-lessac-medium"))
 
 

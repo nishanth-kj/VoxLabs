@@ -12,6 +12,10 @@ FETCH_ON_LOAD_BACKENDS = (Backend.KOKORO, Backend.XTTS, Backend.F5, Backend.CHAT
 
 DEFAULT_TTS_MODEL = "piper-en-us-lessac-medium"
 DEFAULT_CLONE_MODEL = "voice-profile-mfcc"
+# Adds one engine's Python packages. `--inexact` keeps the engines already installed: a plain
+# `uv sync --extra x` removes every other extra.
+ENGINE_INSTALL_COMMAND = "uv sync --inexact --extra {extra}"
+
 # Tried in this order when no model is requested and the default one is not installed.
 FALLBACK_TTS_MODELS = ("chatterbox", "kokoro-82m", "piper-en-us-lessac-medium")
 

@@ -5379,7 +5379,7 @@ wheels = [
 [[package]]
 name = "voxlabs"
 version = "3.0.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "edge-tts" },
     { name = "fastapi" },

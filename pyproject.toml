@@ -40,8 +40,25 @@ dev = [
     "pyinstaller>=6.4",
 ]
 
+[project.scripts]
+# `uv run build`: build the desktop app for this operating system (see scripts/build.py).
+build = "scripts.build:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+# The kokoro extra installs spaCy's en_core_web_sm from its GitHub release wheel (a direct URL).
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+# The app, plus the build script behind `uv run build`. uv installs the project in editable mode,
+# so both stay the files in this checkout.
+packages = ["app", "scripts"]
+
 [tool.uv]
-package = false
+package = true
 conflicts = [
     [{ extra = "xtts" }, { extra = "f5" }, { extra = "chatterbox" }],
 ]

@@ -1,5 +1,13 @@
-"""VoxLabs desktop entry point: `uv run python -m app.main`."""
+"""VoxLabs desktop entry point: `uv run python -m app.main`.
 
+`--self-test` starts the app, builds every page and quits with exit code 0. The build script runs
+the finished bundle with it, so a bundle that is missing a module fails the build.
+
+A built (windowed) app has no console, so a crash at startup is written to a crash report:
+VOXLABS_CRASH_REPORT, or VoxLabs-crash.txt in the temp folder.
+"""
+
+import os
 import sys
 
 
@@ -14,6 +22,7 @@ def _use_own_taskbar_icon() -> None:
 
 
 def main() -> int:
+    from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
 
     from app.services.job_service import job_service
@@ -46,7 +55,10 @@ def main() -> int:
     window = MainWindow()
     window.show()
 
-    if system_service.get_setting("api_enabled"):
+    self_test = "--self-test" in sys.argv
+    if self_test:
+        QTimer.singleShot(0, app.quit)  # every page is built: the bundle works
+    elif system_service.get_setting("api_enabled"):
         try:
             system_service.start_api()
         except Exception as exc:  # the desktop app works without the API
@@ -57,8 +69,26 @@ def main() -> int:
     system_service.stop_api()
     job_service.shutdown(wait=False)
     model_service.unload_all()
+    if self_test:
+        print(f"VoxLabs {VERSION} self-test OK")
     return code
 
 
+def _report_crash(exc: BaseException) -> None:
+    import tempfile
+    import traceback
+
+    path = os.environ.get("VOXLABS_CRASH_REPORT") or os.path.join(tempfile.gettempdir(), "VoxLabs-crash.txt")
+    try:
+        with open(path, "w", encoding="utf-8") as report:
+            report.write("".join(traceback.format_exception(exc)))
+    except OSError:
+        pass
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as exc:
+        _report_crash(exc)
+        raise

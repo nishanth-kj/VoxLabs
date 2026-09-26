@@ -69,7 +69,7 @@ def test_install_still_requires_the_extra_when_there_are_no_files():
     entry["extra"] = "kokoro"
     entry.pop("files", None)
     model_service_module._CATALOG["fake-tts"] = entry
-    with pytest.raises(ModelError, match="uv sync --extra kokoro"):
+    with pytest.raises(ModelError, match="uv sync --inexact --extra kokoro"):
         model_service.install("fake-tts")
 
 
@@ -97,4 +97,4 @@ def test_install_all_downloads_file_models_and_skips_the_rest(monkeypatch):
     assert [item["name"] for item in result["downloaded"]] == ["Fake TTS"]
     assert result["downloaded"][0]["ready"] is True
     assert result["failed"] == []
-    assert result["skipped"] == [{"key": "fake-clone", "name": "Fake Clone", "reason": "run uv sync --extra f5"}]
+    assert result["skipped"] == [{"key": "fake-clone", "name": "Fake Clone", "reason": "close VoxLabs and run: uv sync --inexact --extra f5"}]

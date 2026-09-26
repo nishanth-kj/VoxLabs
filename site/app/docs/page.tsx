@@ -273,9 +273,9 @@ export default function DocsPage() {
               <h3 className="text-xl font-semibold">Option A: Standalone Desktop Bundles</h3>
               <ol className="list-decimal list-inside space-y-2 text-muted-foreground leading-relaxed">
                 <li>Open the <Link href="/#download" className="text-foreground underline underline-offset-4">download section</Link> or <a href={RELEASES_URL} className="text-foreground underline underline-offset-4">GitHub Releases</a> and download the archive for your OS.</li>
-                <li><strong>Windows (10 or later, x64):</strong> Extract <code>VoxLabs-Windows-x64.zip</code> and launch <code>VoxLabs\VoxLabs.exe</code>.</li>
-                <li><strong>macOS (13 Ventura or later, Apple Silicon):</strong> Open <code>VoxLabs-macOS-arm64.dmg</code> and drag <code>VoxLabs.app</code> to your Applications folder.</li>
-                <li><strong>Linux (Ubuntu 22.04+ / Fedora 39+, x86_64):</strong> Extract <code>VoxLabs-Linux-x86_64.tar.gz</code> and run <code>VoxLabs/VoxLabs</code>.</li>
+                <li><strong>Windows (10 or later, x64):</strong> Run <code>VoxLabs-Windows-x64-Setup.exe</code> (no admin needed) or install <code>VoxLabs-Windows-x64.msi</code>. For a portable copy, extract <code>VoxLabs-Windows-x64.zip</code> and launch <code>VoxLabs\VoxLabs.exe</code>.</li>
+                <li><strong>macOS (13 Ventura or later, Apple Silicon):</strong> Open <code>VoxLabs-macOS-arm64.dmg</code> and drag <code>VoxLabs.app</code> to your Applications folder, or run <code>VoxLabs-macOS-arm64.pkg</code>.</li>
+                <li><strong>Linux (x86_64):</strong> Ubuntu/Debian: <code>sudo apt install ./VoxLabs-Linux-x86_64.deb</code>. Fedora: <code>sudo dnf install ./VoxLabs-Linux-x86_64.rpm</code>. Then start VoxLabs from the app menu or run <code>voxlabs</code>. For a portable copy, extract <code>VoxLabs-Linux-x86_64.tar.gz</code> and run <code>VoxLabs/VoxLabs</code>.</li>
                 <li>Because community builds are not code-signed with a commercial certificate yet, confirm the first launch if Windows SmartScreen or macOS Gatekeeper prompts you.</li>
               </ol>
               <p className="text-xs text-muted-foreground">

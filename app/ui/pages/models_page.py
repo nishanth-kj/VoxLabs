@@ -40,7 +40,7 @@ class ModelsPage(BasePage):
         actions.addStretch()
         self.root.addLayout(actions)
         hint = QLabel("Online engines (Google, Microsoft Edge) send text to a third party and are disabled unless "
-                      "enabled in Settings. Heavy engines need their Python extra, e.g. `uv sync --extra xtts`.")
+                      "enabled in Settings. Heavy engines need their Python extra, e.g. `uv sync --inexact --extra xtts` (XTTS, F5 and Chatterbox exclude each other: one at a time).")
         hint.setObjectName("Hint")
         hint.setWordWrap(True)
         self.root.addWidget(hint)
@@ -87,11 +87,7 @@ class ModelsPage(BasePage):
 
     @staticmethod
     def _status(model: dict) -> str:
-        if model["package_installed"]:
-            return model["install_label"]
-        if model.get("files_ready"):
-            return f"weights saved, needs `--extra {model['extra']}`"
-        return f"needs `--extra {model['extra']}`"
+        return model["install_label"]
 
     def download_all(self):
         xtts = next((model for model in self.models

@@ -6,6 +6,7 @@ separate model-manager layer.
 """
 
 import json
+import sys
 import threading
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from app.constants.jobs import JobType
 from app.constants.models import (
     CLONING_BACKENDS,
     DEFAULT_TTS_MODEL,
+    ENGINE_INSTALL_COMMAND,
     FALLBACK_TTS_MODELS,
     FETCH_ON_LOAD_BACKENDS,
     MODEL_CATALOG,
@@ -43,6 +45,14 @@ from app.utils.model import (
 _CATALOG = {entry["key"]: entry for entry in MODEL_CATALOG}
 # Backends that are built into VoxLabs and never synthesize speech.
 _NON_TTS = (Backend.MFCC, Backend.DSP)
+
+
+
+def engine_hint(extra: str | None) -> str:
+    """How to add a missing engine: a uv command when run from source; a built app cannot add one."""
+    if getattr(sys, "frozen", False):
+        return "this build of VoxLabs does not include it"
+    return "close VoxLabs and run: " + ENGINE_INSTALL_COMMAND.format(extra=extra)
 
 
 class ModelService:
@@ -146,9 +156,21 @@ class ModelService:
             supports_cloning=row.backend in CLONING_BACKENDS,
             speaks=row.backend not in _NON_TTS,
             allowed=allow_online or not row.online,
-            install_label="Installed" if row.status == Status.ACTIVE.code else "Not installed",
+            install_label=self._install_label(row, entry),
         )
         return data
+
+    def _install_label(self, row: Model, entry: dict) -> str:
+        """Why a model is or is not ready: shown on the Models and Home pages and in model pickers."""
+        if row.status == Status.ACTIVE.code:
+            return "Installed"
+        if not self._files_present(row.key, entry):
+            return "Not downloaded"
+        if not package_installed(entry.get("package")):
+            if getattr(sys, "frozen", False):
+                return "Downloaded · engine not in this build"
+            return f"Downloaded · needs the {entry.get('extra')} engine"
+        return "Not installed"
 
     def _row(self, session, model_ref: str | int) -> Model:
         if isinstance(model_ref, int) or str(model_ref).isdigit():
@@ -202,10 +224,7 @@ class ModelService:
                         row = self._row(session, key)
                         self._refresh_row(row)
                         return self.to_dict(row)
-                raise ModelError(
-                    f"{model['name']} needs extra Python packages. Close VoxLabs and run: "
-                    f"uv sync --extra {extra}"
-                )
+                raise ModelError(f"{model['name']} needs its {extra} engine: {engine_hint(extra)}.")
             if model["backend"] in FETCH_ON_LOAD_BACKENDS:
                 # These libraries fetch their weights on first load; do it now so the download is visible.
                 if model["backend"] == Backend.XTTS:
@@ -261,7 +280,7 @@ class ModelService:
                     # Weights that have a URL are downloaded above. This is only for engines
                     # whose library fetches its own files and is not installed yet.
                     skipped.append({"key": model["key"], "name": model["name"],
-                                    "reason": f"run uv sync --extra {entry['extra']}"})
+                                    "reason": engine_hint(entry["extra"])})
             downloaded: list[dict] = []
             failed: list[dict] = []
             count = len(targets)
@@ -406,7 +425,7 @@ class ModelService:
             model = self.get(model_ref)
             problems = []
             if not model["package_installed"]:
-                problems.append(f"Python package missing (uv sync --extra {model['extra']})")
+                problems.append(f"Engine missing: {engine_hint(model['extra'])}")
             if model["needs_download"] and not self._files_present(model["key"], _CATALOG.get(model["key"])):
                 problems.append("Model files not downloaded")
             if not model["allowed"]:
@@ -454,7 +473,10 @@ class ModelService:
             if not model["speaks"]:
                 raise ModelError(f"{model['name']} cannot generate speech")
             if not model["installed"]:
-                raise ModelError(f"{model['name']} is not installed. Install it on the Models page.")
+                if not model["package_installed"]:
+                    raise ModelError(f"{model['name']} needs its {model['extra']} engine: "
+                                     f"{engine_hint(model['extra'])}.")
+                raise ModelError(f"{model['name']} is not downloaded yet. Download it on the Models page.")
             if not model["allowed"]:
                 raise ModelError(f"{model['name']} is an online service. Enable online models in Settings to use it.")
             return model

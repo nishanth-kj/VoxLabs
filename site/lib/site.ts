@@ -141,7 +141,7 @@ export const SITE_FAQS = [
   {
     question: "What operating systems does VoxLabs support?",
     answer:
-      "VoxLabs ships standalone desktop bundles for Windows 10 or later (x64 .zip), macOS 13 (Ventura) or later on Apple silicon (arm64 .dmg), and Linux (Ubuntu 22.04+ / Fedora 39+ x86_64 .tar.gz), and can also be run from source on Python 3.12+ with uv.",
+      "VoxLabs ships installers for Windows 10 or later (x64 Setup.exe or .msi, plus a portable .zip), macOS 13 (Ventura) or later on Apple silicon (.dmg or .pkg), and Linux x86_64 (.deb for Ubuntu 22.04+, .rpm for Fedora 39+, plus a portable .tar.gz), and can also be run from source on Python 3.12+ with uv.",
   },
 ] as const
 

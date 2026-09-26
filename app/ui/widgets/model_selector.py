@@ -31,7 +31,7 @@ class ModelSelector(Select):
                 continue
             note = ""
             if not model["installed"]:
-                note = " — not installed"
+                note = f" — {model['install_label'].lower()}"  # e.g. "downloaded · needs the xtts engine"
             elif not model["allowed"]:
                 note = " — online (disabled)"
             elif model["online"]:
