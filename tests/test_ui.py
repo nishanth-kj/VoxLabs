@@ -194,13 +194,15 @@ def test_theme_menu_choice_reaches_settings(window, qtbot):
 
 
 def test_select_opens_below_with_search_first(qtbot):
-    """Selects open under the box on a transparent window; long ones start with a search row."""
+    """Selects open under the box on a transparent window and start with a search row."""
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QApplication, QComboBox, QLineEdit, QVBoxLayout, QWidget
+    from PySide6.QtWidgets import QApplication, QComboBox, QLineEdit, QListView, QVBoxLayout, QWidget
 
     from app.ui import theme
 
-    theme.apply_theme(QApplication.instance(), "dark")
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    theme.apply_theme(app, "dark")
     host = QWidget()
     qtbot.addWidget(host)
     combo, short = QComboBox(), QComboBox()
@@ -214,11 +216,14 @@ def test_select_opens_below_with_search_first(qtbot):
     host.show()
 
     combo.showPopup()
-    popup, view = combo.view().window(), combo.view()
+    view = combo.view()
+    assert isinstance(view, QListView)
+    popup = view.window()
     qtbot.waitUntil(popup.isVisible)
     assert popup.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)  # no black corners
     assert popup.geometry().top() >= combo.mapToGlobal(combo.rect().bottomLeft()).y()  # below, not over it
     search = view.findChild(QLineEdit, "ComboSearch")
+    assert search is not None
     assert search.isVisible() and search.geometry().bottom() < view.viewport().geometry().top()  # first row
 
     assert not search.isReadOnly()  # a real input: click to place the cursor, select, type
@@ -242,14 +247,15 @@ def test_select_opens_below_with_search_first(qtbot):
 
     short.showPopup()
     qtbot.waitUntil(short.view().window().isVisible)
-    assert short.view().findChild(QLineEdit, "ComboSearch").isVisible()
+    short_search = short.view().findChild(QLineEdit, "ComboSearch")
+    assert short_search is not None and short_search.isVisible()  # every select, even a short one
     short.hidePopup()
 
 
 def test_every_select_is_the_app_select(window, qtbot):
     """Every select in the window, and the item-picker dialog, gets the rounded list with search first."""
     from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import QApplication, QComboBox, QLineEdit
+    from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QLineEdit
 
     from app.ui.widgets.select import choose_item
 
@@ -262,7 +268,10 @@ def test_every_select_is_the_app_select(window, qtbot):
 
     def accept_dialog():
         dialog = QApplication.activeModalWidget()
-        seen["polished"] = bool(dialog.findChild(QComboBox).property("popup_polished"))
+        assert isinstance(dialog, QDialog)
+        select = dialog.findChild(QComboBox)
+        assert select is not None
+        seen["polished"] = bool(select.property("popup_polished"))
         dialog.accept()
 
     QTimer.singleShot(0, accept_dialog)
