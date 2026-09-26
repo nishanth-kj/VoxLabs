@@ -19,8 +19,7 @@ if TYPE_CHECKING:
     from app.ui.main_window import MainWindow
 
 NAV_SHORTCUTS = {"home": "Ctrl+1", "studio": "Ctrl+2", "clone": "Ctrl+3", "generate": "Ctrl+4", "script": "Ctrl+5",
-                 "editor": "Ctrl+6", "voices": "Ctrl+7", "projects": "Ctrl+8", "models": "Ctrl+9",
-                 "settings": "Ctrl+,"}
+                 "editor": "Ctrl+6", "voices": "Ctrl+7", "models": "Ctrl+8", "settings": "Ctrl+,"}
 
 
 def _add(menu: QMenu, text: str, handler: Callable[[], object], *, shortcut: str | None = None,
@@ -64,17 +63,11 @@ def build_menu_bar(window: "MainWindow") -> QMenuBar:
 
     # ------------------------------------------------------------ File
     file = bar.addMenu("&File")
-    _add(file, "New Project…", lambda: cmd("projects", "new"), shortcut="Ctrl+Shift+N", icon="plus")
-    _add(file, "Open Project…", lambda: window.go("projects"), icon="projects")
-    _add(file, "Close Project", lambda: cmd("projects", "close_project"))
-    file.addSeparator()
+    _add(file, "New Script…", lambda: cmd("script", "new_script"), shortcut="Ctrl+N", icon="plus")
     _add(file, "Open Audio…", lambda: cmd("editor", "choose_audio"), hint="Ctrl+O", icon="open")
     _add(file, "Import Audio File…", lambda: cmd("editor", "import_file"), hint="Ctrl+I", icon="import")
     _add(file, "Save Edits as New Audio", lambda: cmd("editor", "render_edits"), hint="Ctrl+S", icon="save")
     _add(file, "Export Audio…", lambda: cmd("editor", "export"), hint="Ctrl+E", icon="export")
-    file.addSeparator()
-    _add(file, "Export Project…", lambda: cmd("projects", "export"))
-    _add(file, "Duplicate Project", lambda: cmd("projects", "duplicate"))
     file.addSeparator()
     _add(file, "Open Data Folder", window.open_data_folder)
     _add(file, "Settings", lambda: window.go("settings"), shortcut="Ctrl+,", icon="settings")
@@ -190,11 +183,6 @@ def build_menu_bar(window: "MainWindow") -> QMenuBar:
                           ("Reload", "reload"), ("Remove Files", "remove"), ("Health Check", "health"),
                           ("Set as Default", "set_default"), ("Rescan Models Folder", "rescan")):
         _add(models, label, lambda m=method: cmd("models", m))
-    projects = _submenu(tools, "Projects", "projects")
-    for label, method in (("New Project…", "new"), ("Open Selected Project", "open"), ("Rename…", "rename"),
-                          ("Duplicate", "duplicate"), ("Export…", "export"), ("Delete…", "delete"),
-                          ("Close Project", "close_project")):
-        _add(projects, label, lambda m=method: cmd("projects", m))
     tools.addSeparator()
     api_action = _add(tools, "Run REST API and MCP Server", lambda: window.toggle_api(), icon="api")
     api_action.setCheckable(True)

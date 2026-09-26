@@ -7,6 +7,8 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -14,13 +16,22 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QSplitter,
     QVBoxLayout,
     QWidget,
 )
 
-from app.constants.audio import EMOTIONS, ENHANCE_PRESETS, EXPORT_FORMATS, PAUSE_SENTENCE_MS, PROCESS_STEPS, STYLES
+from app.constants.audio import (
+    EMOTIONS,
+    ENHANCE_PRESETS,
+    EXPORT_FORMATS,
+    PAUSE_SENTENCE_MS,
+    PROCESS_STEP_LABELS,
+    PROCESS_STEPS,
+    STYLES,
+)
 from app.models.request import AudioExportRequest, TTSRequest
 from app.services.audio_service import audio_service
 from app.services.system_service import system_service
@@ -97,9 +108,14 @@ class GeneratePage(BasePage):
         lv.addLayout(out)
         splitter.addWidget(left)
 
-        # Right: settings
+        # Right: settings, scrollable so nothing is squeezed on small windows
         right = QWidget()
-        form = QFormLayout(right)
+        right_layout = QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 0, 8, 0)
+        right_layout.setSpacing(12)
+        voice_box = QGroupBox("Voice and delivery")
+        form = QFormLayout(voice_box)
+        form.setVerticalSpacing(8)
         self.voice = VoiceSelector()
         self.model = ModelSelector()
         self.speed = self._spin(0.5, 2.0, 1.0)
@@ -135,23 +151,41 @@ class GeneratePage(BasePage):
         form.addRow("Seed", self.seed)
         form.addRow("Pronunciation", self.pronunciations)
 
-        post = QGroupBox("Clean-up (original is always kept)")
+        right_layout.addWidget(voice_box)
+
+        post = QGroupBox("Clean-up")
         pv = QVBoxLayout(post)
+        pv.setSpacing(8)
+        hint = QLabel("The untouched original is always kept.")
+        hint.setObjectName("Hint")
+        pv.addWidget(hint)
         self.preset = QComboBox()
         self.preset.addItem("Custom steps", None)
         for name in ENHANCE_PRESETS:
             self.preset.addItem(name, name)
         pv.addWidget(self.preset)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(6)
         self.steps: dict[str, QCheckBox] = {}
-        for step in PROCESS_STEPS:
-            box = QCheckBox(step.replace("_", " ").capitalize())
+        for index, step in enumerate(PROCESS_STEPS):
+            box = QCheckBox(PROCESS_STEP_LABELS.get(step, step))
             box.setChecked(step in ("trim_silence", "normalize"))
             self.steps[step] = box
-            pv.addWidget(box)
+            grid.addWidget(box, index // 2, index % 2)
+        pv.addLayout(grid)
         self.preset.currentIndexChanged.connect(self._apply_preset)
-        form.addRow(post)
-        splitter.addWidget(right)
-        splitter.setSizes([700, 360])
+        right_layout.addWidget(post)
+        right_layout.addStretch(1)
+
+        scroll = QScrollArea()
+        scroll.setWidget(right)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setMinimumWidth(340)
+        splitter.addWidget(scroll)
+        splitter.setSizes([700, 380])
 
         state.data_changed.connect(self._on_data_changed)
 
@@ -210,7 +244,6 @@ class GeneratePage(BasePage):
             "seed": None if self.seed.value() < 0 else self.seed.value(),
             "post": post,
             "preset": preset,
-            "projects_id": self.state.projects_id,
         }
 
     def generate(self):
@@ -263,7 +296,7 @@ class GeneratePage(BasePage):
             return
         index = item.data(Qt.ItemDataRole.UserRole)
         job = tts_service.regenerate_sentence_async([a["audios_id"] for a in self.sentences], index,
-                                                    self.pause.value(), self.state.projects_id)
+                                                    self.pause.value())
         self.follow(job, lambda r: self._regenerated(index, r))
 
     def _regenerated(self, index, result):

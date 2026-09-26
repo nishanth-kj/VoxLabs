@@ -50,7 +50,7 @@ from app.utils.time import format_duration
 class LibraryDialog(QDialog):
     """Pick an audio from the library."""
 
-    def __init__(self, parent=None, projects_id=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Open audio")
         self.resize(560, 420)
@@ -222,7 +222,7 @@ class EditorPage(BasePage):
     # ------------------------------------------------------------ loading
 
     def choose_audio(self):
-        dialog = LibraryDialog(self, self.state.projects_id)
+        dialog = LibraryDialog(self)
         audios_id = dialog.selected() if dialog.exec() else None
         if audios_id:
             self.open_audio(audios_id)
@@ -230,7 +230,7 @@ class EditorPage(BasePage):
     def import_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Import audio", "", AUDIO_FILTER)
         if path:
-            self.run(lambda: audio_service.import_file(path, self.state.projects_id),
+            self.run(lambda: audio_service.import_file(path),
                      lambda audio: (self.state.notify("audio"), self.open_audio(audio["audios_id"])))
 
     def open_audio(self, audios_id: int):
@@ -429,7 +429,7 @@ class EditorPage(BasePage):
         self.run(lambda: audio_service.apply_edit_ops(current, sr, [op]), lambda y: self._push(op, y))
 
     def join(self):
-        dialog = LibraryDialog(self, self.state.projects_id)
+        dialog = LibraryDialog(self)
         audios_id = dialog.selected() if dialog.exec() else None
         if audios_id:
             other = audio_service.get(audios_id)

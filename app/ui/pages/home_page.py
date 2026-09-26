@@ -4,7 +4,6 @@ from PySide6.QtWidgets import QGridLayout, QGroupBox, QHBoxLayout, QLabel, QList
 from app.services.audio_service import audio_service
 from app.services.job_service import job_service
 from app.services.model_service import model_service
-from app.services.project_service import project_service
 from app.services.voice_service import voice_service
 from app.ui import icons, theme
 from app.ui.pages import BasePage
@@ -17,7 +16,6 @@ TILES = [
     ("Generate speech", "Text to natural audio", "generate", "generate"),
     ("Script to audio", "Lessons and dialogue", "script", "script"),
     ("Edit audio", "Cut, fade, enhance", "editor", "editor"),
-    ("New project", "Organize your work", "projects", "projects"),
 ]
 
 
@@ -49,11 +47,11 @@ class HomePage(BasePage):
         self.refresh_icons()
 
         grid = QGridLayout()
-        self.projects = self._list(grid, "Recent Projects", 0, 0, self._open_project)
-        self.voices = self._list(grid, "Recent Voices", 0, 1, lambda _i: state.navigate.emit("voices"))
-        self.audio = self._list(grid, "Recent Audio", 0, 2, self._open_audio)
-        self.jobs = self._list(grid, "Active Jobs", 1, 0, None)
-        self.models = self._list(grid, "Models", 1, 1, lambda _i: state.navigate.emit("models"))
+        grid.setSpacing(12)
+        self.voices = self._list(grid, "Recent voices", 0, 0, lambda _i: state.navigate.emit("voices"))
+        self.audio = self._list(grid, "Recent audio", 0, 1, self._open_audio)
+        self.jobs = self._list(grid, "Active jobs", 1, 0, None)
+        self.models = self._list(grid, "Speech models", 1, 1, lambda _i: state.navigate.emit("models"))
         self.root.addLayout(grid, 1)
 
         JobBridge.instance().job_changed.connect(lambda _job: self._refresh_jobs() if self.isVisible() else None)
@@ -67,6 +65,9 @@ class HomePage(BasePage):
         box = QGroupBox(title)
         layout = QVBoxLayout(box)
         widget = QListWidget()
+        widget.setWordWrap(True)
+        widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        widget.setTextElideMode(Qt.TextElideMode.ElideRight)
         if on_activate:
             widget.itemActivated.connect(on_activate)
         layout.addWidget(widget)
@@ -85,15 +86,12 @@ class HomePage(BasePage):
 
     def _load(self):
         return {
-            "projects": project_service.list_projects(limit=8),
             "voices": voice_service.list_voices()[:8],
             "audio": audio_service.list_audios(limit=8),
             "models": model_service.list_models(speaking_only=True),
         }
 
     def _show(self, data):
-        self._fill(self.projects, [(f"{p['name']}  · {p['project_type']}", p["projects_id"])
-                                   for p in data["projects"]], "No projects yet")
         self._fill(self.voices, [(f"{v['name']}  · {v['sample_count']} sample(s)", v["voices_id"])
                                  for v in data["voices"]], "No voices yet — clone one")
         self._fill(self.audio, [(f"{a['name']}  · {format_duration(a['duration'])}", a["audios_id"])
@@ -120,11 +118,6 @@ class HomePage(BasePage):
         active = job_service.list_jobs(active_only=True)
         self._fill(self.jobs, [(f"{j['title']}  · {j['status_label']} {j['progress'] * 100:.0f}%", j["jobs_id"])
                                for j in active], "Nothing running")
-
-    def _open_project(self, item):
-        if item.data(Qt.ItemDataRole.UserRole) is not None:
-            self.state.set_project(item.data(Qt.ItemDataRole.UserRole))
-            self.state.navigate.emit("studio")
 
     def _open_audio(self, item):
         if item.data(Qt.ItemDataRole.UserRole) is not None:

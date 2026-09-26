@@ -4,6 +4,9 @@
     icon("home", checked=theme.current().accent)  # a different color for checked buttons
 """
 
+import tempfile
+from pathlib import Path
+
 from PySide6.QtCore import QByteArray, QRectF, QSize, Qt
 from PySide6.QtGui import QIcon, QImage, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
@@ -75,6 +78,9 @@ ICONS: dict[str, str] = {
            '<path d="M7 7.5h.01M7 16.5h.01"/>',
     "help": '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2.2-2.4 3.7"/><path d="M12 17h.01"/>',
     "chevron_left": '<path d="M15 18l-6-6 6-6"/>',
+    "chevron_up": '<path d="M6 15l6-6 6 6"/>',
+    "chevron_down": '<path d="M6 9l6 6 6-6"/>',
+    "check": '<path d="M5 12.5l4.5 4.5L19 7.5" stroke-width="3"/>',
     "chevron_right": '<path d="M9 18l6-6-6-6"/>',
 }
 
@@ -115,6 +121,16 @@ def icon(name: str, color: str | None = None, *, checked: str | None = None, siz
     result.addPixmap(pixmap(name, on, size), QIcon.Mode.Normal, QIcon.State.On)
     result.addPixmap(pixmap(name, on, size), QIcon.Mode.Active, QIcon.State.On)
     return result
+
+
+def icon_file(name: str, color: str) -> str:
+    """The icon as an SVG file (for stylesheet `image: url(...)`), written once per color."""
+    folder = Path(tempfile.gettempdir()) / "voxlabs-icons"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{name}-{color.lstrip('#')}.svg"
+    if not path.exists():
+        path.write_text(svg(name, color), encoding="utf-8")
+    return path.as_posix()
 
 
 ICON_SIZE = QSize(18, 18)

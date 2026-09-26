@@ -1,4 +1,4 @@
-"""Studio: one project at a glance — script, voices, takes, timeline and transport."""
+"""Studio: one script at a glance — sections, voices, takes, timeline and transport."""
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
 from app.exceptions import AppError
 from app.models.request import SectionRequest
 from app.services.audio_service import audio_service
-from app.services.project_service import project_service
 from app.services.script_service import script_service
 from app.services.voice_service import voice_service
 from app.ui.pages import BasePage
@@ -41,15 +40,10 @@ class StudioPage(BasePage):
         self.clips: list[dict] = []
 
         header = QHBoxLayout()
-        self.project_box = QComboBox()
-        self.project_box.setMinimumWidth(220)
-        self.project_box.activated.connect(self._project_chosen)
         self.script_box = QComboBox()
-        self.script_box.setMinimumWidth(220)
+        self.script_box.setMinimumWidth(280)
         self.script_box.activated.connect(lambda _i: self._load_script(self.script_box.currentData()))
-        header.addWidget(QLabel("Project"))
-        header.addWidget(self.project_box)
-        header.addWidget(QLabel("Script / lesson"))
+        header.addWidget(QLabel("Script"))
         header.addWidget(self.script_box)
         header.addStretch()
         edit = QPushButton("Edit script")
@@ -92,7 +86,7 @@ class StudioPage(BasePage):
         tl.setContentsMargins(0, 0, 0, 0)
         self.timeline = TimelineWidget(show_clips=True)
         self.timeline.clip_clicked.connect(self._clip_clicked)
-        self.waveform = WaveformWidget()
+        self.waveform = WaveformWidget(placeholder="Render the script to see the final waveform")
         self.waveform.setMinimumHeight(110)
         self.waveform.view_changed.connect(self.timeline.set_view)
         self.timeline.seek_requested.connect(lambda t: self.player.seek(t))
@@ -117,30 +111,11 @@ class StudioPage(BasePage):
             controls.addWidget(button)
         self.root.addLayout(controls)
 
-        state.project_changed.connect(lambda _p: self.refresh() if self.isVisible() else None)
-
     # ------------------------------------------------------------ loading
 
     def refresh(self):
         self.voice.refresh()
-        self.run(project_service.list_projects, self._show_projects, busy=False)
-
-    def _show_projects(self, projects):
-        self.project_box.clear()
-        self.project_box.addItem("All scripts (no project)", None)
-        for project in projects:
-            self.project_box.addItem(f"{project['name']} · {project['project_type']}", project["projects_id"])
-        index = self.project_box.findData(self.state.projects_id)
-        self.project_box.setCurrentIndex(max(index, 0))
-        self._load_scripts()
-
-    def _project_chosen(self, _index):
-        self.state.set_project(self.project_box.currentData())
-        self._load_scripts()
-
-    def _load_scripts(self):
-        projects_id = self.project_box.currentData()
-        self.run(lambda: script_service.list_scripts(projects_id), self._show_scripts, busy=False)
+        self.run(script_service.list_scripts, self._show_scripts, busy=False)
 
     def _show_scripts(self, scripts):
         current = self.script["scripts_id"] if self.script else None

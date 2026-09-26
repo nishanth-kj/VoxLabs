@@ -63,6 +63,16 @@ PROCESS_STEPS = (
     "limit",
     "loudness",
 )
+PROCESS_STEP_LABELS = {
+    "trim_silence": "Trim silence",
+    "denoise": "Denoise",
+    "eq": "EQ",
+    "compress": "Compress",
+    "deess": "De-ess",
+    "normalize": "Normalize",
+    "limit": "Limiter",
+    "loudness": "Loudness",
+}
 
 # Enhancement presets: which steps run and their parameters.
 ENHANCE_PRESETS = {

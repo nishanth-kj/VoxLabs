@@ -137,7 +137,6 @@ class ScriptPage(BasePage):
         self._save_timer.timeout.connect(self.save)
 
         state.open_script.connect(self.open_script)
-        state.project_changed.connect(lambda _p: self.refresh())
         state.data_changed.connect(lambda what: self._voices_changed() if what == "voices" else None)
 
     # ------------------------------------------------------------ tabs
@@ -277,7 +276,7 @@ class ScriptPage(BasePage):
     def refresh(self):
         self.default_model.refresh()
         self.section_voice.refresh()
-        self.run(lambda: script_service.list_scripts(self.state.projects_id), self._show_list, busy=False)
+        self.run(lambda: script_service.list_scripts(), self._show_list, busy=False)
 
     def _show_list(self, scripts):
         current = self.script["scripts_id"] if self.script else None
@@ -386,7 +385,7 @@ class ScriptPage(BasePage):
     def new_script(self):
         title, ok = QInputDialog.getText(self, "New script", "Title:", text="Untitled script")
         if ok and title.strip():
-            self.run(lambda: script_service.create(title, EXAMPLE, projects_id=self.state.projects_id),
+            self.run(lambda: script_service.create(title, EXAMPLE),
                      lambda s: (self._show_script(s), self.refresh()))
 
     def delete_script(self):

@@ -17,8 +17,9 @@ class WaveformWidget(QWidget):
     selection_changed = Signal(float, float)
     view_changed = Signal(float, float)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, placeholder: str = "Open or import audio to edit"):
         super().__init__(parent)
+        self.placeholder = placeholder
         self.setMinimumHeight(140)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -113,7 +114,7 @@ class WaveformWidget(QWidget):
             painter.drawLine(QPointF(px, 0), QPointF(px, h))
         if self._y.size == 0:
             painter.setPen(palette.placeholderText().color())
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Open or import audio to edit")
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.placeholder)
 
     def resizeEvent(self, event):
         self._peaks = None

@@ -9,7 +9,7 @@ from string import Template
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QGuiApplication, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QHeaderView, QTableWidget, QTreeWidget, QWidget
 
 THEMES = ("system", "dark", "light")
 UI_FONTS = ("Segoe UI Variable Text", "Segoe UI", "Inter", "SF Pro Text", "Helvetica Neue", "Ubuntu", "Cantarell")
@@ -78,6 +78,8 @@ QMenu::item:selected { background: $accent; color: $accent_text; }
 QMenu::item:disabled { color: $text_disabled; }
 QMenu::separator { height: 1px; background: $border; margin: 5px 8px; }
 QMenu::indicator { width: 14px; height: 14px; left: 6px; }
+QMenu::indicator:checked { image: url($check_text); }
+QMenu::indicator:checked:selected { image: url($check_white); }
 #CommandCenter { background: $surface_alt; border: 1px solid $border; border-radius: 7px; padding: 4px 12px;
                  color: $text_muted; text-align: center; min-width: 320px; }
 #CommandCenter:hover { background: $hover; color: $text; border-color: $border_strong; }
@@ -104,10 +106,12 @@ QMenu::indicator { width: 14px; height: 14px; left: 6px; }
 #PageSubtitle { color: $text_muted; font-size: 13px; }
 #Hint { color: $text_muted; }
 #Banner { background: $selection; border: 1px solid $accent; border-radius: 8px; padding: 10px 12px; }
-QGroupBox { background: $surface; border: 1px solid $border; border-radius: 10px; margin-top: 12px;
-            padding: 16px 12px 12px 12px; font-weight: 600; }
-QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; left: 12px; top: 2px;
-                   padding: 0 6px; color: $text_muted; background: transparent; }
+QGroupBox { background: $surface; border: 1px solid $border; border-radius: 10px; margin-top: 0px;
+            padding: 36px 14px 14px 14px; font-weight: 600; }
+QGroupBox::title { subcontrol-origin: border; subcontrol-position: top left; left: 15px; top: 12px;
+                   padding: 0px; color: $text; background: transparent; }
+QScrollArea { background: transparent; border: none; }
+QScrollArea > QWidget#qt_scrollarea_viewport, QScrollArea > QWidget > QWidget { background: transparent; }
 QSplitter::handle { background: transparent; }
 QSplitter::handle:hover { background: $accent; }
 
@@ -141,10 +145,30 @@ QLineEdit:hover, QTextEdit:hover, QPlainTextEdit:hover, QSpinBox:hover, QDoubleS
 QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
     border-color: $accent; }
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled { color: $text_disabled; }
-QComboBox::drop-down { border: none; width: 22px; }
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox { min-height: 22px; }
+QSpinBox, QDoubleSpinBox { padding-right: 24px; }
+QComboBox { padding-right: 28px; }
+QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 26px; border: none; }
+QComboBox::down-arrow { image: url($chevron_down); width: 12px; height: 12px; }
+QComboBox::down-arrow:disabled { image: none; }
+QSpinBox::up-button, QDoubleSpinBox::up-button { subcontrol-origin: border; subcontrol-position: top right;
+    width: 22px; border: none; border-top-right-radius: 7px; background: transparent; }
+QSpinBox::down-button, QDoubleSpinBox::down-button { subcontrol-origin: border; subcontrol-position: bottom right;
+    width: 22px; border: none; border-bottom-right-radius: 7px; background: transparent; }
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover { background: $hover; }
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow { image: url($chevron_up); width: 10px; height: 10px; }
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow { image: url($chevron_down); width: 10px; height: 10px; }
 QComboBox QAbstractItemView { background: $surface; border: 1px solid $border_strong; border-radius: 6px;
                               selection-background-color: $accent; selection-color: $accent_text; padding: 4px; }
-QCheckBox, QRadioButton { spacing: 8px; }
+QCheckBox, QRadioButton { spacing: 8px; background: transparent; }
+QCheckBox::indicator, QRadioButton::indicator { width: 16px; height: 16px; }
+QCheckBox::indicator { border: 1px solid $border_strong; border-radius: 4px; background: $surface_alt; }
+QCheckBox::indicator:hover { border-color: $accent; }
+QCheckBox::indicator:checked { background: $accent; border-color: $accent; image: url($check_white); }
+QCheckBox::indicator:disabled { background: $surface; border-color: $border; }
+QRadioButton::indicator { border: 1px solid $border_strong; border-radius: 9px; background: $surface_alt; }
+QRadioButton::indicator:checked { border: 5px solid $accent; background: $accent_text; }
 QSlider::groove:horizontal { height: 4px; background: $border_strong; border-radius: 2px; }
 QSlider::sub-page:horizontal { background: $accent; border-radius: 2px; }
 QSlider::handle:horizontal { background: $accent_text; border: 2px solid $accent; width: 12px; height: 12px;
@@ -157,7 +181,8 @@ QProgressBar::chunk { background: $accent; border-radius: 3px; }
 QListWidget, QTreeWidget, QTableWidget, QTableView, QTreeView, QListView {
     background: $surface; border: 1px solid $border; border-radius: 8px; padding: 2px;
     alternate-background-color: $surface_alt; gridline-color: $border; }
-QListWidget::item, QTreeWidget::item, QTableWidget::item { padding: 5px 6px; border-radius: 5px; }
+QListWidget::item, QTreeWidget::item { padding: 5px 6px; border-radius: 5px; }
+QTableWidget::item { padding: 4px 8px; border: none; }
 QListWidget::item:hover, QTreeWidget::item:hover, QTableWidget::item:hover { background: $hover; }
 QListWidget::item:selected, QTreeWidget::item:selected, QTableWidget::item:selected {
     background: $selection; color: $text; }
@@ -248,5 +273,34 @@ def apply_theme(app: QApplication, mode: str | None) -> ThemeColors:
         font.setPointSizeF(9.5)
         app.setFont(font)
     app.setPalette(_palette(_current))
-    app.setStyleSheet(STYLESHEET.substitute(vars(_current)))
+    from app.ui import icons
+
+    images = {
+        "check_white": icons.icon_file("check", _current.accent_text),
+        "check_text": icons.icon_file("check", _current.text),
+        "chevron_down": icons.icon_file("chevron_down", _current.text_muted),
+        "chevron_up": icons.icon_file("chevron_up", _current.text_muted),
+    }
+    app.setStyleSheet(STYLESHEET.substitute({**vars(_current), **images}))
     return _current
+
+
+def polish_views(root: QWidget) -> None:
+    """Uniform tables under `root`: left-aligned headers, columns sized to fit their text, no grid."""
+    for table in root.findChildren(QTableWidget):
+        header = table.horizontalHeader()
+        header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        header.setHighlightSections(False)
+        header.setMinimumSectionSize(64)
+        stretch = [c for c in range(header.count()) if header.sectionResizeMode(c) == QHeaderView.ResizeMode.Stretch]
+        for column in range(header.count()):
+            if column not in stretch:
+                header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        header.setStretchLastSection(not stretch)
+        table.verticalHeader().hide()
+        table.verticalHeader().setDefaultSectionSize(34)
+        table.setShowGrid(False)
+        table.setWordWrap(False)
+        table.setTextElideMode(Qt.TextElideMode.ElideRight)
+    for tree in root.findChildren(QTreeWidget):
+        tree.header().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)

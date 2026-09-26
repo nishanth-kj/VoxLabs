@@ -27,7 +27,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.services.project_service import project_service
 from app.services.system_service import VERSION, system_service
 from app.ui import icons, theme
 from app.ui.app_menu import build_menu_bar, refresh_menu_icons
@@ -37,7 +36,6 @@ from app.ui.pages.editor_page import EditorPage
 from app.ui.pages.generate_page import GeneratePage
 from app.ui.pages.home_page import HomePage
 from app.ui.pages.models_page import ModelsPage
-from app.ui.pages.projects_page import ProjectsPage
 from app.ui.pages.script_page import ScriptPage
 from app.ui.pages.settings_page import SettingsPage
 from app.ui.pages.studio_page import StudioPage
@@ -54,29 +52,12 @@ RESIZE_MARGIN = 6
 
 
 class AppState(QObject):
-    """Small shared state: the open project and "something changed" notifications."""
+    """Small shared state: "something changed" notifications and navigation requests."""
 
-    project_changed = Signal(object)  # projects_id | None
-    data_changed = Signal(str)  # "voices" | "audio" | "models" | "projects" | "scripts" | "settings"
+    data_changed = Signal(str)  # "voices" | "audio" | "models" | "scripts" | "settings"
     open_audio = Signal(int)  # audios_id to open in the editor
     open_script = Signal(int)  # scripts_id to open on the Script page
     navigate = Signal(str)
-
-    def __init__(self):
-        super().__init__()
-        self.projects_id: int | None = None
-
-    def set_project(self, projects_id: int | None):
-        self.projects_id = projects_id
-        self.project_changed.emit(projects_id)
-
-    def project_name(self) -> str:
-        if self.projects_id is None:
-            return "No project"
-        try:
-            return project_service.get(self.projects_id)["name"]
-        except Exception:
-            return "No project"
 
     def notify(self, what: str):
         self.data_changed.emit(what)
@@ -91,12 +72,11 @@ PAGES = [
     ("script", "Script to Audio", ScriptPage, "script"),
     ("editor", "Audio Editor", EditorPage, "editor"),
     ("voices", "Voices", VoicesPage, "voices"),
-    ("projects", "Projects", ProjectsPage, "projects"),
     ("models", "Models", ModelsPage, "models"),
     ("settings", "Settings", SettingsPage, "settings"),
 ]
 NAV_SECTIONS = [("", ["home", "studio"]), ("Create", ["clone", "generate", "script", "editor"]),
-                ("Library", ["voices", "projects", "models"])]
+                ("Library", ["voices", "models"])]
 NAV_FOOTER = ["settings"]
 EDIT_COMMANDS = ("undo", "redo", "cut", "copy", "paste", "delete", "select_all", "duplicate")
 
@@ -156,21 +136,16 @@ class MainWindow(QMainWindow):
         layout.addLayout(body, 1)
         self.setCentralWidget(central)
 
-        # Status bar: project, API, jobs
+        # Status bar: API and background jobs
         status = self.statusBar()
         status.setSizeGripEnabled(False)
-        self.project_button = QPushButton()
-        self.project_button.setToolTip("Open the Projects page")
-        self.project_button.clicked.connect(lambda: self.go("projects"))
         self.api_button = QPushButton()
         self.api_button.setToolTip("Start or stop the REST API and MCP server")
         self.api_button.clicked.connect(lambda: self.toggle_api(not system_service.api_running()))
         self.jobs_widget = JobStatusWidget()
-        status.addWidget(self.project_button)
         status.addWidget(self.api_button)
         status.addPermanentWidget(self.jobs_widget)
 
-        self.state.project_changed.connect(lambda _p: self._update_titles())
         self.state.navigate.connect(self.go)
         self.state.open_audio.connect(lambda _id: self.go("editor"))
         self.state.open_script.connect(lambda _id: self.go("script"))
@@ -179,6 +154,7 @@ class MainWindow(QMainWindow):
 
         if system_service.get_setting("sidebar_collapsed"):
             self.nav.set_collapsed(True)
+        theme.polish_views(self)
         self._check_theme_action()
         self._update_api_status()
         self.go("home")
@@ -273,6 +249,7 @@ class MainWindow(QMainWindow):
             table.setItem(row, 0, QTableWidgetItem(label))
             table.setItem(row, 1, QTableWidgetItem(shortcut))
         QVBoxLayout(dialog).addWidget(table)
+        theme.polish_views(dialog)
         dialog.exec()
 
     # ------------------------------------------------------------ view
@@ -351,14 +328,11 @@ class MainWindow(QMainWindow):
             self.api_action.setChecked(running)
 
     def _update_titles(self) -> None:
-        project = self.state.project_name()
         page = self.stack.currentWidget()
         page_title = page.title if isinstance(page, BasePage) else ""
-        self.setWindowTitle(f"VoxLabs — {project}")
-        self.project_button.setText(f"  {project}")
-        self.project_button.setIcon(icons.icon("projects", theme.current().statusbar_text, size=14))
+        self.setWindowTitle(f"VoxLabs — {page_title}" if page_title else "VoxLabs")
         if self.title_bar is not None:
-            self.title_bar.set_title(f"{page_title}  ·  {project}")
+            self.title_bar.set_title(f"{page_title}  ·  Search commands")
 
     # ------------------------------------------------------------ frameless window: resizing from the edges
 
