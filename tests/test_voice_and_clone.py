@@ -77,6 +77,23 @@ def test_delete_removes_everything(voice_wav, consent):
         assert session.query(VoiceConsent).count() == 0
 
 
+def test_voice_editor_delivery_is_saved(voice_wav, consent):
+    voice = voice_service.create("Narrator", model_key="fake-tts")
+    saved = voice_service.update(voice["voices_id"], delivery={
+        "speed": 0.8, "pitch": 1.1, "energy": 0.9, "emotion": "calm", "style": "lecture",
+    }, model_key="fake-tts")
+    assert saved["delivery"]["speed"] == 0.8
+    assert saved["delivery"]["emotion"] == "calm"
+    assert saved["delivery"]["style"] == "lecture"
+    again = voice_service.get(saved["voices_id"], with_samples=False)
+    assert again["model_key"] == "fake-tts"
+    assert again["delivery"]["pitch"] == 1.1
+    filled = voice_service.apply_delivery(again, {"speed": None, "emotion": None})
+    assert filled["speed"] == 0.8 and filled["emotion"] == "calm"
+    # An explicit section setting still wins over the voice editor.
+    assert voice_service.apply_delivery(again, {"speed": 1.4})["speed"] == 1.4
+
+
 def test_voice_crud_and_export(voice_wav, consent):
     preset = voice_service.create("Aria", engine_voice="en-US-AriaNeural", model_key="edge-neural")
     assert preset["source"] == "preset"

@@ -22,6 +22,8 @@ class Voice(Base):
     # "clone" (from samples) or "preset" (an engine's built-in speaker, e.g. an Edge voice).
     source: Mapped[str] = mapped_column(String(20), default="clone")
     engine_voice: Mapped[str | None] = mapped_column(String(120))
+    # Saved speaking settings (speed, pitch, energy, emotion, style) used when this voice generates audio.
+    delivery: Mapped[dict] = mapped_column(JSON, default=dict)
     consent_status: Mapped[int] = mapped_column(Integer, default=ConsentStatus.GRANTED.code, nullable=False)
     profile: Mapped[dict] = mapped_column(JSON, default=dict)
     storage_dir: Mapped[str | None] = mapped_column(String(500))

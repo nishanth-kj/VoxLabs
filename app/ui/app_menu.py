@@ -19,7 +19,8 @@ if TYPE_CHECKING:
     from app.ui.main_window import MainWindow
 
 NAV_SHORTCUTS = {"home": "Ctrl+1", "studio": "Ctrl+2", "clone": "Ctrl+3", "generate": "Ctrl+4", "script": "Ctrl+5",
-                 "editor": "Ctrl+6", "voices": "Ctrl+7", "models": "Ctrl+8", "settings": "Ctrl+,"}
+                 "editor": "Ctrl+6", "voice_editor": "Ctrl+9", "voices": "Ctrl+7", "models": "Ctrl+8",
+                 "settings": "Ctrl+,"}
 
 
 def _add(menu: QMenu, text: str, handler: Callable[[], object], *, shortcut: str | None = None,

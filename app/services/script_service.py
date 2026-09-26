@@ -22,6 +22,7 @@ from app.services.audio_service import audio_service
 from app.services.job_service import job_service
 from app.services.system_service import system_service
 from app.services.tts_service import split_sentences, tts_service
+from app.services.voice_service import voice_service
 from app.utils import audio as au
 from app.utils.database import deleted_result, read_session, serialize, transaction
 from app.utils.files import remove_file, subdir, unique_path
@@ -355,14 +356,16 @@ class ScriptService:
                 section_data = self.section_dict(section)
                 script = self.to_dict(section.script, with_sections=False)
             defaults = script.get("settings") or {}
-            params = {
+            voices_id = self.resolve_voice(section_data, script)
+            voice = voice_service.get(voices_id, with_samples=False) if voices_id else None
+            params = voice_service.apply_delivery(voice, {
                 key: section_data.get(key) if section_data.get(key) is not None else defaults.get(key)
-                for key in ("speed", "pitch", "emotion", "style")
-            }
+                for key in ("speed", "pitch", "emotion", "style", "energy")
+            })
             request = TTSRequest(
                 text=section_data["text"],
-                voices_id=self.resolve_voice(section_data, script),
-                model_key=defaults.get("model_key"),
+                voices_id=voices_id,
+                model_key=defaults.get("model_key") or (voice or {}).get("model_key"),
                 projects_id=script.get("projects_id"),
                 name=f"{script['title']} · {section_data['heading'] or 'section'} {section_data['position'] + 1}",
                 seed=seed,

@@ -36,6 +36,7 @@ from app.models.request import AudioExportRequest, TTSRequest
 from app.services.audio_service import audio_service
 from app.services.system_service import system_service
 from app.services.tts_service import tts_service
+from app.services.voice_service import voice_service
 from app.ui.pages import BasePage
 from app.ui.widgets.audio_player import AudioPlayer
 from app.ui.widgets.model_selector import ModelSelector
@@ -117,6 +118,7 @@ class GeneratePage(BasePage):
         form = QFormLayout(voice_box)
         form.setVerticalSpacing(8)
         self.voice = VoiceSelector()
+        self.voice.currentIndexChanged.connect(lambda _i: self._apply_voice())
         self.model = ModelSelector()
         self.speed = self._spin(0.5, 2.0, 1.0)
         self.pitch = self._spin(0.5, 2.0, 1.0)
@@ -214,6 +216,34 @@ class GeneratePage(BasePage):
         self.model.refresh()
         if self.voice.voices_id() is None:
             self.voice.set_voices_id(system_service.get_setting("default_voices_id"))
+        self._apply_voice()
+
+    def use_voice(self, voices_id: int):
+        """Open generation with a voice saved in the Voice Editor."""
+        self.voice.set_voices_id(voices_id)
+        self._apply_voice()
+
+    def _apply_voice(self):
+        """Copy the voice editor's model and delivery into this form."""
+        voices_id = self.voice.voices_id()
+        if voices_id is None:
+            return
+        voice = voice_service.get(voices_id, with_samples=False)
+        if voice.get("model_key"):
+            self.model.set_model_key(voice["model_key"])
+        delivery = voice.get("delivery") or {}
+        if delivery.get("speed") is not None:
+            self.speed.setValue(float(delivery["speed"]))
+        if delivery.get("pitch") is not None:
+            self.pitch.setValue(float(delivery["pitch"]))
+        if delivery.get("energy") is not None:
+            self.energy.setValue(float(delivery["energy"]))
+        emotion = delivery.get("emotion")
+        if emotion in EMOTIONS:
+            self.emotion.setCurrentText(emotion)
+        style = delivery.get("style")
+        if style in STYLES:
+            self.style_box.setCurrentText(style)
 
     # ------------------------------------------------------------ generation
 

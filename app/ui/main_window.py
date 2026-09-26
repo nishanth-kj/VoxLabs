@@ -43,6 +43,7 @@ from app.ui.pages.models_page import ModelsPage
 from app.ui.pages.script_page import ScriptPage
 from app.ui.pages.settings_page import SettingsPage
 from app.ui.pages.studio_page import StudioPage
+from app.ui.pages.voice_editor_page import VoiceEditorPage
 from app.ui.pages.voices_page import VoicesPage
 from app.ui.widgets.audio_player import AudioPlayer
 from app.ui.widgets.command_palette import CommandPalette, menu_commands
@@ -50,10 +51,14 @@ from app.ui.widgets.job_status import JobStatusWidget
 from app.ui.widgets.log_panel import LogPanel
 from app.ui.widgets.nav_bar import NavBar
 from app.ui.widgets.title_bar import TitleBar
-from app.utils.files import PROJECT_ROOT, data_dir
+from app.utils.files import data_dir
 from app.utils.logger import logger
 
 RESIZE_MARGIN = 6
+WEBSITE_URL = "https://nishanth-kj.github.io/VoxLabs/"
+DOCS_URL = "https://nishanth-kj.github.io/VoxLabs/docs/"
+GITHUB_URL = "https://github.com/nishanth-kj/VoxLabs"
+
 
 
 class AppState(QObject):
@@ -66,6 +71,8 @@ class AppState(QObject):
     data_changed = Signal(str)  # "voices" | "audio" | "models" | "scripts" | "settings"
     project_changed = Signal(object)  # the open project dict, or None
     open_audio = Signal(int)  # audios_id to open in the editor
+    open_voice = Signal(int)  # voices_id to open in the voice editor
+    use_voice = Signal(int)  # voices_id to speak with on the Generate page
     open_script = Signal(int)  # scripts_id to open on the Script page
     navigate = Signal(str)
 
@@ -93,11 +100,13 @@ PAGES = [
     ("generate", "Generate", GeneratePage, "generate"),
     ("script", "Script to Audio", ScriptPage, "script"),
     ("editor", "Audio Editor", EditorPage, "editor"),
+    ("voice_editor", "Voice Editor", VoiceEditorPage, "voice_editor"),
     ("voices", "Voices", VoicesPage, "voices"),
     ("models", "Models", ModelsPage, "models"),
     ("settings", "Settings", SettingsPage, "settings"),
 ]
-NAV_SECTIONS = [("", ["home", "studio"]), ("Create", ["clone", "generate", "script", "editor"]),
+NAV_SECTIONS = [("", ["home", "studio"]),
+                ("Create", ["clone", "generate", "script", "editor", "voice_editor"]),
                 ("Library", ["voices", "models"])]
 NAV_FOOTER = ["settings"]
 EDIT_COMMANDS = ("undo", "redo", "cut", "copy", "paste", "delete", "select_all", "duplicate")
@@ -190,6 +199,8 @@ class MainWindow(QMainWindow):
 
         self.state.navigate.connect(self.go)
         self.state.open_audio.connect(lambda _id: self.go("editor"))
+        self.state.open_voice.connect(self._open_voice)
+        self.state.use_voice.connect(self._use_voice)
         self.state.open_script.connect(lambda _id: self.go("script"))
         self.state.data_changed.connect(lambda what: self._settings_changed() if what == "settings" else None)
         self.state.project_changed.connect(lambda _project: self._project_changed())
@@ -211,6 +222,14 @@ class MainWindow(QMainWindow):
         self._autosave.start(30_000)
 
     # ------------------------------------------------------------ navigation and commands
+
+    def _open_voice(self, voices_id: int):
+        self.go("voice_editor")
+        self.pages["voice_editor"].open_voice(voices_id)
+
+    def _use_voice(self, voices_id: int):
+        self.go("generate")
+        self.pages["generate"].use_voice(voices_id)
 
     def go(self, key: str):
         page = self.pages.get(key)
@@ -327,8 +346,7 @@ class MainWindow(QMainWindow):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(data_dir())))
 
     def open_docs(self) -> None:
-        docs = PROJECT_ROOT / "docs"
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(docs if docs.exists() else PROJECT_ROOT)))
+        QDesktopServices.openUrl(QUrl(DOCS_URL))
 
     def show_about(self) -> None:
         QMessageBox.about(
@@ -336,7 +354,10 @@ class MainWindow(QMainWindow):
             f"<h3>VoxLabs {VERSION}</h3>"
             "<p>Local-first voice cloning, text-to-speech and audio production.</p>"
             "<p>Generated audio is labeled as AI-generated. Cloning a voice requires the speaker's "
-            "recorded consent, and revoking a voice deletes its samples.</p>",
+            "recorded consent, and revoking a voice deletes its samples.</p>"
+            f'<p><a href="{WEBSITE_URL}">Website</a> &nbsp;·&nbsp; '
+            f'<a href="{DOCS_URL}">Documentation</a> &nbsp;·&nbsp; '
+            f'<a href="{GITHUB_URL}">GitHub</a></p>',
         )
 
     def shortcut_rows(self) -> list[tuple[str, str]]:

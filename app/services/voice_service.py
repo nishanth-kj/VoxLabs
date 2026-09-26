@@ -6,6 +6,7 @@ from fastapi import UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.constants.audio import STYLE_PRESETS
 from app.constants.consent_status import ConsentStatus
 from app.constants.status import Status
 from app.exceptions import ConsentError, NotFoundError, VoiceError, service_error
@@ -20,6 +21,7 @@ from app.utils.validation import Validation
 
 PRESET = "preset"
 CLONE = "clone"
+DELIVERY_DEFAULTS = {"speed": 1.0, "pitch": 1.0, "energy": 1.0, "emotion": "neutral", "style": "default"}
 
 
 class VoiceService:
@@ -29,6 +31,7 @@ class VoiceService:
         data = serialize(voice, exclude=("storage_dir",))
         data["consent_status_label"] = ConsentStatus.label(voice.consent_status)
         data["pitch_hz"] = (voice.profile or {}).get("pitch_hz")
+        data["delivery"] = self.normalize_delivery(data.get("delivery"))
         data.pop("profile", None)
         if with_samples:
             data["samples"] = [
@@ -94,18 +97,55 @@ class VoiceService:
 
     # ------------------------------------------------------------ update
 
+    def normalize_delivery(self, raw: dict | None) -> dict:
+        """Fill any missing speaking settings so callers always see a complete delivery."""
+        delivery = dict(DELIVERY_DEFAULTS)
+        if isinstance(raw, dict):
+            delivery.update({key: raw[key] for key in DELIVERY_DEFAULTS if raw.get(key) is not None})
+        return delivery
+
+    def clean_delivery(self, raw: dict | None) -> dict:
+        if not isinstance(raw, dict):
+            raise VoiceError("Delivery settings must be an object", field="delivery")
+        cleaned: dict = {}
+        if raw.get("speed") is not None:
+            cleaned["speed"] = Validation.in_range(float(raw["speed"]), 0.5, 2.0, "speed", 1.0)
+        if raw.get("pitch") is not None:
+            cleaned["pitch"] = Validation.in_range(float(raw["pitch"]), 0.5, 2.0, "pitch", 1.0)
+        if raw.get("energy") is not None:
+            cleaned["energy"] = Validation.in_range(float(raw["energy"]), 0.1, 2.0, "energy", 1.0)
+        if raw.get("emotion") is not None:
+            cleaned["emotion"] = Validation.require_emotion(str(raw["emotion"]))
+        if raw.get("style") is not None:
+            cleaned["style"] = Validation.require_choice(str(raw["style"]), STYLE_PRESETS, "style")
+        return cleaned
+
+    def apply_delivery(self, voice: dict | None, params: dict) -> dict:
+        """Use the voice editor's settings wherever the caller left a speaking field unset."""
+        delivery = (voice or {}).get("delivery") or {}
+        merged = dict(params)
+        for key in DELIVERY_DEFAULTS:
+            if merged.get(key) is None and delivery.get(key) is not None:
+                merged[key] = delivery[key]
+        return merged
+
     def update(self, voices_id: int, **fields) -> dict:
         try:
-            allowed = {"name", "description", "language", "model_key", "engine_voice", "preview_audios_id"}
+            allowed = {"name", "description", "language", "model_key", "engine_voice", "delivery",
+                       "preview_audios_id"}
             unknown = set(fields) - allowed
             if unknown:
                 raise VoiceError(f"Cannot update: {', '.join(sorted(unknown))}")
             with transaction() as session:
                 voice = self._get(session, voices_id)
+                if "delivery" in fields and fields["delivery"] is not None:
+                    fields["delivery"] = {**(voice.delivery or {}), **self.clean_delivery(fields["delivery"])}
                 for key, value in fields.items():
-                    if value is None:
+                    if value is None and key not in {"model_key", "engine_voice"}:
                         continue
-                    setattr(voice, key, Validation.require_name(value) if key == "name" else value)
+                    if key == "name":
+                        value = Validation.require_name(value)
+                    setattr(voice, key, value)
                 logger.info(f"Updated voice {voices_id}: {', '.join(sorted(fields))}")
                 return self.to_dict(voice)
         except Exception as exc:

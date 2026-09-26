@@ -14,4 +14,5 @@ class VoiceRequest(BaseModel):
     language: str | None = None
     model_key: str | None = None
     engine_voice: str | None = None
+    delivery: dict | None = None
     users_id: int | None = None

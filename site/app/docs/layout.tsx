@@ -6,7 +6,7 @@ export const metadata = pageMetadata({
   path: "/docs",
   title: "Docs",
   description:
-    "Install the VoxLabs desktop app, clone a voice with consent, generate speech locally, and delete voice data.",
+    "Complete VoxLabs documentation: desktop installation, consent-based voice cloning, offline TTS models, script-to-audio, non-destructive DSP editor, REST API, and MCP server.",
 })
 
 export default function DocsLayout({ children }: { children: ReactNode }) {

@@ -92,6 +92,10 @@ def _upgrade(engine: Engine) -> None:
                 conn.execute(text("UPDATE projects SET edit_state = :state WHERE projects_id = :id"),
                              {"state": json.dumps(state), "id": projects_id})
         logger.info("Database upgraded: audios.edit_ops")
+    if "delivery" not in {column["name"] for column in inspect(engine).get_columns("voices")}:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE voices ADD COLUMN delivery JSON NOT NULL DEFAULT '{}'"))
+        logger.info("Database upgraded: voices.delivery")
 
 
 def new_session() -> Session:

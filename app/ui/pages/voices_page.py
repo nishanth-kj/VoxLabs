@@ -145,10 +145,7 @@ class VoicesPage(BasePage):
     def edit(self):
         voice = self._current()
         if voice:
-            dialog = VoiceEditDialog(voice, self)
-            if dialog.exec():
-                values = dialog.values()
-                self.run(lambda: voice_service.update(voice["voices_id"], **values), self._changed)
+            self.state.open_voice.emit(voice["voices_id"])
 
     def new_preset(self):
         dialog = VoiceEditDialog(None, self, preset=True)
