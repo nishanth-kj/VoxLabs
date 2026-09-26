@@ -14,7 +14,7 @@ uv run uvicorn app.api.app:app --reload
 Useful environment variables:
 
 | Variable | Effect |
-|---|---|
+| --- | --- |
 | `VOXLABS_DATA_DIR` | Where the database, audio, voices and models live (default `./data`) |
 | `VOXLABS_DB_PATH` | Override only the SQLite file |
 | `VOXLABS_API_TOKEN` | Require a bearer token on the API |

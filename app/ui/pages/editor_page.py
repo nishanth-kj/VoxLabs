@@ -3,7 +3,7 @@
 The source file is never modified. Every edit is an operation in `self.ops`
 (replayed by AudioService.apply_edit_ops); undo/redo move operations between
 stacks. "Render" writes a new library audio, and the edit list is autosaved
-into the project so a session can be resumed.
+on the audio itself so a session can be resumed.
 """
 
 from pathlib import Path
@@ -34,7 +34,6 @@ from PySide6.QtWidgets import (
 from app.constants.audio import ENHANCE_PRESETS, EXPORT_FORMATS
 from app.models.request import AudioExportRequest, AudioProcessRequest
 from app.services.audio_service import audio_service
-from app.services.project_service import project_service
 from app.services.system_service import system_service
 from app.ui import icons
 from app.ui.pages import BasePage
@@ -239,7 +238,7 @@ class EditorPage(BasePage):
         def load():
             audio = audio_service.get(audios_id)
             y, sr = au.load(audio["path"])
-            ops = project_service.load_edit_ops(audio["projects_id"], audios_id)
+            ops = list(audio["edit_ops"] or [])
             states = [y]
             if ops:
                 try:
@@ -533,10 +532,10 @@ class EditorPage(BasePage):
                  lambda p: self.prop_labels["Edits"].setText(f"Exported to {p}"))
 
     def autosave(self):
-        """Persist the edit list into the audio's project (nothing to do without a project)."""
-        if self.audio and self.audio.get("projects_id") and self.ops != self._saved_ops:
+        """Persist the edit list on the audio so the session can be resumed."""
+        if self.audio and self.ops != self._saved_ops:
             try:
-                project_service.save_edit_ops(self.audio["projects_id"], self.audio["audios_id"], self.ops)
+                audio_service.save_edit_ops(self.audio["audios_id"], self.ops)
                 self._saved_ops = list(self.ops)
             except Exception as exc:
                 logger.warning(f"Editor autosave failed: {exc}")

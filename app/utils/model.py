@@ -116,12 +116,10 @@ def download(url: str, dest: Path, progress: Callable[[float], None] | None = No
 
 def apply_prosody(y: np.ndarray, sr: int, speed: float = 1.0, pitch: float = 1.0, energy: float = 1.0) -> np.ndarray:
     """Pitch shift / time stretch / gain (ported from the original EmotionalTTSEngine)."""
-    import librosa
-
     if pitch and pitch > 0 and abs(pitch - 1.0) > 1e-3:
-        y = librosa.effects.pitch_shift(y, sr=sr, n_steps=12 * np.log2(pitch))
+        y = audio_utils.pitch_shift(y, sr, 12 * np.log2(pitch))
     if speed and speed > 0 and abs(speed - 1.0) > 1e-3:
-        y = librosa.effects.time_stretch(y, rate=speed)
+        y = audio_utils.time_stretch(y, speed)
     if energy and energy > 0 and abs(energy - 1.0) > 1e-3:
         y = y * energy
         peak = float(np.abs(y).max()) if y.size else 0.0

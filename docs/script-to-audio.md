@@ -4,7 +4,7 @@
 
 ## Script format
 
-```
+```text
 Lesson 1                       ← chapter  (Lesson/Chapter/Part/Unit/Module …, or "# Title")
 
 Introduction                   ← heading  (Section/Topic/Scene/Introduction/Summary/Example …,
@@ -19,6 +19,7 @@ It sounds hard.                ← continues the Student line
 ```
 
 `parse_script(body, speak_headings=False)` returns ordered sections with `chapter`, `heading`, `speaker`, `text`, `pause_after_ms` and `position`. It sets pauses automatically:
+
 - 600 ms between paragraphs
 - 1200 ms at a chapter or heading boundary
 - plus any manual `[pause …]` lines

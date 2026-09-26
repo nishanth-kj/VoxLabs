@@ -135,6 +135,16 @@ class AudioService:
         except Exception as exc:
             raise service_error(exc, "audio_service.rename")
 
+    def save_edit_ops(self, audios_id: int, ops: list[dict]) -> dict:
+        """Persist the editor's non-destructive edit list on the audio (autosave); the file is untouched."""
+        try:
+            with transaction() as session:
+                audio = self._get(session, audios_id)
+                audio.edit_ops = [dict(op) for op in ops]
+                return self.to_dict(audio)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.save_edit_ops")
+
     def delete(self, audios_id: int) -> None:
         try:
             with transaction() as session:

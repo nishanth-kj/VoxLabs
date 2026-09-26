@@ -4,7 +4,7 @@
 
 ## Pipeline
 
-```
+```text
 text → validate → pronunciations → resolve voice → resolve model → load backend
      → chunk (sentence-aligned, [pause] tags; ≤ 400 chars, or the engine's own limit)
      → synthesize each chunk (one generation at a time per engine)
@@ -28,7 +28,7 @@ With `cache: true`, `generate` first hashes everything that changes the sound (t
 ## Parameters
 
 | Parameter | Range | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `voices_id` | — | Cloned or preset voice. Omit it for the engine's default voice. |
 | `engine_voice` | short id | One of the engine's built-in voices, e.g. Kokoro `af_heart` / `af_bella` / `bm_george` or an Edge short name. Overrides the voice's own `engine_voice`. |
 | `model_key` | — | Resolved in this order: explicit key → the voice's own cloning model (if installed) → `default_tts_model` → the first installed fallback model. |
@@ -52,7 +52,7 @@ With `cache: true`, `generate` first hashes everything that changes the sound (t
 ## Engines
 
 | Backend | Install | Runs | Native params |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Piper | `uv sync --extra piper`, then install the voice on the Models page | local CPU/GPU | speed |
 | Kokoro 82M | `--extra kokoro`, then install it on the Models page (weights download on first load) | local, fine on CPU | speed; built-in voices via `engine_voice` (default `af_heart`) |
 | XTTS v2 | `--extra xtts` (CPML, non-commercial) | local, GPU recommended | speed, temperature; cloning |

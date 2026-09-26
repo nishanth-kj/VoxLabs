@@ -30,6 +30,8 @@ class Audio(Base):
     loudness: Mapped[float | None] = mapped_column(Float)
     # Generation / processing parameters (text, voice, model, steps...).
     params: Mapped[dict] = mapped_column(JSON, default=dict)
+    # The editor's pending non-destructive edit list (autosaved; the file itself is untouched).
+    edit_ops: Mapped[list] = mapped_column(JSON, default=list)
     status: Mapped[int] = mapped_column(Integer, default=Status.ACTIVE.code, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow,

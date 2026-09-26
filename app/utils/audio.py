@@ -250,6 +250,32 @@ def resample(y: np.ndarray, sr_from: int, sr_to: int) -> np.ndarray:
     return signal.resample_poly(y, sr_to // g, sr_from // g, axis=0).astype(np.float32)
 
 
+def time_stretch(y: np.ndarray, rate: float) -> np.ndarray:
+    """Phase-vocoder time stretch of mono audio; rate > 1 is faster.
+
+    Calls the phase vocoder directly in float64: librosa 1.0's `effects.time_stretch`
+    passes its own deprecated arguments, and a float32 spectrum trips a spurious numba
+    cast warning.
+    """
+    import librosa
+
+    if y.size == 0 or abs(rate - 1.0) < 1e-3:
+        return y
+    spectrum = librosa.phase_vocoder(librosa.stft(np.asarray(y, dtype=np.float64)), rate=rate)
+    return librosa.istft(spectrum, length=round(len(y) / rate)).astype(np.float32)
+
+
+def pitch_shift(y: np.ndarray, sr: int, semitones: float) -> np.ndarray:
+    """Shift pitch without changing duration: stretch in time, then resample back."""
+    import librosa
+
+    if y.size == 0 or abs(semitones) < 1e-3:
+        return y
+    rate = 2.0 ** (-semitones / 12)
+    shifted = librosa.resample(time_stretch(y, rate), orig_sr=sr / rate, target_sr=sr, res_type="soxr_hq")
+    return librosa.util.fix_length(shifted, size=len(y)).astype(np.float32)
+
+
 def gain(y: np.ndarray, db: float) -> np.ndarray:
     return (y * (10 ** (db / 20))).astype(np.float32)
 

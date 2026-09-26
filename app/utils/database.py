@@ -7,13 +7,14 @@ explicitly. Services own transaction boundaries via `transaction()`; models
 never commit on their own.
 """
 
+import json
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -67,8 +68,30 @@ def reset_engine() -> None:
 def init_db() -> None:
     import app.models  # noqa: F401 - registers every table on Base.metadata
 
-    Base.metadata.create_all(get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(engine)
+    _upgrade(engine)
     logger.info(f"Database ready: {database_path()}")
+
+
+def _upgrade(engine: Engine) -> None:
+    """In-place upgrades for databases from earlier 3.0 builds (`create_all` never alters a table)."""
+    if "edit_ops" not in {column["name"] for column in inspect(engine).get_columns("audios")}:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE audios ADD COLUMN edit_ops JSON DEFAULT '[]'"))
+            # Editor ops used to live in projects.edit_state["editor"][<audios_id>], so audio
+            # without a project never kept its edits. Move them onto the audio.
+            for projects_id, raw in conn.execute(text("SELECT projects_id, edit_state FROM projects")).all():
+                state = json.loads(raw) if raw else {}
+                editor = state.pop("editor", None) if isinstance(state, dict) else None
+                if not editor:
+                    continue
+                for audios_id, ops in editor.items():
+                    conn.execute(text("UPDATE audios SET edit_ops = :ops WHERE audios_id = :id"),
+                                 {"ops": json.dumps(ops), "id": int(audios_id)})
+                conn.execute(text("UPDATE projects SET edit_state = :state WHERE projects_id = :id"),
+                             {"state": json.dumps(state), "id": projects_id})
+        logger.info("Database upgraded: audios.edit_ops")
 
 
 def new_session() -> Session:

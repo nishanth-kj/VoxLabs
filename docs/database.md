@@ -53,7 +53,7 @@ The `status` column uses `Status` only. When a table needs its own numbered stat
 ## Tables
 
 | Table | Purpose | Key columns |
-|---|---|---|
+| --- | --- | --- |
 | `users` | Local profiles | name, email |
 | `voices` | Cloned or preset voices | users_id, name, language, model_key, source (`clone`/`preset`), engine_voice, consent_status, profile (JSON), storage_dir, sample_count |
 | `voice_samples` | Reference recordings | voices_id, path, duration, sample_rate, quality (JSON), sha256 |
@@ -67,6 +67,7 @@ The `status` column uses `Status` only. When a table needs its own numbered stat
 | `models` | Model catalog | key, name, model_type, backend, version, size_mb, vram_mb, capabilities, online, installed_path |
 
 What `status` means per table:
+
 - **jobs:** Pending → InProgress → Completed / Failed / Cancelled.
 - **models:** Active when installed, Inactive otherwise.
 - **voices:** Active, or Inactive after revocation.

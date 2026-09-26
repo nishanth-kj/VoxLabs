@@ -1,4 +1,8 @@
-"""ProjectService: projects group scripts, audio, takes and editor state."""
+"""ProjectService: projects group scripts, audio and takes.
+
+A project is optional organisation for the API, MCP and scripts: audio made in the
+desktop app needs no project, and editor state lives on each audio (`audios.edit_ops`).
+"""
 
 import json
 import zipfile
@@ -80,7 +84,7 @@ class ProjectService:
 
     def save_project(self, projects_id: int, edit_state: dict | None = None, settings: dict | None = None,
                      description: str | None = None) -> dict:
-        """Persist editor/timeline state (used by autosave)."""
+        """Persist the project's free-form `edit_state` and merge `settings`."""
         try:
             with transaction() as session:
                 project = self._get(session, projects_id)
@@ -113,28 +117,6 @@ class ProjectService:
             return self.get(projects_id)
         except Exception as exc:
             raise service_error(exc, "project_service.save")
-
-    def save_edit_ops(self, projects_id: int, audios_id: int, ops: list[dict]) -> None:
-        """Persist the editor's non-destructive edit list for one audio (autosave)."""
-        try:
-            with transaction() as session:
-                project = self._get(session, projects_id)
-                state = json.loads(json.dumps(project.edit_state or {}))
-                state.setdefault("editor", {})[str(audios_id)] = ops
-                project.edit_state = state
-        except Exception as exc:
-            raise service_error(exc, "project_service.save_edit_ops")
-
-    def load_edit_ops(self, projects_id: int | None, audios_id: int) -> list[dict]:
-        try:
-            if projects_id is None:
-                return []
-            try:
-                return list((self.get(projects_id)["edit_state"] or {}).get("editor", {}).get(str(audios_id), []))
-            except NotFoundError:
-                return []
-        except Exception as exc:
-            raise service_error(exc, "project_service.load_edit_ops")
 
     def rename_project(self, projects_id: int, name: str) -> dict:
         try:
