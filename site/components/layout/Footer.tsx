@@ -53,6 +53,9 @@ export function Footer() {
                             <li className="hover:text-primary cursor-pointer transition-colors">
                                 <a href="/llms.txt">llms.txt</a>
                             </li>
+                            <li className="hover:text-primary cursor-pointer transition-colors">
+                                <a href="/llms-full.txt">llms-full.txt</a>
+                            </li>
                         </ul>
                     </div>
                     <div>

@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -110,15 +111,16 @@ class EditorPage(BasePage):
         wv.addWidget(self.waveform, 1)
         wv.addWidget(self.timeline)
         self.player = AudioPlayer(compact=True)
+        self.player.play_button.setToolTip("Play from cursor / pause (Space)")
+        self.player.play_button.clicked.disconnect(self.player.toggle)
+        self.player.play_button.clicked.connect(self.toggle_play)
         self.player.position_changed.connect(self._on_play_position)
         transport = QHBoxLayout()
         transport.addWidget(self.player, 1)
         self.loop = QCheckBox("Loop selection")
         play_sel = QPushButton("Play selection")
         play_sel.clicked.connect(self.play_selection)
-        play_cursor = QPushButton("Play from cursor")
-        play_cursor.clicked.connect(self.play_from_cursor)
-        for widget in (play_cursor, play_sel, self.loop):
+        for widget in (play_sel, self.loop):
             transport.addWidget(widget)
         wv.addLayout(transport)
         splitter.addWidget(wave_box)
@@ -475,14 +477,14 @@ class EditorPage(BasePage):
     def toggle_play(self):
         if not self.audio:
             return
-        if self.player.is_playing():
+        state = self.player.player.playbackState()
+        if state == QMediaPlayer.PlaybackState.PlayingState:
             self.player.toggle()
             return
-        self._ensure_preview()
-        if self.waveform.selection and self.loop.isChecked():
-            self.play_selection()
-        else:
-            self.player.play(self.waveform.cursor_time)
+        if state == QMediaPlayer.PlaybackState.PausedState:
+            self.player.toggle()
+            return
+        self.play_from_cursor()
 
     def play_from_cursor(self):
         if self.audio:
@@ -496,7 +498,13 @@ class EditorPage(BasePage):
             self.player.play_range(sel[0], sel[1], loop=self.loop.isChecked())
 
     def _on_play_position(self, seconds):
-        self.waveform.set_playhead(seconds if self.player.is_playing() else None)
+        # While audio is playing or paused the playhead follows it. Once playback
+        # stops, that line goes away and the timeline returns to the edit cursor.
+        if self.player.player.playbackState() == QMediaPlayer.PlaybackState.StoppedState:
+            self.waveform.set_playhead(None)
+            self.timeline.set_cursor(self.waveform.cursor_time)
+            return
+        self.waveform.set_playhead(seconds)
         self.timeline.set_cursor(seconds)
 
     # ------------------------------------------------------------ output

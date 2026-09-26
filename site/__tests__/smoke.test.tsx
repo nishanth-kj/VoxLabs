@@ -4,7 +4,7 @@ import { DownloadSection } from '@/components/landing/download-section'
 import { HowItWorksSection } from '@/components/landing/how-it-works-section'
 import { CookieNotice } from '@/components/cookie-notice'
 import { PLATFORMS, RELEASES_URL, DISCUSSIONS_URL } from '@/lib/links'
-import { SITE_NAV_PATHS, SOFTWARE_JSON_LD, ENGINE_SPECS, SITE_FAQS } from '@/lib/site'
+import { SITE_NAV_PATHS, SITE_JSON_LD, HOME_JSON_LD, ENGINE_SPECS, SITE_FAQS, SITE_DESCRIPTION } from '@/lib/site'
 import robots from '@/app/robots'
 import LandingPage from '@/app/page'
 import ContributionPage from '@/app/contribution/page'
@@ -65,8 +65,12 @@ describe('Landing smoke', () => {
     })
 
     it('includes structured JSON-LD graph, engine specs table, FAQs, and AI crawler rules', () => {
-        const types = SOFTWARE_JSON_LD['@graph'].map((node) => node['@type'])
-        expect(types).toEqual(['Organization', 'WebSite', 'SoftwareApplication', 'HowTo', 'FAQPage'])
+        expect(SITE_DESCRIPTION.length).toBeLessThanOrEqual(160)
+        const siteTypes = SITE_JSON_LD['@graph'].map((node) => node['@type'])
+        const homeTypes = HOME_JSON_LD['@graph'].map((node) => node['@type'])
+        expect(siteTypes).toEqual(['Organization', 'WebSite'])
+        expect(homeTypes).toEqual(['SoftwareApplication', 'SoftwareSourceCode', 'HowTo', 'FAQPage'])
+        expect(JSON.stringify(HOME_JSON_LD)).toContain(SITE_FAQS[0].question)
         expect(ENGINE_SPECS.length).toBeGreaterThanOrEqual(6)
         expect(SITE_FAQS.length).toBeGreaterThanOrEqual(6)
         const rules = robots().rules

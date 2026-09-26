@@ -1,17 +1,20 @@
-import type { Metadata } from "next"
 import Link from "next/link"
 import { LegalPage } from "@/components/legal-page"
+import { JsonLd } from "@/components/json-ld"
 import { GITHUB_URL, RELEASES_URL } from "@/lib/links"
-import { LEGAL_EFFECTIVE_DATE } from "@/lib/site"
+import { LEGAL_EFFECTIVE_DATE, breadcrumbJsonLd, pageMetadata } from "@/lib/site"
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
+  path: "/legal/terms",
   title: "Terms of Service",
   description:
     "Terms for using the VoxLabs website and desktop application, including consent for voice cloning and AI-generated audio labels.",
-}
+})
 
 export default function TermsPage() {
   return (
+    <>
+    <JsonLd data={breadcrumbJsonLd([{ name: "Terms of Service", path: "/legal/terms" }])} />
     <LegalPage title="Terms of Service">
       <p className="text-lg">
         Effective {LEGAL_EFFECTIVE_DATE}. By using the VoxLabs website or desktop application, you agree to these terms.
@@ -70,5 +73,6 @@ export default function TermsPage() {
         We may update these terms by posting a new version on this page. Continued use after a change means you accept the updated terms.
       </p>
     </LegalPage>
+    </>
   )
 }

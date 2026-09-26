@@ -6,7 +6,7 @@
 
 ### Standalone Desktop Bundles
 - **Windows (10+)**: Download `VoxLabs-Windows-x64.zip` from `https://github.com/nishanth-kj/VoxLabs/releases/latest`, extract, and run `VoxLabs\VoxLabs.exe`.
-- **macOS (12+ Apple Silicon)**: Download `VoxLabs-macOS-arm64.dmg`, open, and drag `VoxLabs.app` to Applications.
+- **macOS (13 Ventura or later, Apple Silicon)**: Download `VoxLabs-macOS-arm64.dmg`, open, and drag `VoxLabs.app` to Applications.
 - **Linux (Ubuntu 22.04+ / Fedora 39+)**: Download `VoxLabs-Linux-x86_64.tar.gz`, extract, and run `VoxLabs/VoxLabs`.
 
 ### From Source (Python 3.12–3.13 + uv)

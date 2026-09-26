@@ -13,12 +13,14 @@ import { Mic, Wand2, Lock, FileText, Sliders, Terminal } from "lucide-react"
 import { HeroSection } from "@/components/landing/hero-section"
 import { HowItWorksSection } from "@/components/landing/how-it-works-section"
 import { DownloadSection } from "@/components/landing/download-section"
-import { ENGINE_SPECS, SITE_FAQS } from "@/lib/site"
+import { JsonLd } from "@/components/json-ld"
+import { ENGINE_SPECS, HOME_JSON_LD, SITE_FAQS } from "@/lib/site"
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/50 via-background to-background dark:from-slate-900 dark:via-background dark:to-background selection:bg-primary/20">
 
+      <JsonLd data={HOME_JSON_LD} />
       <HeroSection />
 
       <section id="features" className="py-20 px-6 bg-secondary/30 border-t border-border/40 backdrop-blur-sm">

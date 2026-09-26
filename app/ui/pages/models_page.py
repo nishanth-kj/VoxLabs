@@ -30,7 +30,8 @@ class ModelsPage(BasePage):
         self.root.addWidget(self.table, 1)
 
         actions = QHBoxLayout()
-        for label, slot in (("Install", self.install), ("Load", self.load), ("Unload", self.unload),
+        for label, slot in (("Download all", self.download_all), ("Install", self.install),
+                            ("Load", self.load), ("Unload", self.unload),
                             ("Reload", self.reload), ("Remove", self.remove), ("Health check", self.health),
                             ("Set as default", self.set_default), ("Rescan", self.rescan)):
             button = QPushButton(label)
@@ -64,7 +65,7 @@ class ModelsPage(BasePage):
                 model["name"] + ("  ★ default" if model["key"] in defaults else ""),
                 model["model_type"].upper(),
                 f"{model['size_mb']} MB" if model["size_mb"] else "—",
-                model["install_label"] if model["package_installed"] else f"needs `--extra {model['extra']}`",
+                self._status(model),
                 loaded,
                 f"{model['vram_mb']} MB" if model["vram_mb"] else "CPU ok",
                 ", ".join(model["capabilities"]),
@@ -83,6 +84,47 @@ class ModelsPage(BasePage):
     def _changed(self, _result=None):
         self.state.notify("models")
         self.refresh()
+
+    @staticmethod
+    def _status(model: dict) -> str:
+        if model["package_installed"]:
+            return model["install_label"]
+        if model.get("files_ready"):
+            return f"weights saved, needs `--extra {model['extra']}`"
+        return f"needs `--extra {model['extra']}`"
+
+    def download_all(self):
+        xtts = next((model for model in self.models
+                     if model["backend"] == Backend.XTTS and not model["installed"] and model["package_installed"]),
+                    None)
+        accept = False
+        if xtts:
+            accept = QMessageBox.question(
+                self, "Coqui Public Model License",
+                "XTTS v2 is licensed for non-commercial use. Accept the license to include it?\n\n"
+                "The other models download either way.") == QMessageBox.StandardButton.Yes
+        try:
+            job = model_service.install_all_async(accept_license=accept)
+        except Exception as exc:
+            self.error(exc)
+            return
+        self.follow(job, self._downloaded)
+
+    def _downloaded(self, result: dict):
+        self._changed()
+        lines = []
+        downloaded = result.get("downloaded") or []
+        skipped = result.get("skipped") or []
+        failed = result.get("failed") or []
+        if downloaded:
+            lines.append("Downloaded: " + ", ".join(item["name"] for item in downloaded))
+        if skipped:
+            lines.append("Skipped: " + "; ".join(f"{item['name']} ({item['reason']})" for item in skipped))
+        if failed:
+            lines.append("Failed: " + "; ".join(f"{item['name']} ({item['error']})" for item in failed))
+        if not lines:
+            lines.append("Every local model is already downloaded.")
+        QMessageBox.information(self, "Download models", "\n\n".join(lines))
 
     def install(self):
         model = self._current()

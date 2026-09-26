@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -35,8 +36,7 @@ class SettingsPage(BasePage):
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)
-        columns = QHBoxLayout()
-        left, right = QFormLayout(), QFormLayout()
+        column = QVBoxLayout()
 
         appearance = QGroupBox("Appearance")
         appearance_form = QFormLayout(appearance)
@@ -46,7 +46,7 @@ class SettingsPage(BasePage):
         self.native_title_bar = QCheckBox("Use the system title bar (applies after restart)")
         appearance_form.addRow("Theme", self.theme)
         appearance_form.addRow("", self.native_title_bar)
-        left.addRow(appearance)
+        column.addWidget(appearance)
 
         audio = QGroupBox("Audio")
         audio_form = QFormLayout(audio)
@@ -73,7 +73,7 @@ class SettingsPage(BasePage):
         audio_form.addRow("Default sample rate", self.sample_rate)
         audio_form.addRow("Default output folder", out_widget)
         audio_form.addRow("Default enhancement", self.enhance_preset)
-        left.addRow(audio)
+        column.addWidget(audio)
 
         voice = QGroupBox("Voices and models")
         voice_form = QFormLayout(voice)
@@ -88,7 +88,7 @@ class SettingsPage(BasePage):
         voice_form.addRow("Default cloning model", self.default_clone)
         voice_form.addRow("GPU / device", self.device)
         voice_form.addRow("", self.allow_online)
-        left.addRow(voice)
+        column.addWidget(voice)
 
         api = QGroupBox("REST API (optional)")
         api_form = QFormLayout(api)
@@ -106,7 +106,7 @@ class SettingsPage(BasePage):
         api_form.addRow("Port", self.api_port)
         api_form.addRow("Token", self.api_token)
         api_form.addRow("", self.api_status)
-        right.addRow(api)
+        column.addWidget(api)
 
         general = QGroupBox("General")
         general_form = QFormLayout(general)
@@ -119,13 +119,12 @@ class SettingsPage(BasePage):
         general_form.addRow("", self.autosave)
         general_form.addRow("Log level", self.log_level)
         general_form.addRow("", logs_hint)
-        right.addRow(general)
+        column.addWidget(general)
+        column.addStretch(1)
 
-        columns.addLayout(left, 1)
-        columns.addLayout(right, 1)
         # Scroll instead of squeezing the forms on short windows.
         content = QWidget()
-        content.setLayout(columns)
+        content.setLayout(column)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)

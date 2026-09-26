@@ -1,16 +1,19 @@
-import type { Metadata } from "next"
 import Link from "next/link"
 import { LegalPage } from "@/components/legal-page"
-import { LEGAL_EFFECTIVE_DATE } from "@/lib/site"
+import { JsonLd } from "@/components/json-ld"
+import { LEGAL_EFFECTIVE_DATE, breadcrumbJsonLd, pageMetadata } from "@/lib/site"
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
+  path: "/legal/cookies",
   title: "Cookie Policy",
   description:
     "VoxLabs does not use tracking or advertising cookies. This page explains browser storage on the landing site.",
-}
+})
 
 export default function CookiesPage() {
   return (
+    <>
+    <JsonLd data={breadcrumbJsonLd([{ name: "Cookie Policy", path: "/legal/cookies" }])} />
     <LegalPage title="Cookie Policy">
       <p className="text-lg">Effective {LEGAL_EFFECTIVE_DATE}.</p>
 
@@ -53,5 +56,6 @@ export default function CookiesPage() {
         See the <Link href="/legal/privacy">privacy policy</Link> for how the desktop app handles voice data.
       </p>
     </LegalPage>
+    </>
   )
 }

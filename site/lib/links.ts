@@ -15,7 +15,7 @@ export const PLATFORMS = [
   {
     id: "macos" as const,
     label: "macOS",
-    requirement: "macOS 12 or later (Apple silicon)",
+    requirement: "macOS 13 (Ventura) or later (Apple silicon)",
     fileHint: "VoxLabs-macOS-arm64.dmg",
     href: RELEASES_URL,
   },

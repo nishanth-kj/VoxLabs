@@ -1,16 +1,20 @@
-import type { Metadata } from "next"
 import Link from "next/link"
 import { ShieldCheck } from "lucide-react"
 import { LegalPage } from "@/components/legal-page"
+import { JsonLd } from "@/components/json-ld"
+import { breadcrumbJsonLd, pageMetadata } from "@/lib/site"
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
+  path: "/legal/ethics",
   title: "Ethical AI Guidelines",
   description:
     "VoxLabs requires consent for voice cloning, local-first processing, AI-generated labels, and simple deletion of voice data.",
-}
+})
 
 export default function EthicsPage() {
   return (
+    <>
+    <JsonLd data={breadcrumbJsonLd([{ name: "Ethical AI Guidelines", path: "/legal/ethics" }])} />
     <LegalPage
       title="Ethical AI Guidelines"
       icon={<ShieldCheck className="w-10 h-10 text-emerald-500" />}
@@ -45,5 +49,6 @@ export default function EthicsPage() {
         Do not use VoxLabs for hate, harassment, scams, non-consensual intimate media, or other harmful impersonation. Report abuse through GitHub Issues.
       </p>
     </LegalPage>
+    </>
   )
 }

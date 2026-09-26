@@ -9,11 +9,12 @@ import { CookieNotice } from "@/components/cookie-notice"
 import { JsonLd } from "@/components/json-ld"
 import {
   SITE_DESCRIPTION,
+  SITE_JSON_LD,
   SITE_KEYWORDS,
   SITE_NAME,
   SITE_TAGLINE,
-  absoluteUrl,
   getSiteUrl,
+  pageMetadata,
 } from "@/lib/site"
 
 const geistSans = Geist({
@@ -27,28 +28,20 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl = getSiteUrl()
-const ogImage = absoluteUrl("/og.jpg")
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
+  ...pageMetadata({ path: "/", description: SITE_DESCRIPTION }),
   title: {
     default: `${SITE_NAME} — ${SITE_TAGLINE}`,
     template: `%s | ${SITE_NAME}`,
   },
-  description: SITE_DESCRIPTION,
   keywords: SITE_KEYWORDS,
   applicationName: SITE_NAME,
-  authors: [{ name: SITE_NAME, url: siteUrl }],
-  creator: SITE_NAME,
+  authors: [{ name: "nishanth-kj", url: "https://github.com/nishanth-kj" }],
+  creator: "nishanth-kj",
   publisher: SITE_NAME,
   category: "technology",
-  alternates: {
-    canonical: "./",
-    types: {
-      "text/plain": absoluteUrl("/llms.txt"),
-      "text/markdown": absoluteUrl("/llms-full.txt"),
-    },
-  },
   robots: {
     index: true,
     follow: true,
@@ -60,30 +53,13 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
-  openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: siteUrl,
-    siteName: SITE_NAME,
-    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
-    description: SITE_DESCRIPTION,
-    images: [
-      {
-        url: ogImage,
-        width: 1920,
-        height: 1080,
-        alt: "VoxLabs desktop voice studio",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
-    description: SITE_DESCRIPTION,
-    images: [ogImage],
-  },
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180" }],
   },
 };
 
@@ -104,7 +80,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <JsonLd />
+        <JsonLd data={SITE_JSON_LD} />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

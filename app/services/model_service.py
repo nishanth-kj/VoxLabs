@@ -22,7 +22,7 @@ from app.constants.models import (
     ModelType,
 )
 from app.constants.status import Status
-from app.exceptions import ModelError, NotFoundError, ValidationError, service_error
+from app.exceptions import JobCancelled, ModelError, NotFoundError, ValidationError, service_error
 from app.models import Model
 from app.services.job_service import job_service
 from app.services.system_service import system_service
@@ -60,7 +60,11 @@ class ModelService:
         if not files:
             return True
         folder = self.model_dir(key)
-        return all((folder / name).exists() for name in files)
+        return all(self._weight_file(folder / name) for name in files)
+
+    @staticmethod
+    def _weight_file(path: Path) -> bool:
+        return path.is_file() and path.stat().st_size > 0
 
     def is_installed(self, key: str, backend: str | None = None) -> bool:
         try:
@@ -138,6 +142,7 @@ class ModelService:
             package_installed=package_installed(entry.get("package")),
             extra=entry.get("extra"),
             needs_download=bool(entry.get("files")),
+            files_ready=self._files_present(row.key, entry) if entry.get("files") else False,
             supports_cloning=row.backend in CLONING_BACKENDS,
             speaks=row.backend not in _NON_TTS,
             allowed=allow_online or not row.online,
@@ -179,21 +184,28 @@ class ModelService:
             model = self.get(model_ref)
             key = model["key"]
             entry = _CATALOG.get(key, {})
-            if not package_installed(entry.get("package")):
-                raise ModelError(
-                    f"{model['name']} needs extra Python packages. Close VoxLabs and run: "
-                    f"uv sync --extra {entry.get('extra')}"
-                )
             if model["backend"] == Backend.XTTS and not accept_license:
                 raise ModelError("XTTS v2 is released under the Coqui Public Model License (non-commercial). "
                                  "Accept the license to download it.", field="accept_license")
             files = entry.get("files") or {}
             for index, (name, url) in enumerate(files.items()):
                 target = self.model_dir(key) / name
-                if not target.exists():
+                if not self._weight_file(target):
                     logger.info(f"Downloading {name} for {key}")
                     download(url, target, cancelled=cancelled,
                              progress=(lambda v, i=index: progress((i + v) / len(files))) if progress else None)
+            if not package_installed(entry.get("package")):
+                extra = entry.get("extra")
+                if files:
+                    logger.info(f"Model {key} weights saved; Python extra '{extra}' is not installed")
+                    with transaction() as session:
+                        row = self._row(session, key)
+                        self._refresh_row(row)
+                        return self.to_dict(row)
+                raise ModelError(
+                    f"{model['name']} needs extra Python packages. Close VoxLabs and run: "
+                    f"uv sync --extra {extra}"
+                )
             if model["backend"] in FETCH_ON_LOAD_BACKENDS:
                 # These libraries fetch their weights on first load; do it now so the download is visible.
                 if model["backend"] == Backend.XTTS:
@@ -221,6 +233,74 @@ class ModelService:
             )
         except Exception as exc:
             raise service_error(exc, "model_service.install_async")
+
+    def install_all(self, progress=None, cancelled=None, accept_license: bool = False) -> dict:
+        """Download every local model that still needs weights. One failure does not stop the rest.
+
+        XTTS is skipped unless `accept_license` is set. Models with no direct files and no
+        installed Python extra are skipped with the `uv sync` command, instead of failing the batch.
+        """
+        try:
+            targets: list[dict] = []
+            skipped: list[dict] = []
+            for model in self.list_models():
+                if model["online"] or not model["speaks"]:
+                    continue
+                entry = _CATALOG.get(model["key"], {})
+                files = entry.get("files") or {}
+                files_missing = bool(files) and not self._files_present(model["key"], entry)
+                package_ok = package_installed(entry.get("package"))
+                needs_library = model["backend"] in FETCH_ON_LOAD_BACKENDS and package_ok and not model["installed"]
+                if files_missing or needs_library:
+                    if model["backend"] == Backend.XTTS and not accept_license:
+                        skipped.append({"key": model["key"], "name": model["name"],
+                                        "reason": "Coqui license not accepted"})
+                        continue
+                    targets.append(model)
+                elif not package_ok and entry.get("extra"):
+                    skipped.append({"key": model["key"], "name": model["name"],
+                                    "reason": f"run uv sync --extra {entry['extra']}"})
+            downloaded: list[dict] = []
+            failed: list[dict] = []
+            count = len(targets)
+            for index, model in enumerate(targets):
+                if cancelled and cancelled():
+                    raise JobCancelled("Download cancelled")
+                if progress:
+                    progress(index / count if count else 1)
+
+                def scaled(value, i=index):
+                    if progress:
+                        progress((i + value) / count if count else 1)
+
+                try:
+                    saved = self.install(model["key"], progress=scaled, cancelled=cancelled,
+                                         accept_license=accept_license)
+                    downloaded.append({"key": model["key"], "name": model["name"],
+                                       "ready": bool(saved.get("installed") or saved.get("files_ready"))})
+                except JobCancelled:
+                    raise
+                except Exception as exc:
+                    failed.append({"key": model["key"], "name": model["name"],
+                                   "error": getattr(exc, "message", str(exc))})
+            if progress:
+                progress(1)
+            logger.info(f"Downloaded {len(downloaded)} model(s), skipped {len(skipped)}, failed {len(failed)}")
+            return {"downloaded": downloaded, "skipped": skipped, "failed": failed}
+        except Exception as exc:
+            raise service_error(exc, "model_service.install_all")
+
+    def install_all_async(self, accept_license: bool = False) -> dict:
+        try:
+            return job_service.submit(
+                JobType.MODEL_INSTALL,
+                lambda ctx: self.install_all(progress=ctx.progress, cancelled=lambda: ctx.cancelled,
+                                             accept_license=accept_license),
+                title="Download all models",
+                params={"accept_license": accept_license},
+            )
+        except Exception as exc:
+            raise service_error(exc, "model_service.install_all_async")
 
     def remove(self, model_ref: str | int) -> dict:
         try:

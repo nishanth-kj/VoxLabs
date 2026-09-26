@@ -118,6 +118,7 @@ Compose publishes the port on the host's loopback only. Engines from `pyproject.
 | `POST /api/projects` | `ProjectRequest` | `project_service.save(body)` |
 | `POST /api/projects/{id}/duplicate` | — | `project_service.duplicate_project()` |
 | `GET /api/models`, `GET /api/models/{id}`, `POST …/load`, `…/unload`, `…/install`, `GET …/health` | — | `model_service` (id is the numeric `models_id` or the key) |
+| `POST /api/models/install-all` | query `accept_license` | `model_service.install_all_async()` — download every local model that still needs weights |
 | `GET /api/jobs`, `GET /api/jobs/{id}`, `POST /api/jobs/{id}/cancel` | — | `job_service` |
 
 ## MCP server

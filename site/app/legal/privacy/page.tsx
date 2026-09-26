@@ -1,17 +1,20 @@
-import type { Metadata } from "next"
 import Link from "next/link"
 import { LegalPage } from "@/components/legal-page"
 import { DISCUSSIONS_URL, GITHUB_URL, ISSUES_URL } from "@/lib/links"
-import { LEGAL_EFFECTIVE_DATE, PRIVACY_EMAIL } from "@/lib/site"
+import { JsonLd } from "@/components/json-ld"
+import { LEGAL_EFFECTIVE_DATE, PRIVACY_EMAIL, breadcrumbJsonLd, pageMetadata } from "@/lib/site"
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
+  path: "/legal/privacy",
   title: "Privacy Policy",
   description:
     "How VoxLabs handles data on this website and in the desktop app. Voice processing stays local. No silent uploads.",
-}
+})
 
 export default function PrivacyPage() {
   return (
+    <>
+    <JsonLd data={breadcrumbJsonLd([{ name: "Privacy Policy", path: "/legal/privacy" }])} />
     <LegalPage title="Privacy Policy">
       <p className="text-lg">
         Effective {LEGAL_EFFECTIVE_DATE}. This policy covers the VoxLabs marketing website and the VoxLabs desktop application.
@@ -101,5 +104,6 @@ export default function PrivacyPage() {
         .
       </p>
     </LegalPage>
+    </>
   )
 }

@@ -51,7 +51,7 @@ export default function DocsPage() {
                         Clone a voice
                     </h2>
                     <p className="text-muted-foreground leading-relaxed">
-                        Provide 3 to 30 seconds of clean speech audio. You may only clone your own voice or a voice you have explicit permission to use. VoxLabs validates audio quality and records attributed speaker consent before cloning.
+                        Import or record at least 3 seconds of clean speech, up to 5 minutes; about 30 seconds works well. You may only clone your own voice or a voice you have explicit permission to use. VoxLabs validates audio quality and records attributed speaker consent before cloning.
                     </p>
                 </section>
 
