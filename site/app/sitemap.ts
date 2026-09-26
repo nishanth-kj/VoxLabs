@@ -7,7 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const site = getSiteUrl()
   return SITE_NAV_PATHS.map((path) => ({
     url: path === "/" ? `${site}/` : `${site}${path}`,
-    lastModified: new Date("2026-09-06"),
+    lastModified: new Date("2026-09-26"),
     changeFrequency: path === "/" ? "weekly" : "monthly",
     priority: path === "/" ? 1 : 0.7,
   }))

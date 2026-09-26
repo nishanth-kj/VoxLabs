@@ -4,7 +4,9 @@ import { DownloadSection } from '@/components/landing/download-section'
 import { HowItWorksSection } from '@/components/landing/how-it-works-section'
 import { CookieNotice } from '@/components/cookie-notice'
 import { PLATFORMS, RELEASES_URL, DISCUSSIONS_URL } from '@/lib/links'
-import { SITE_NAV_PATHS } from '@/lib/site'
+import { SITE_NAV_PATHS, SOFTWARE_JSON_LD, ENGINE_SPECS, SITE_FAQS } from '@/lib/site'
+import robots from '@/app/robots'
+import LandingPage from '@/app/page'
 import ContributionPage from '@/app/contribution/page'
 import CookiesPage from '@/app/legal/cookies/page'
 import PrivacyPage from '@/app/legal/privacy/page'
@@ -60,5 +62,20 @@ describe('Landing smoke', () => {
             expect(screen.getByLabelText('Cookie and privacy notice')).toBeTruthy()
         })
         expect(screen.getByText(/does not use tracking or advertising cookies/i)).toBeTruthy()
+    })
+
+    it('includes structured JSON-LD graph, engine specs table, FAQs, and AI crawler rules', () => {
+        const types = SOFTWARE_JSON_LD['@graph'].map((node) => node['@type'])
+        expect(types).toEqual(['Organization', 'WebSite', 'SoftwareApplication', 'HowTo', 'FAQPage'])
+        expect(ENGINE_SPECS.length).toBeGreaterThanOrEqual(6)
+        expect(SITE_FAQS.length).toBeGreaterThanOrEqual(6)
+        const rules = robots().rules
+        const agents = Array.isArray(rules) ? rules[0].userAgent : rules.userAgent
+        expect(agents).toContain('GPTBot')
+        expect(agents).toContain('PerplexityBot')
+        render(<LandingPage />)
+        expect(screen.getByText('Supported Local AI Engines & DSP')).toBeTruthy()
+        expect(screen.getByText('Frequently Asked Questions')).toBeTruthy()
+        expect(screen.getByText('Kokoro 82M')).toBeTruthy()
     })
 })

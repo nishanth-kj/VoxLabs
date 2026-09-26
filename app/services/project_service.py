@@ -1,7 +1,8 @@
 """ProjectService: projects group scripts, audio and takes.
 
-A project is optional organisation for the API, MCP and scripts: audio made in the
-desktop app needs no project, and editor state lives on each audio (`audios.edit_ops`).
+A project is optional: the desktop app files new work into the open project (File → Open
+Project), the API and MCP take `projects_id`, and work without one is fine. Editor state
+lives on each audio (`audios.edit_ops`), so it never depends on a project.
 """
 
 import json

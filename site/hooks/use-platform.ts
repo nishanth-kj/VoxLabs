@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 import type { PlatformId } from "@/lib/links"
 
 export type DetectedPlatform = PlatformId | "unknown"
@@ -17,12 +17,10 @@ export function detectPlatform(): DetectedPlatform {
   return "unknown"
 }
 
-export function usePlatform() {
-  const [platform, setPlatform] = useState<DetectedPlatform>("unknown")
+// The platform never changes while the page is open, so there is nothing to subscribe to.
+const subscribe = () => () => {}
 
-  useEffect(() => {
-    setPlatform(detectPlatform())
-  }, [])
-
-  return platform
+/** The visitor's platform; "unknown" during server rendering and hydration. */
+export function usePlatform(): DetectedPlatform {
+  return useSyncExternalStore(subscribe, detectPlatform, () => "unknown")
 }

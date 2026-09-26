@@ -1,0 +1,72 @@
+# VoxLabs — Full Technical Reference for LLMs and AI Agents
+
+> VoxLabs v3.0.0 is a local-first Python desktop studio (PySide6) with an optional FastAPI REST API and Model Context Protocol (MCP) server. The desktop UI, REST API, and MCP tools all call the same service singletons backed by SQLite (`data/database/voxlabs.db`).
+
+## 1. Installation & Quick Start
+
+### Standalone Desktop Bundles
+- **Windows (10+)**: Download `VoxLabs-Windows-x64.zip` from `https://github.com/nishanth-kj/VoxLabs/releases/latest`, extract, and run `VoxLabs\VoxLabs.exe`.
+- **macOS (12+ Apple Silicon)**: Download `VoxLabs-macOS-arm64.dmg`, open, and drag `VoxLabs.app` to Applications.
+- **Linux (Ubuntu 22.04+ / Fedora 39+)**: Download `VoxLabs-Linux-x86_64.tar.gz`, extract, and run `VoxLabs/VoxLabs`.
+
+### From Source (Python 3.12–3.13 + uv)
+```bash
+git clone https://github.com/nishanth-kj/VoxLabs.git
+cd VoxLabs
+uv sync                          # Base install + DSP + MFCC
+uv sync --extra piper --extra kokoro  # Fast local CPU/GPU TTS engines
+uv sync --extra xtts             # Or --extra f5 / --extra chatterbox for zero-shot cloning
+uv run python -m app.main        # Launch desktop studio
+uv run python -m app.api.app     # Launch REST API + HTTP MCP server on 127.0.0.1:8942
+uv run python -m app.api.app --stdio  # Launch REST API + stdio MCP server
+```
+
+## 2. Supported Speech & Audio Engines
+
+| Key | Name | Type | Size | VRAM | Capabilities |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `piper-en-us-lessac-medium` | Piper · en_US Lessac (medium) | Local TTS | 63 MB | 0 MB | `tts`, `speed`, `local` |
+| `kokoro-82m` | Kokoro 82M | Local TTS | 330 MB | ~1000 MB | `tts`, `speed`, `voices` (`af_heart`, `af_bella`, `bm_george`), `local` |
+| `xtts-v2` | Coqui XTTS v2 | Zero-Shot Clone | 1870 MB | ~4000 MB | `tts`, `clone`, `multilingual`, `temperature`, `speed`, `local` |
+| `f5-tts` | F5-TTS | Zero-Shot Clone | 1350 MB | ~3000 MB | `tts`, `clone`, `speed`, `seed`, `local` |
+| `chatterbox` | Chatterbox TTS | Zero-Shot Clone | 2100 MB | ~4000 MB | `tts`, `clone`, `emotion`, `temperature`, `seed`, `local` |
+| `voice-profile-mfcc` | VoxLabs Voice Profile (MFCC) | Profile Embed | 0 MB | 0 MB | `embed`, `clone`, `local` |
+| `dsp-enhance` | VoxLabs DSP Enhancement | Audio DSP | 0 MB | 0 MB | `denoise`, `eq`, `compress`, `limit`, `loudness`, `local` |
+| `gtts-emotional` | Emotional TTS (Google) | Online TTS (Opt-In) | 0 MB | 0 MB | `tts`, `emotion`, `speed`, `pitch`, `online` |
+| `edge-neural` | Microsoft Edge Neural | Online TTS (Opt-In) | 0 MB | 0 MB | `tts`, `speed`, `pitch`, `locales`, `online` |
+
+- **Automatic GPU -> CPU Fallback**: If a model encounters a CUDA OutOfMemoryError during load, VoxLabs automatically frees CUDA cache and reloads the model on CPU.
+- **Automatic TTS Model Fallback**: When `default_tts_model` is not installed and no explicit model is requested, VoxLabs resolves the first installed local engine in `("chatterbox", "kokoro-82m", "piper-en-us-lessac-medium")`.
+
+## 3. Non-Destructive Audio Editor & 8-Stage DSP Pipeline
+
+All audio operations preserve `audios.original_path`. Pending waveform edits are stored in `audios.edit_ops` (JSON) so edits persist with or without an active project.
+
+### Enhancement Order
+`trim_silence -> denoise -> eq -> compress -> deess -> normalize -> limit -> loudness`
+
+### Built-In Presets
+- **Raw**: No processing.
+- **Voice Clean**: Silence trim, spectral denoise, high-pass EQ, peak normalize.
+- **Podcast**: Denoise, presence EQ, compression, de-esser, limiter, −16 LUFS loudness.
+- **Narration**: Warm EQ, gentle compression, de-esser, −18 LUFS loudness.
+- **Lesson**: Clear speech EQ, compression, −16 LUFS loudness.
+- **Studio**: Full 8-stage mastering chain targeting −14 LUFS.
+
+## 4. Script & Lesson to Audio
+
+Parses structured scripts with chapters (`Lesson 1`, `# Title`), headings (`Introduction`, `## Heading`), speaker dialogue (`Teacher: Welcome...`), and inline or standalone pause tags (`[pause 800ms]`, `[pause 2s]`). Supports speaker-to-voice mapping, per-section overrides, multiple takes per section, unchanged-section hash caching on script edits, and full timeline rendering.
+
+## 5. REST API & MCP Server Specification
+
+- **Default Bind**: `127.0.0.1:8942` (non-loopback binding requires `VOXLABS_API_TOKEN` bearer authentication).
+- **Response Envelope**: Every REST endpoint returns HTTP 200 with `{"status": 1|0, "data": ..., "error": null|{"error_code", "error_message", "field"}}`.
+- **MCP Tools (`app/api/mcp/tools.py`)**:
+  - System: `health`, `presets`
+  - Users: `list_users`, `save_user`
+  - Voices: `list_voices`, `get_voice`, `save_voice` (Note: voice cloning is intentionally excluded from MCP so consent is always human-attributed)
+  - Speech: `generate_speech`, `regenerate_speech`
+  - Audio: `list_audio`, `get_audio`, `process_audio`, `export_audio`
+  - Scripts: `list_scripts`, `get_script`, `save_script`, `update_section`, `generate_script`
+  - Projects: `list_projects`, `get_project`, `save_project`
+  - Models & Jobs: `list_models`, `list_jobs`, `get_job`, `cancel_job`

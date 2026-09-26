@@ -1,10 +1,17 @@
+# Only pyproject.toml, uv.lock and app/ are copied into the API image.
+.git/
+.github/
 .venv/
+.env
 data/
 **/__pycache__/
-.git/
+.pytest_cache/
+.ruff_cache/
 tests/
 docs/
 skills/
+scripts/
+site/
 build/
 dist/
 voice_projects/

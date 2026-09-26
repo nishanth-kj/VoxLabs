@@ -1,6 +1,7 @@
 """SystemService: health information and the small JSON settings file."""
 
 import json
+import os
 import platform
 import sys
 import threading
@@ -11,7 +12,7 @@ from app.exceptions import ValidationError, service_error
 from app.utils import device, ffmpeg
 from app.utils.database import database_path
 from app.utils.files import data_dir
-from app.utils.logger import get_recent_logs, logger, set_level
+from app.utils.logger import LOG_BUFFER_SIZE, get_recent_logs, logger, set_level
 
 VERSION = "3.0.0"
 
@@ -36,6 +37,7 @@ DEFAULT_SETTINGS = {
     "theme": "system",
     "native_title_bar": False,
     "sidebar_collapsed": False,
+    "current_projects_id": None,  # the project open in the desktop app, reopened on start
 }
 
 
@@ -128,6 +130,15 @@ class SystemService:
         except Exception as exc:
             raise service_error(exc, "system_service.api_running")
 
+    def check_api_host(self, host: str) -> None:
+        """The API may leave this computer only behind a token (VOXLABS_API_TOKEN or Settings > API token)."""
+        try:
+            if host not in ("127.0.0.1", "localhost", "::1")                     and not (os.getenv("VOXLABS_API_TOKEN") or self.get_setting("api_token")):
+                raise ValidationError("Set an API token before exposing the API beyond this computer",
+                                      field="api_token")
+        except Exception as exc:
+            raise service_error(exc, "system_service.check_api_host")
+
     def start_api(self) -> None:
         """Serve the REST API from inside the desktop app on a background thread."""
         import uvicorn
@@ -139,9 +150,7 @@ class SystemService:
                 return
             settings = self.get_settings()
             host = settings["api_host"] or "127.0.0.1"
-            if host not in ("127.0.0.1", "localhost", "::1") and not settings["api_token"]:
-                raise ValidationError("Set an API token before exposing the API beyond this computer",
-                                      field="api_token")
+            self.check_api_host(host)
             config = uvicorn.Config(create_app(initialize=False), host=host, port=int(settings["api_port"]),
                                     log_level="warning")
             self._api_server = uvicorn.Server(config)
@@ -199,9 +208,10 @@ class SystemService:
         except Exception as exc:
             raise service_error(exc, "system_service.presets")
 
-    def logs(self, limit: int = 200) -> list[dict]:
+    def logs(self, limit: int = 200, after: int = 0) -> list[dict]:
+        """Recent log records (newest last); `after` returns only records with a larger `seq`."""
         try:
-            return get_recent_logs(max(1, min(limit, 500)))
+            return get_recent_logs(max(1, min(limit, LOG_BUFFER_SIZE)), after)
         except Exception as exc:
             raise service_error(exc, "system_service.logs")
 

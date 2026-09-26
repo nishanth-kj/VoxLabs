@@ -44,6 +44,10 @@ export const metadata: Metadata = {
   category: "technology",
   alternates: {
     canonical: "./",
+    types: {
+      "text/plain": absoluteUrl("/llms.txt"),
+      "text/markdown": absoluteUrl("/llms-full.txt"),
+    },
   },
   robots: {
     index: true,
@@ -51,6 +55,9 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
     },
   },
   openGraph: {
@@ -106,7 +113,7 @@ export default function RootLayout({
           storageKey="voxlabs-theme"
         >
           <Navbar />
-          {children}
+          <main id="main-content">{children}</main>
           <Footer />
           <CookieNotice />
           <Toaster />

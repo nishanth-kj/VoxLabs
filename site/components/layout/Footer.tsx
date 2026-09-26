@@ -25,7 +25,13 @@ export function Footer() {
                                 <Link href="/#features">Features</Link>
                             </li>
                             <li className="hover:text-primary cursor-pointer transition-colors">
+                                <Link href="/#engines">AI Engines</Link>
+                            </li>
+                            <li className="hover:text-primary cursor-pointer transition-colors">
                                 <Link href="/#how-it-works">How it works</Link>
+                            </li>
+                            <li className="hover:text-primary cursor-pointer transition-colors">
+                                <Link href="/#faq">FAQ</Link>
                             </li>
                             <li className="hover:text-primary cursor-pointer transition-colors">
                                 <Link href="/#download">Download</Link>
@@ -43,6 +49,9 @@ export function Footer() {
                             </li>
                             <li className="hover:text-primary cursor-pointer transition-colors">
                                 <Link href={GITHUB_URL} target="_blank">GitHub</Link>
+                            </li>
+                            <li className="hover:text-primary cursor-pointer transition-colors">
+                                <a href="/llms.txt">llms.txt</a>
                             </li>
                         </ul>
                     </div>

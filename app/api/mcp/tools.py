@@ -36,7 +36,7 @@ from app.services.system_service import system_service
 from app.services.tts_service import tts_service
 from app.services.user_service import user_service
 from app.services.voice_service import voice_service
-from app.utils.logger import logger
+from app.utils.logger import log_source, logger
 from app.utils.validation import Validation
 
 READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
@@ -46,11 +46,12 @@ SAVE = ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_h
 
 def respond(tool: str, call: Callable[[], Any]) -> dict:
     """Run a service call and return the REST envelope; failures become MCP tool errors with the error object."""
-    logger.info(f"MCP tool {tool}")
-    try:
-        return json.loads(bytes(ApiResponse(call()).success().body))
-    except AppError as exc:
-        raise ToolError(bytes(ApiResponse(error=exc).error().body).decode()) from exc
+    with log_source("mcp"):
+        logger.info(f"MCP tool {tool}")
+        try:
+            return json.loads(bytes(ApiResponse(call()).success().body))
+        except AppError as exc:
+            raise ToolError(bytes(ApiResponse(error=exc).error().body).decode()) from exc
 
 
 def register_tools(mcp: MCPServer) -> None:

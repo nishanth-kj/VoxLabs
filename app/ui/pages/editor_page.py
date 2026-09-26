@@ -47,14 +47,14 @@ from app.utils.time import format_duration
 
 
 class LibraryDialog(QDialog):
-    """Pick an audio from the library."""
+    """Pick an audio from the library (only the open project's audio while one is open)."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, projects_id: int | None = None):
         super().__init__(parent)
         self.setWindowTitle("Open audio")
         self.resize(560, 420)
         self.list = QListWidget()
-        for audio in audio_service.list_audios(projects_id=None, limit=500):
+        for audio in audio_service.list_audios(projects_id=projects_id, limit=500):
             label = f"{audio['name']}  · {format_duration(audio['duration'])} · {audio['source']}"
             if audio["ai_generated"]:
                 label += " · AI"
@@ -221,7 +221,7 @@ class EditorPage(BasePage):
     # ------------------------------------------------------------ loading
 
     def choose_audio(self):
-        dialog = LibraryDialog(self)
+        dialog = LibraryDialog(self, self.state.projects_id)
         audios_id = dialog.selected() if dialog.exec() else None
         if audios_id:
             self.open_audio(audios_id)
@@ -229,7 +229,8 @@ class EditorPage(BasePage):
     def import_file(self):
         path, _ = QFileDialog.getOpenFileName(self, "Import audio", "", AUDIO_FILTER)
         if path:
-            self.run(lambda: audio_service.import_file(path),
+            projects_id = self.state.projects_id
+            self.run(lambda: audio_service.import_file(path, projects_id),
                      lambda audio: (self.state.notify("audio"), self.open_audio(audio["audios_id"])))
 
     def open_audio(self, audios_id: int):
@@ -428,7 +429,7 @@ class EditorPage(BasePage):
         self.run(lambda: audio_service.apply_edit_ops(current, sr, [op]), lambda y: self._push(op, y))
 
     def join(self):
-        dialog = LibraryDialog(self)
+        dialog = LibraryDialog(self, self.state.projects_id)
         audios_id = dialog.selected() if dialog.exec() else None
         if audios_id:
             other = audio_service.get(audios_id)

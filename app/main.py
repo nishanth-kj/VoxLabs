@@ -3,21 +3,38 @@
 import sys
 
 
+def _use_own_taskbar_icon() -> None:
+    """Group VoxLabs under its own taskbar entry and icon instead of python.exe's."""
+    try:
+        import ctypes
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("VoxLabs.Desktop")
+    except Exception:  # cosmetic only; never block startup
+        pass
+
+
 def main() -> int:
     from PySide6.QtWidgets import QApplication
 
     from app.services.job_service import job_service
     from app.services.model_service import model_service
     from app.services.system_service import VERSION, system_service
-    from app.utils.logger import enable_file_logging, logger
+    from app.utils.logger import enable_file_logging, logger, set_log_source
 
+    set_log_source("ui")  # this thread is the Qt UI thread
     system_service.initialize()
     enable_file_logging()
     logger.info(f"Starting VoxLabs desktop {VERSION}")
 
+    if sys.platform == "win32":
+        _use_own_taskbar_icon()
     app = QApplication(sys.argv)
     app.setApplicationName("VoxLabs")
     app.setOrganizationName("VoxLabs")
+
+    from app.ui import icons
+
+    app.setWindowIcon(icons.app_icon())  # every window, dialog and message box inherits it
 
     from app.ui.theme import apply_theme
 

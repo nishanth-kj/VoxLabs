@@ -244,6 +244,7 @@ class GeneratePage(BasePage):
             "seed": None if self.seed.value() < 0 else self.seed.value(),
             "post": post,
             "preset": preset,
+            "projects_id": self.state.projects_id,
         }
 
     def generate(self):

@@ -63,6 +63,10 @@ def build_menu_bar(window: "MainWindow") -> QMenuBar:
 
     # ------------------------------------------------------------ File
     file = bar.addMenu("&File")
+    _add(file, "New Project…", window.new_project, shortcut="Ctrl+Shift+N", icon="projects")
+    _add(file, "Open Project…", window.open_project, icon="open")
+    _add(file, "Close Project", window.close_project)
+    file.addSeparator()
     _add(file, "New Script…", lambda: cmd("script", "new_script"), shortcut="Ctrl+N", icon="plus")
     _add(file, "Open Audio…", lambda: cmd("editor", "choose_audio"), hint="Ctrl+O", icon="open")
     _add(file, "Import Audio File…", lambda: cmd("editor", "import_file"), hint="Ctrl+I", icon="import")
@@ -106,6 +110,7 @@ def build_menu_bar(window: "MainWindow") -> QMenuBar:
         window.theme_actions[mode] = action
     view.addSeparator()
     _add(view, "Background Jobs…", window.show_jobs, shortcut="Ctrl+J", icon="jobs")
+    _add(view, "Logs Panel", window.toggle_logs, shortcut="Ctrl+`", icon="logs")
 
     # ------------------------------------------------------------ Voice
     voice = bar.addMenu("V&oice")
@@ -188,7 +193,7 @@ def build_menu_bar(window: "MainWindow") -> QMenuBar:
     api_action.setCheckable(True)
     window.api_action = api_action
     _add(tools, "Background Jobs…", window.show_jobs, icon="jobs")
-    _add(tools, "View Logs", lambda: window.go("settings"))
+    _add(tools, "View Logs", window.show_logs, icon="logs")
     tools.addSeparator()
     _add(tools, "Settings", lambda: window.go("settings"), icon="settings")
 

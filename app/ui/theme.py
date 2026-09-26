@@ -35,6 +35,8 @@ class ThemeColors:
     accent_text: str
     selection: str
     danger: str
+    warning: str
+    info: str
     statusbar: str
     statusbar_text: str
     icon: str
@@ -44,7 +46,8 @@ DARK = ThemeColors(
     name="dark", window="#1b1c20", surface="#23252b", surface_alt="#2b2e35", sidebar="#16171b",
     titlebar="#16171b", border="#30333b", border_strong="#40444e", text="#e7e9ee", text_muted="#9197a3",
     text_disabled="#5c616c", hover="#2f323a", pressed="#383c45", accent="#7c6cff", accent_hover="#8f82ff",
-    accent_text="#ffffff", selection="#3a3470", danger="#e5484d", statusbar="#5b4ee0", statusbar_text="#ffffff",
+    accent_text="#ffffff", selection="#3a3470", danger="#e5484d", warning="#e5b53d", info="#58a6ff",
+    statusbar="#5b4ee0", statusbar_text="#ffffff",
     icon="#b4b9c4",
 )
 
@@ -52,11 +55,13 @@ LIGHT = ThemeColors(
     name="light", window="#f5f6f8", surface="#ffffff", surface_alt="#f1f2f5", sidebar="#eceef2",
     titlebar="#e6e8ec", border="#dcdfe5", border_strong="#c7cbd3", text="#1d2026", text_muted="#5f6673",
     text_disabled="#a3a9b4", hover="#e4e6eb", pressed="#d8dbe2", accent="#6352f0", accent_hover="#7465f4",
-    accent_text="#ffffff", selection="#dcd8ff", danger="#d93036", statusbar="#6352f0", statusbar_text="#ffffff",
+    accent_text="#ffffff", selection="#dcd8ff", danger="#d93036", warning="#a86400", info="#0969da",
+    statusbar="#6352f0", statusbar_text="#ffffff",
     icon="#4b5260",
 )
 
 _current: ThemeColors = DARK
+_mode = "system"
 
 STYLESHEET = Template("""
 * { outline: none; }
@@ -216,6 +221,15 @@ QStatusBar QPushButton:hover { background: rgba(255, 255, 255, 0.16); }
 QStatusBar QProgressBar { background: rgba(255, 255, 255, 0.25); max-width: 120px; }
 QStatusBar QProgressBar::chunk { background: $statusbar_text; }
 
+/* ---------- logs panel (bottom, VS Code "Output" style) ---------- */
+#LogPanel { background: $surface; border-top: 1px solid $border; }
+#LogPanel #PanelTitle { color: $text_muted; font-size: 11px; font-weight: 600; letter-spacing: 1px; }
+#LogPanel QPlainTextEdit { background: $surface; border: none; border-radius: 0; padding: 4px 10px;
+                           selection-background-color: $selection; selection-color: $text; }
+#LogPanel QComboBox, #LogPanel QLineEdit { min-height: 0; padding: 2px 8px; font-size: 12px; }
+#LogPanel QToolButton { background: transparent; border: none; border-radius: 4px; padding: 3px; }
+#LogPanel QToolButton:hover { background: $hover; }
+
 /* ---------- command palette ---------- */
 #CommandPalette { background: $surface; border: 1px solid $border_strong; border-radius: 10px; }
 #CommandPalette QLineEdit { font-size: 14px; padding: 8px 10px; }
@@ -227,6 +241,11 @@ QStatusBar QProgressBar::chunk { background: $statusbar_text; }
 
 def current() -> ThemeColors:
     return _current
+
+
+def mode() -> str:
+    """The chosen setting: "system", "dark" or "light"."""
+    return _mode
 
 
 def resolve(mode: str | None) -> ThemeColors:
@@ -263,8 +282,13 @@ def _palette(c: ThemeColors) -> QPalette:
 
 def apply_theme(app: QApplication, mode: str | None) -> ThemeColors:
     """Apply "dark", "light" or "system" to the whole application and return its colors."""
-    global _current
-    _current = resolve(mode)
+    global _current, _mode
+    _mode = mode if mode in THEMES else "system"
+    # Tell Qt which scheme the app uses, so native parts (the system title bar, native dialogs) match.
+    # Unknown hands the choice back to the OS for "system".
+    app.styleHints().setColorScheme({"dark": Qt.ColorScheme.Dark, "light": Qt.ColorScheme.Light}
+                                    .get(_mode, Qt.ColorScheme.Unknown))
+    _current = resolve(_mode)
     app.setStyle("Fusion")
     families = set(QFontDatabase.families())
     family = next((f for f in UI_FONTS if f in families), None)

@@ -1,5 +1,9 @@
-"""Settings: devices, defaults, export, GPU, optional REST API and logging."""
+"""Settings: appearance, devices, defaults, export, GPU, the optional REST API and the log level.
 
+The logs themselves are in the bottom Logs panel (View → Logs Panel).
+"""
+
+from PySide6.QtCore import Qt
 from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -10,8 +14,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QWidget,
 )
@@ -27,7 +31,7 @@ from app.utils import device
 
 class SettingsPage(BasePage):
     title = "Settings"
-    subtitle = "Appearance, audio devices, defaults, the local API and logs."
+    subtitle = "Appearance, audio devices, defaults and the local API."
 
     def __init__(self, state, parent=None):
         super().__init__(state, parent)
@@ -109,20 +113,26 @@ class SettingsPage(BasePage):
         self.autosave = QCheckBox("Autosave editor state")
         self.log_level = QComboBox()
         self.log_level.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
+        logs_hint = QLabel("Logs are in the bottom panel: View → Logs Panel (Ctrl+`).")
+        logs_hint.setObjectName("Hint")
+        logs_hint.setWordWrap(True)
         general_form.addRow("", self.autosave)
         general_form.addRow("Log level", self.log_level)
-        self.logs = QPlainTextEdit()
-        self.logs.setReadOnly(True)
-        self.logs.setMinimumHeight(160)
-        refresh_logs = QPushButton("Refresh logs")
-        refresh_logs.clicked.connect(self._show_logs)
-        general_form.addRow(self.logs)
-        general_form.addRow(refresh_logs)
+        general_form.addRow("", logs_hint)
         right.addRow(general)
 
         columns.addLayout(left, 1)
         columns.addLayout(right, 1)
-        self.root.addLayout(columns, 1)
+        # Scroll instead of squeezing the forms on short windows.
+        content = QWidget()
+        content.setLayout(columns)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(content)
+        self.root.addWidget(scroll, 1)
+        state.data_changed.connect(lambda what: self._theme_saved() if what == "settings" else None)
         save = QPushButton("Save settings")
         save.setObjectName("Primary")
         save.clicked.connect(self.save)
@@ -172,16 +182,14 @@ class SettingsPage(BasePage):
         running = system_service.api_running()
         self.api_status.setText(f"Running at http://{s['api_host']}:{s['api_port']}/docs" if running
                                 else "Not running")
-        self._show_logs()
+
+    def _theme_saved(self):
+        """The theme was switched elsewhere (View → Theme): show it without touching unsaved edits."""
+        self._select(self.theme, system_service.get_setting("theme"))
 
     def _select(self, combo: QComboBox, value):
         index = combo.findData(value)
         combo.setCurrentIndex(max(index, 0))
-
-    def _show_logs(self):
-        lines = [f"{e['ts'][11:19]}  {e['level'].upper():7} {e['message']}" for e in system_service.logs(300)]
-        self.logs.setPlainText("\n".join(lines))
-        self.logs.verticalScrollBar().setValue(self.logs.verticalScrollBar().maximum())
 
     def save(self):
         changes = {

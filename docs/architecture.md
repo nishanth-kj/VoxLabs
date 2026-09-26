@@ -42,7 +42,8 @@ The API route `POST /api/tts` validates a `TTSRequest` and passes the whole body
 
 - Every public service method is wrapped in `try: ... except Exception as exc: raise service_error(exc, "<service>.<method>")`. `AppError`s pass through (logged once as warnings). Anything else is logged with its traceback and raised as `InternalError`, so callers never see raw library exceptions. Helpers that only take a caller's `session` are not wrapped.
 - Routes and pages contain no error handling of their own. The API's exception handlers build the error envelope, and `BasePage.run()` / `follow()` show `exc.message` in a dialog, which is also logged.
-- `app/utils/logger.py` is the one logger (`voxlabs`). It writes to stderr, a memory buffer for **Settings → Logs** and `data/logs/voxlabs.log` in the desktop app. It never logs audio content, file bytes or credentials. stdout stays free for the MCP stdio transport.
+- `app/utils/logger.py` is the one logger (`voxlabs`). It writes to stderr, a memory buffer for the desktop **Logs panel** and `data/logs/voxlabs.log` in the desktop app. It never logs audio content, file bytes or credentials. stdout stays free for the MCP stdio transport.
+- Every record says who made the call: `ui`, `api`, `mcp` or `system`. The API middleware sets `api` (or `mcp` for `/mcp`), MCP's `respond()` sets `mcp`, and the desktop's UI thread is `ui`. A context variable carries it, and `job_service.submit()` and UI worker tasks copy the caller's context, so a job started over the API still logs as `api`.
 
 ## Desktop UI
 
@@ -52,8 +53,10 @@ The window follows the Electron / VS Code layout:
 - **Menus** (`app_menu.py`): File, Edit, View, Voice, Audio, Script, Tools and Help hold every command in the app. A page command navigates to its page and calls the page's own method, so a menu item, a palette entry and a page button all do the same thing. Shortcuts that only apply inside a page (the editor's Ctrl+X, Space, …) are shown as hints and handled by the page, so text boxes keep their own editing keys. The Edit menu acts on the focused text box, otherwise on the audio editor.
 - **Command palette** (`widgets/command_palette.py`, Ctrl+Shift+P or F1): searches every menu command.
 - **Sidebar** (`widgets/nav_bar.py`): icon + label navigation in sections, collapsible with Ctrl+B.
-- **Status bar**: the open project, the REST API / MCP state (click to start or stop it) and background jobs.
-- **Theme** (`theme.py`): dark, light or match the system (**View → Theme**). Colors live in `ThemeColors`; widgets that paint themselves (waveform) and icons read `theme.current()`, and `MainWindow.refresh_icons()` re-renders icons after a switch. Use object names such as `Primary`, `Tile`, `Hint` and `Banner` instead of inline colors.
+- **Status bar**: the open project (click to switch), the REST API / MCP state (click to start or stop it), the log counts (click for the Logs panel) and background jobs.
+- **Logs panel** (`widgets/log_panel.py`, **View → Logs Panel**, Ctrl+`): a resizable bottom panel like VS Code's Output. Each line shows time, level, source and message. Levels are color-coded with theme tokens (`info`, `warning`, `danger`, `text_muted`) and the source uses the accent color. Filters cover source, level and text, each with an "All" option. The file button opens `data/logs/voxlabs.log` for the full history.
+- **Projects** are optional, like a folder open in VS Code. **File → New Project / Open Project / Close Project** set `AppState.project`. While one is open, new speech, scripts and imports go into it and the Home, Script, Studio and editor library lists show only its work. With none open, work has no project and every list shows everything. The open project is reopened on the next start (`current_projects_id` setting).
+- **Theme** (`theme.py`): dark, light or match the system (**View → Theme**). `apply_theme` also sets Qt's color scheme so native parts (the system title bar, native dialogs) match, and "Match system" follows the OS live. Colors live in `ThemeColors`; widgets that paint themselves (waveform) and icons read `theme.current()`, and `MainWindow.refresh_icons()` re-renders icons after a switch. Use object names such as `Primary`, `Tile`, `Hint` and `Banner` instead of inline colors.
 
 ## Background work
 

@@ -73,6 +73,9 @@ ICONS: dict[str, str] = {
     "zoom_out": '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M8 11h6"/>',
     "fit": '<path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/>',
     "plus": '<path d="M12 5v14M5 12h14"/>',
+    "logs": '<path d="M4 6h16M4 10h16M4 14h10M4 18h7"/>',
+    "warning": '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/>',
+    "error": '<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>',
     "jobs": '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
     "api": '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/>'
            '<path d="M7 7.5h.01M7 16.5h.01"/>',
@@ -90,6 +93,8 @@ LOGO = ('<rect x="1" y="1" width="22" height="22" rx="6" fill="{accent}" stroke=
 _SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="1.8" '
         'stroke-linecap="round" stroke-linejoin="round">{body}</svg>')
 _SCALE = 2  # render at 2× so icons stay sharp on high-DPI screens
+BRAND = "#6352f0"  # the app icon keeps one color whatever the theme
+APP_ICON_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256, 512)
 
 
 def svg(name: str, color: str) -> str:
@@ -97,15 +102,32 @@ def svg(name: str, color: str) -> str:
     return _SVG.format(color=color, body=body)
 
 
-def pixmap(name: str, color: str, size: int = 18) -> QPixmap:
-    image = QImage(size * _SCALE, size * _SCALE, QImage.Format.Format_ARGB32_Premultiplied)
+def _render(markup: str, pixels: int) -> QImage:
+    image = QImage(pixels, pixels, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(Qt.GlobalColor.transparent)
     painter = QPainter(image)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    QSvgRenderer(QByteArray(svg(name, color).encode())).render(painter, QRectF(0, 0, image.width(), image.height()))
+    QSvgRenderer(QByteArray(markup.encode())).render(painter, QRectF(0, 0, pixels, pixels))
     painter.end()
-    result = QPixmap.fromImage(image)
+    return image
+
+
+def pixmap(name: str, color: str, size: int = 18) -> QPixmap:
+    result = QPixmap.fromImage(_render(svg(name, color), size * _SCALE))
     result.setDevicePixelRatio(_SCALE)
+    return result
+
+
+def logo_image(pixels: int) -> QImage:
+    """The VoxLabs logo in the brand color at an exact pixel size (window icon, .ico / .icns files)."""
+    return _render(_SVG.format(color=BRAND, body=LOGO.format(accent=BRAND)), pixels)
+
+
+def app_icon() -> QIcon:
+    """The window, taskbar and dialog icon. Set once on the QApplication so every window inherits it."""
+    result = QIcon()
+    for size in APP_ICON_SIZES:
+        result.addPixmap(QPixmap.fromImage(logo_image(size)))
     return result
 
 

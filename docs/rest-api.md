@@ -10,10 +10,22 @@ uv run uvicorn app.api.app:app --reload        # development (127.0.0.1:8000)
 
 It can also run inside the desktop app (**Settings → REST API**; the default port is 8942). The MCP endpoint `/mcp` is included wherever the API runs.
 
+## Docker
+
+The `Dockerfile` builds a headless API + MCP image (no Qt). Data lives in the `/data` volume.
+
+```bash
+echo "VOXLABS_API_TOKEN=change-me" > .env          # required: the container listens on 0.0.0.0
+docker compose up -d --build                      # http://127.0.0.1:8942/docs
+VOXLABS_EXTRAS="piper kokoro" docker compose up -d --build   # with local engines baked in
+```
+
+Compose publishes the port on the host's loopback only. Engines from `pyproject.toml` extras go in through the `EXTRAS` build argument (`xtts`, `f5` and `chatterbox` exclude each other).
+
 ## Security
 
 - It binds to `127.0.0.1` by default.
-- To expose it on another host, set a token first with `VOXLABS_API_TOKEN` or **Settings → API token**. The desktop refuses to start a non-loopback server without one.
+- To expose it on another host, set a token first with `VOXLABS_API_TOKEN` or **Settings → API token**. Both the desktop app and `python -m app.api.app --host …` refuse to start a non-loopback server without one, and so does the Docker image.
 - With a token set, every route except `/api/health` and the docs needs `Authorization: Bearer <token>`.
 
 ## Conventions

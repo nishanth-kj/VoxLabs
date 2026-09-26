@@ -2,25 +2,43 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: Tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # The desktop app ships on all three, so the suite (Qt pages included) runs on all three.
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install system libraries for Qt and audio
-        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0 libglib2.0-0 libpulse0 libsndfile1
+      - name: Install Qt and audio libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libglib2.0-0 libpulse0 libsndfile1
 
-      - name: Install uv
+      - name: Install uv and Python
         uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
+          enable-cache: true
 
       - name: Install dependencies
         run: uv sync --frozen
@@ -28,22 +46,30 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
-  site-test:
+  site:
+    name: Landing site
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "22"
+          cache: npm
           cache-dependency-path: site/package-lock.json
 
       - name: Install dependencies
-        working-directory: ./site
         run: npm ci
 
-      - name: Run site tests
-        working-directory: ./site
-        run: npm run test
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test -- --run
+
+      - name: Build
+        run: npm run build

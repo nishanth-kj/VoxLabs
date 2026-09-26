@@ -78,7 +78,7 @@ def _upgrade(engine: Engine) -> None:
     """In-place upgrades for databases from earlier 3.0 builds (`create_all` never alters a table)."""
     if "edit_ops" not in {column["name"] for column in inspect(engine).get_columns("audios")}:
         with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE audios ADD COLUMN edit_ops JSON DEFAULT '[]'"))
+            conn.execute(text("ALTER TABLE audios ADD COLUMN edit_ops JSON NOT NULL DEFAULT '[]'"))
             # Editor ops used to live in projects.edit_state["editor"][<audios_id>], so audio
             # without a project never kept its edits. Move them onto the audio.
             for projects_id, raw in conn.execute(text("SELECT projects_id, edit_state FROM projects")).all():

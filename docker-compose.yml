@@ -1,12 +1,19 @@
+# Headless REST API + MCP server: `docker compose up -d --build`, then http://127.0.0.1:8942/docs
+# Put VOXLABS_API_TOKEN (and optionally VOXLABS_EXTRAS="piper kokoro") in a .env file next to this one.
 services:
   api:
-    build: .
+    build:
+      context: .
+      args:
+        EXTRAS: ${VOXLABS_EXTRAS:-}
+    image: voxlabs-api
     container_name: voxlabs-api
-    # Published on the host's loopback only; add a token before exposing it wider.
+    # Published on the host's loopback only. Inside the container the server listens on 0.0.0.0,
+    # so a token is required either way.
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8942:8942"
     environment:
-      - VOXLABS_API_TOKEN=${VOXLABS_API_TOKEN:-}
+      VOXLABS_API_TOKEN: ${VOXLABS_API_TOKEN:?Set VOXLABS_API_TOKEN in .env or the environment}
     volumes:
       - voxlabs_data:/data
     restart: unless-stopped

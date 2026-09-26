@@ -105,3 +105,89 @@ def test_native_title_bar_option(qtbot):
     win = MainWindow(native_title_bar=True)
     qtbot.addWidget(win)
     assert win.title_bar is None and win.menuBar() is win.menu_bar
+
+
+def test_open_project_scopes_new_work(window, qtbot):
+    from PySide6.QtCore import Qt
+
+    from app.services.project_service import project_service
+    from app.services.script_service import script_service
+    from app.services.system_service import system_service
+
+    window.show()  # pages refresh live on a project switch only while visible
+    script_service.create("Loose script", "Hello.")
+    project = project_service.create_project("Course")
+    window.state.set_project(project)
+    assert window.project_button.text() == "Course" and "Course" in window.windowTitle()
+    assert window.pages["generate"].params()["projects_id"] == project["projects_id"]
+    qtbot.waitUntil(lambda: system_service.get_setting("current_projects_id") == project["projects_id"],
+                    timeout=5000)
+
+    lesson = script_service.create("Lesson", "Hi.", projects_id=project["projects_id"])
+    page = window.pages["script"]
+    window.go("script")
+    qtbot.waitUntil(lambda: page.script_list.count() == 1, timeout=5000)
+    assert page.script_list.item(0).data(Qt.ItemDataRole.UserRole) == lesson["scripts_id"]
+
+    window.close_project()
+    assert window.project_button.text() == "No project" and window.pages["generate"].params()["projects_id"] is None
+    qtbot.waitUntil(lambda: page.script_list.count() == 2, timeout=5000)
+
+
+def test_open_project_is_reopened_on_start(qtbot):
+    from app.services.project_service import project_service
+    from app.services.system_service import system_service
+    from app.ui.main_window import MainWindow
+
+    project = project_service.create_project("Podcast")
+    system_service.update_settings(current_projects_id=project["projects_id"])
+    win = MainWindow()
+    qtbot.addWidget(win)
+    assert win.state.projects_id == project["projects_id"] and win.project_button.text() == "Podcast"
+
+    project_service.delete_project(project["projects_id"])
+    win = MainWindow()
+    qtbot.addWidget(win)
+    assert win.state.project is None and win.project_button.text() == "No project"
+
+
+def test_log_panel_shows_source_and_filters(window, qtbot):
+    from app.utils.logger import log_source, logger
+
+    window.show_logs()
+    assert not window.log_panel.isHidden()
+    with log_source("api"):
+        logger.warning("disk almost full")
+    with log_source("ui"):
+        logger.info("opened the editor")
+    window.log_panel.poll()
+    lines = window.log_panel.visible_lines()
+    assert any("WARNING" in line and "API" in line and "disk almost full" in line for line in lines)
+    assert any("UI" in line and "opened the editor" in line for line in lines)
+    assert "warning" in window.logs_button.text()
+
+    window.log_panel.set_filters(source="ui")
+    assert all("disk almost full" not in line for line in window.log_panel.visible_lines())
+    window.log_panel.set_filters(level="warning")
+    assert all("opened the editor" not in line for line in window.log_panel.visible_lines())
+    window.log_panel.set_filters(text="disk")
+    assert [line for line in window.log_panel.visible_lines() if line] and \
+        all("disk" in line for line in window.log_panel.visible_lines())
+    window.log_panel.set_filters()  # all sources, all levels, no text
+    assert len(window.log_panel.visible_lines()) >= 2
+    window.toggle_logs()
+    assert window.log_panel.isHidden()
+
+
+def test_theme_menu_choice_reaches_settings(window, qtbot):
+    from app.services.system_service import system_service
+    from app.ui import theme
+
+    settings = window.pages["settings"]
+    window.go("settings")
+    window.set_theme("light")
+    assert theme.mode() == "light" and theme.current().name == "light"
+    qtbot.waitUntil(lambda: settings.theme.currentData() == "light", timeout=5000)
+    assert system_service.get_setting("theme") == "light"
+    window.set_theme("system")  # hands the scheme back to the OS
+    qtbot.waitUntil(lambda: settings.theme.currentData() == "system", timeout=5000)

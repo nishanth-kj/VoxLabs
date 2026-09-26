@@ -23,7 +23,7 @@ No operation overwrites a file:
 Steps run in a fixed order: `trim_silence → denoise → eq → compress → deess → normalize → limit → loudness`.
 
 | Step | Implementation | Options |
-|---|---|---|
+| --- | --- | --- |
 | trim_silence | frame RMS threshold with padding | `threshold_db`, `pad_ms` |
 | denoise | STFT spectral gating against the quietest 15% of frames | `strength` 0–1 |
 | eq | high-pass, presence peak (3 kHz), low peak, high shelf | `highpass_hz`, `presence_db`, `low_db`, `high_db` |
@@ -43,7 +43,7 @@ Presets live in `app/constants/audio.py` (`ENHANCE_PRESETS`): Raw, Voice Clean, 
 `apply_edit_ops(y, sr, ops)` replays an edit list. Times are in seconds.
 
 | op | fields |
-|---|---|
+| --- | --- |
 | `delete` / `cut` | start, end |
 | `crop` / `trim` | start, end |
 | `insert` / `paste` | at, clip (WAV path from `save_clip`) |
@@ -60,7 +60,7 @@ The Audio Editor page keeps `ops` and a cached state per step for instant undo a
 
 - **Render** calls `render_edits(audios_id, ops)`, which creates a new audio.
 - **Split** renders the edits, then calls `split(audios_id, at)`, which creates two audios.
-- **Autosave** stores the op list in `projects.edit_state["editor"][audios_id]`.
+- **Autosave** stores the op list on the audio with `audio_service.save_edit_ops(audios_id, ops)` (`audios.edit_ops`), so it works for every audio, with or without a project. Opening the audio replays it.
 
 ## Export and labelling
 

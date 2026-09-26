@@ -122,3 +122,36 @@ def test_optional_token_auth(client):
     ok(client.get("/api/health"))
     assert failed(client.get("/api/voices"))["error_code"] == 401
     ok(client.get("/api/voices", headers={"Authorization": "Bearer secret"}))
+
+
+def test_api_leaves_this_computer_only_with_a_token(monkeypatch):
+    from app.api.app import run
+    from app.exceptions import ValidationError
+
+    system_service.check_api_host("127.0.0.1")
+    with pytest.raises(ValidationError):
+        run(host="0.0.0.0")  # refused before anything binds
+    monkeypatch.setenv("VOXLABS_API_TOKEN", "secret")
+    system_service.check_api_host("0.0.0.0")
+
+
+def test_logs_say_who_made_the_call(client):
+    """API requests, MCP tool calls and the jobs they start are tagged with their source."""
+    from app.api.mcp.tools import respond
+    from app.utils.logger import log_source, logger
+
+    before = system_service.logs(1)[-1]["seq"]
+    job = ok(client.post("/api/tts", json={"text": "Queued speech.", "background": True}))["job"]
+    job_service.wait(job["jobs_id"], timeout=30)
+    respond("list_jobs", job_service.list_jobs)
+    with log_source("ui"):
+        logger.info("clicked in the desktop app")
+    records = system_service.logs(2000, after=before)
+
+    def source(prefix: str) -> str:
+        return next(r["source"] for r in records if r["message"].startswith(prefix))
+
+    assert source("API POST /api/tts") == "api"
+    assert source("TTS generated") == "api"  # logged by the background job the request started
+    assert source("MCP tool list_jobs") == "mcp"
+    assert source("clicked in the desktop app") == "ui"

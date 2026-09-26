@@ -5,6 +5,7 @@
 - `watch_job(job, on_done, on_error, on_progress)` calls back when a job finishes.
 """
 
+import contextvars
 import traceback
 from collections.abc import Callable
 
@@ -71,10 +72,11 @@ class _Task(QRunnable):
         super().__init__()
         self.fn = fn
         self.relay = relay
+        self.caller = contextvars.copy_context()  # the worker logs with the UI thread's source
 
     def run(self):
         try:
-            result = self.fn()
+            result = self.caller.run(self.fn)
         except Exception as exc:  # delivered to the UI thread as a message
             if not isinstance(exc, AppError):
                 logger.error("Background task failed:\n" + traceback.format_exc())

@@ -1,21 +1,25 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
 export const COOKIE_NOTICE_KEY = "voxlabs-cookie-notice"
 
-export function CookieNotice() {
-  const [visible, setVisible] = useState(false)
+function wasDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(COOKIE_NOTICE_KEY) === "dismissed"
+  } catch {
+    return false
+  }
+}
 
-  useEffect(() => {
-    try {
-      setVisible(window.localStorage.getItem(COOKIE_NOTICE_KEY) !== "dismissed")
-    } catch {
-      setVisible(true)
-    }
-  }, [])
+const subscribe = () => () => {}
+
+export function CookieNotice() {
+  // Hidden while server rendering; shown in the browser until it has been dismissed.
+  const dismissedBefore = useSyncExternalStore(subscribe, wasDismissed, () => true)
+  const [dismissedNow, setDismissedNow] = useState(false)
 
   function dismiss() {
     try {
@@ -23,10 +27,10 @@ export function CookieNotice() {
     } catch {
       // Ignore quota / private-mode failures; the notice can reappear.
     }
-    setVisible(false)
+    setDismissedNow(true)
   }
 
-  if (!visible) return null
+  if (dismissedBefore || dismissedNow) return null
 
   return (
     <div

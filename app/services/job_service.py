@@ -5,6 +5,7 @@ block. Each job gets a `JobContext` for progress reporting and cooperative
 cancellation. Listeners (the UI's JobBridge) are notified on every change.
 """
 
+import contextvars
 import threading
 import time
 from collections.abc import Callable
@@ -115,7 +116,9 @@ class JobService:
                 if self._executor is None:
                     self._executor = ThreadPoolExecutor(max_workers=JOB_WORKERS, thread_name_prefix="voxlabs-job")
                 self._contexts[jobs_id] = context
-                self._futures[jobs_id] = self._executor.submit(self._run, context, fn)
+                # Run in a copy of the caller's context so the job logs as "ui", "api" or "mcp".
+                caller = contextvars.copy_context()
+                self._futures[jobs_id] = self._executor.submit(caller.run, self._run, context, fn)
             logger.info(f"Job {jobs_id} queued ({job_type})")
             self._notify(data)
             return data

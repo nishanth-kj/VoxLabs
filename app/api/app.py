@@ -27,7 +27,7 @@ from app.api.routes import audio, clone, health, jobs, models, projects, scripts
 from app.exceptions import AppError, AuthError, InternalError, NotFoundError, ValidationError
 from app.models.response import ApiResponse
 from app.services.system_service import VERSION, system_service
-from app.utils.logger import logger
+from app.utils.logger import log_source, logger
 
 PUBLIC_PATHS = {"/api/health", "/docs", "/openapi.json", "/redoc"}
 
@@ -56,6 +56,10 @@ def create_app(initialize: bool = True, host: str | None = None) -> FastAPI:
 
     @api.middleware("http")
     async def auth_and_log(request: Request, call_next):
+        with log_source("mcp" if request.url.path.startswith("/mcp") else "api"):
+            return await _authorized(request, call_next)
+
+    async def _authorized(request: Request, call_next):
         token = _api_token()
         if token and request.url.path not in PUBLIC_PATHS:
             supplied = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
@@ -111,6 +115,7 @@ def run(host: str | None = None, port: int | None = None, stdio: bool = False) -
     settings = system_service.get_settings()
     host = host or settings["api_host"] or "127.0.0.1"
     port = port or int(settings["api_port"])
+    system_service.check_api_host(host)
     server = uvicorn.Server(uvicorn.Config(create_app(host=host), host=host, port=port, log_level="warning"))
     logger.info(f"VoxLabs API on http://{host}:{port} (REST /api, MCP /mcp)")
     if not stdio:
@@ -131,7 +136,10 @@ def main() -> None:
     parser.add_argument("--port", type=int, help="port (default: settings api_port, 8942)")
     parser.add_argument("--stdio", action="store_true", help="also serve MCP over stdin/stdout")
     args = parser.parse_args()
-    run(args.host, args.port, args.stdio)
+    try:
+        run(args.host, args.port, args.stdio)
+    except AppError as exc:
+        raise SystemExit(f"VoxLabs API: {exc.message}") from exc
 
 
 if __name__ == "__main__":
