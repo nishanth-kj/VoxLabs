@@ -1,19 +1,24 @@
-# Privacy Policy
+# Privacy
 
-**Effective Date:** Jan 1, 2026
+VoxLabs is a desktop application that processes everything on your computer by default.
 
-## 1. Data Collection
-VoxLabs processes:
-- **Text Logs**: Input text for synthesis.
-- **Audio Samples**: User uploaded files for cloning.
+## What VoxLabs stores
 
-## 2. Local-First Processing
-By default, VoxLabs runs **100% locally**.
-- No data is sent to cloud servers unless you actively configure a remote backend.
-- Voice models are stored in `./models/` on your machine.
+All of the following is kept locally under `data/` (or `VOXLABS_DATA_DIR`):
 
-## 3. Usage
-We do not use your data to train global models without your explicit opt-in.
+- your scripts and generated or imported audio;
+- voice samples and voice profiles;
+- consent records (who granted consent, for whom, and when);
+- job history, settings and logs. Logs never contain audio content or API tokens.
 
-## 4. Contact
-For privacy concerns, contact `privacy@voxlabs.ai`.
+## What leaves your machine
+
+- **Nothing, by default.**
+- **Online engines.** If you enable them in Settings and choose Google (gTTS) or Microsoft Edge voices, the text you synthesize is sent to that provider. Voice samples are never uploaded.
+- **Model downloads.** Installing a model downloads its weights (for example from Hugging Face). No user data is sent.
+
+## Your control
+
+- Revoke a voice to delete its samples and profile immediately. Delete it to remove every record.
+- Delete projects or audio to remove their files.
+- Delete the `data/` folder to erase everything.

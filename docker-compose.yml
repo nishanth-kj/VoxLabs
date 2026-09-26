@@ -1,51 +1,15 @@
-version: '3.8'
-
 services:
-  # FastAPI Backend
-  backend:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
-    container_name: voxlabs-backend
+  api:
+    build: .
+    container_name: voxlabs-api
+    # Published on the host's loopback only; add a token before exposing it wider.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+    environment:
+      - VOXLABS_API_TOKEN=${VOXLABS_API_TOKEN:-}
     volumes:
-      - voice_data:/app/voice_projects
-      - audio_files:/app/static/audio
-      - ./api:/app
-    environment:
-      - PYTHONUNBUFFERED=1
-      - ENVIRONMENT=development
+      - voxlabs_data:/data
     restart: unless-stopped
-    networks:
-      - voxlabs-network
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/status" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-  # Next.js landing site
-  frontend:
-    build:
-      context: ./site
-      dockerfile: Dockerfile
-    container_name: voxlabs-frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-    restart: unless-stopped
-    networks:
-      - voxlabs-network
-
-networks:
-  voxlabs-network:
-    driver: bridge
 
 volumes:
-  voice_data:
-    driver: local
-  audio_files:
-    driver: local
+  voxlabs_data:
