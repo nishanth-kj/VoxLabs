@@ -8,6 +8,7 @@ from app.exceptions import ConsentError, ValidationError, VoiceError
 from app.models import Voice, VoiceConsent
 from app.services.clone_service import clone_service
 from app.services.consent_service import consent_service
+from app.services.system_service import system_service
 from app.services.voice_service import voice_service
 from app.utils.database import read_session
 from tests.conftest import make_voice_wav
@@ -19,7 +20,7 @@ def test_clone_requires_explicit_consent(voice_wav):
         with pytest.raises(ConsentError):
             clone_service.clone([voice_wav], "Nope", bad)
     with read_session() as session:
-        assert session.query(Voice).count() == 0
+        assert session.query(Voice).filter(Voice.source == "clone").count() == 0
 
 
 def test_clone_creates_voice_samples_and_consent(voice_wav, consent):
@@ -39,7 +40,7 @@ def test_clone_rolls_back_when_samples_too_short(tmp_path, consent):
     with pytest.raises(ValidationError):
         clone_service.clone([short], "Too short", consent)
     with read_session() as session:
-        assert session.query(Voice).count() == 0
+        assert session.query(Voice).filter(Voice.source == "clone").count() == 0
         assert session.query(VoiceConsent).count() == 0
     assert not any((tmp_path / "data" / "voices").glob("*/samples/*.wav"))
 
@@ -60,7 +61,7 @@ def test_revoke_deletes_data_and_blocks_use(voice_wav, consent):
     assert revoked["status"] == Status.INACTIVE.code
     assert revoked["consent_status"] == ConsentStatus.REVOKED.code
     assert not sample_path.exists()
-    assert voice_service.list_voices() == []
+    assert voice["voices_id"] not in {item["voices_id"] for item in voice_service.list_voices()}
     with pytest.raises(VoiceError):
         voice_service.validate(voice["voices_id"])
     history = consent_service.history(voice["voices_id"])
@@ -73,8 +74,39 @@ def test_delete_removes_everything(voice_wav, consent):
     voice_service.delete(voice["voices_id"])
     assert not storage.exists()
     with read_session() as session:
-        assert session.query(Voice).count() == 0
+        assert session.get(Voice, voice["voices_id"]) is None
         assert session.query(VoiceConsent).count() == 0
+
+
+def test_voice_search_filters_by_model_and_hides_edge_when_off():
+    import os
+
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from app.ui.widgets.voice_selector import voice_matches
+
+    kokoro = {"name": "Kokoro · Heart", "engine_voice": "af_heart", "language": "en",
+              "model_key": "kokoro-82m", "description": "", "source": "preset"}
+    edge = {"name": "Edge · Aria", "engine_voice": "en-US-AriaNeural", "language": "en",
+            "model_key": "edge-neural", "description": "", "source": "preset"}
+    assert voice_matches(kokoro, "heart", "kokoro-82m", allow_edge=False)
+    assert not voice_matches(kokoro, "heart", "edge-neural", allow_edge=False)
+    assert not voice_matches(edge, "", None, allow_edge=False)
+    assert voice_matches(edge, "aria", "edge-neural", allow_edge=True)
+
+
+def test_builtin_voices_cover_kokoro_edge_and_piper():
+    voices = voice_service.list_voices()
+    kokoro = [voice for voice in voices if voice["model_key"] == "kokoro-82m"]
+    edge = [voice for voice in voices if voice["model_key"] == "edge-neural"]
+    piper = [voice for voice in voices if voice["name"].startswith("Piper · Lessac")]
+    assert len(kokoro) == 54
+    assert len(edge) == 322
+    assert len(piper) == 1
+    assert all(len(voice["name"]) <= 120 for voice in voices)
+    assert {voice["engine_voice"] for voice in kokoro} >= {"af_heart", "af_bella", "bm_george"}
+    assert "en-US-AriaNeural" in {voice["engine_voice"] for voice in edge}
+    assert system_service.get_setting("default_voices_id") == piper[0]["voices_id"]
+    assert voice_service.ensure_builtin_voices() == 0
 
 
 def test_voice_editor_delivery_is_saved(voice_wav, consent):

@@ -1,7 +1,8 @@
 from typing import cast
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QStandardItemModel
-from PySide6.QtWidgets import QComboBox
+from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame
 
 from app.services.model_service import model_service
 
@@ -17,6 +18,14 @@ class ModelSelector(QComboBox):
         self.default_label = default_label
         self.speaking_only = speaking_only
         self.setMinimumWidth(240)
+        self.setMaxVisibleItems(12)
+        view = self.view()
+        view.setUniformItemSizes(True)
+        view.setSpacing(0)
+        view.setFrameShape(QFrame.Shape.NoFrame)
+        view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        view.setTextElideMode(Qt.TextElideMode.ElideRight)
+        view.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.refresh()
 
     def refresh(self, preferred: str | None = None):
@@ -63,7 +72,12 @@ class ModelSelector(QComboBox):
     def model_key(self) -> str | None:
         return self.currentData()
 
-    def set_model_key(self, key: str | None):
+    def set_model_key(self, key: str | None, *, force: bool = False):
+        if force and key is not None:
+            index = self.findData(key)
+            if index >= 0:
+                self.setCurrentIndex(index)
+                return
         if key is None and self.default_label:
             self.setCurrentIndex(0)
         else:

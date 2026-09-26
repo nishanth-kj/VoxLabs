@@ -94,43 +94,84 @@ def package_installed(package: str | None) -> bool:
         return False
 
 
+_download_guard = threading.Lock()
+_download_locks: dict[str, threading.Lock] = {}
+
+
+def _download_lock(dest: Path) -> threading.Lock:
+    key = str(dest).lower()
+    with _download_guard:
+        lock = _download_locks.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _download_locks[key] = lock
+        return lock
+
+
+def _saved(path: Path) -> bool:
+    try:
+        return path.is_file() and path.stat().st_size > 0
+    except OSError:
+        return False
+
+
+def _discard(path: Path) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def download(url: str, dest: Path, progress: Callable[[float], None] | None = None,
              cancelled: Callable[[], bool] | None = None) -> Path:
     """Save `url` to `dest`. Hugging Face rejects some clients, so this sends a User-Agent
-    and turns HTTP failures into a ModelError instead of a raw library exception."""
+    and turns HTTP failures into a ModelError instead of a raw library exception.
+
+    Two installs can ask for the same file. They share one lock, and a file Windows still
+    has open is left alone when the other install already finished it.
+    """
     dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp = dest.with_name(dest.name + ".part")
-    last_error: Exception | None = None
-    for _attempt in range(2):
-        try:
-            request = urllib.request.Request(url, headers={"User-Agent": "VoxLabs/3.0"})
-            with urllib.request.urlopen(request, timeout=120) as response, open(tmp, "wb") as out:
-                total = int(response.headers.get("Content-Length") or 0)
-                done = 0
-                checked = False
-                while chunk := response.read(1 << 16):
-                    if cancelled and cancelled():
-                        raise ModelError("Download cancelled")
-                    if not checked:
-                        head = chunk.lstrip()[:15].lower()
-                        if head.startswith(b"<!doctype") or head.startswith(b"<html"):
-                            raise ModelError(f"Download of {dest.name} returned a web page instead of the file")
-                        checked = True
-                    out.write(chunk)
-                    done += len(chunk)
-                    if progress and total:
-                        progress(min(done / total, 1.0))
-            if done == 0:
-                raise ModelError(f"Download of {dest.name} was empty")
-            tmp.replace(dest)
+    with _download_lock(dest):
+        if _saved(dest):
+            if progress:
+                progress(1.0)
             return dest
-        except ModelError:
-            tmp.unlink(missing_ok=True)
-            raise
-        except Exception as exc:
-            tmp.unlink(missing_ok=True)
-            last_error = exc
-    raise ModelError(f"Could not download {dest.name}: {last_error}")
+        tmp = dest.with_name(f"{dest.name}.{threading.get_ident()}.part")
+        last_error: Exception | None = None
+        for _attempt in range(2):
+            try:
+                request = urllib.request.Request(url, headers={"User-Agent": "VoxLabs/3.0"})
+                with urllib.request.urlopen(request, timeout=120) as response, open(tmp, "wb") as out:
+                    total = int(response.headers.get("Content-Length") or 0)
+                    done = 0
+                    checked = False
+                    while chunk := response.read(1 << 16):
+                        if cancelled and cancelled():
+                            raise ModelError("Download cancelled")
+                        if not checked:
+                            head = chunk.lstrip()[:15].lower()
+                            if head.startswith(b"<!doctype") or head.startswith(b"<html"):
+                                raise ModelError(f"Download of {dest.name} returned a web page instead of the file")
+                            checked = True
+                        out.write(chunk)
+                        done += len(chunk)
+                        if progress and total:
+                            progress(min(done / total, 1.0))
+                if done == 0:
+                    raise ModelError(f"Download of {dest.name} was empty")
+                tmp.replace(dest)
+                return dest
+            except ModelError:
+                _discard(tmp)
+                raise
+            except Exception as exc:
+                _discard(tmp)
+                if _saved(dest):
+                    if progress:
+                        progress(1.0)
+                    return dest
+                last_error = exc
+        raise ModelError(f"Could not download {dest.name}: {last_error}")
 
 
 def apply_prosody(y: np.ndarray, sr: int, speed: float = 1.0, pitch: float = 1.0, energy: float = 1.0) -> np.ndarray:

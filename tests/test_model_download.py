@@ -20,6 +20,17 @@ def test_every_local_engine_has_weight_urls():
         assert all(url.startswith("https://huggingface.co/") for url in files.values())
 
 
+def test_download_keeps_a_file_another_install_already_finished(monkeypatch, tmp_path):
+    dest = tmp_path / "voice.pt"
+    dest.write_bytes(b"weights")
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("should not download a file that is already saved")
+
+    monkeypatch.setattr("app.utils.model.urllib.request.urlopen", refuse)
+    assert download("https://example.invalid/voice.pt", dest).read_bytes() == b"weights"
+
+
 def test_download_reports_http_errors(monkeypatch, tmp_path):
     def refuse(request, timeout=0):
         raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", hdrs=None, fp=None)

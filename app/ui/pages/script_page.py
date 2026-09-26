@@ -138,7 +138,7 @@ class ScriptPage(BasePage):
 
         state.open_script.connect(self.open_script)
         state.project_changed.connect(lambda _project: self._project_changed())
-        state.data_changed.connect(lambda what: self._voices_changed() if what == "voices" else None)
+        state.data_changed.connect(lambda what: self._voices_changed() if what in ("voices", "settings") else None)
 
     # ------------------------------------------------------------ tabs
 
@@ -168,8 +168,17 @@ class ScriptPage(BasePage):
         widget = QWidget()
         layout = QVBoxLayout(widget)
         self.speaker_table = QTableWidget(0, 2)
+        self.speaker_table.setObjectName("SpeakerMap")
         self.speaker_table.setHorizontalHeaderLabels(["Speaker", "Voice"])
+        self.speaker_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.speaker_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.speaker_table.horizontalHeader().setStretchLastSection(True)
+        self.speaker_table.verticalHeader().setVisible(False)
+        self.speaker_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        self.speaker_table.verticalHeader().setDefaultSectionSize(48)
+        self.speaker_table.setShowGrid(False)
+        self.speaker_table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self.speaker_table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         layout.addWidget(self.speaker_table)
         row = QHBoxLayout()
         auto = QPushButton("Auto-assign voices")
@@ -240,6 +249,7 @@ class ScriptPage(BasePage):
         widget = QWidget()
         form = QFormLayout(widget)
         self.default_model = ModelSelector()
+        self.default_model.currentIndexChanged.connect(self._filter_voices_to_model)
         self.default_speed = self._spin(0.0, 2.0)
         self.default_emotion = QComboBox()
         self.default_emotion.addItems(list(EMOTIONS))
@@ -324,6 +334,7 @@ class ScriptPage(BasePage):
             self.editor.setPlainText(script["body"])
         settings = script["settings"] or {}
         self.default_model.set_model_key(settings.get("model_key"))
+        self._filter_voices_to_model()
         self.default_speed.setValue(settings.get("speed") or 0.0)
         self.default_emotion.setCurrentText(settings.get("emotion") or "neutral")
         self.default_style.setCurrentText(settings.get("style") or "default")
@@ -386,9 +397,25 @@ class ScriptPage(BasePage):
             name = _readonly_item("Narrator (default)" if speaker == DEFAULT_SPEAKER else speaker)
             name.setData(Qt.ItemDataRole.UserRole, speaker)
             self.speaker_table.setItem(row, 0, name)
-            selector = VoiceSelector(none_label="Default voice")
+            selector = VoiceSelector(none_label="Default voice", filters=False)
+            selector.setObjectName("SpeakerVoice")
+            selector.layout().setContentsMargins(0, 6, 4, 6)
+            selector.set_model_filter(self.default_model.model_key())
             selector.set_voices_id(mapping.get(speaker))
             self.speaker_table.setCellWidget(row, 1, selector)
+            self.speaker_table.setRowHeight(row, 48)
+
+    def _filter_voices_to_model(self):
+        if not hasattr(self, "section_voice"):
+            return
+        key = self.default_model.model_key()
+        self.section_voice.set_model_filter(key)
+        if not hasattr(self, "speaker_table"):
+            return
+        for row in range(self.speaker_table.rowCount()):
+            widget = self.speaker_table.cellWidget(row, 1)
+            if isinstance(widget, VoiceSelector):
+                widget.set_model_filter(key)
 
     def _voices_changed(self):
         self.section_voice.refresh()

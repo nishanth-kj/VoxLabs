@@ -20,9 +20,11 @@ DEFAULT_SETTINGS = {
     "output_device": "",
     "input_device": "",
     "default_voices_id": None,
+    "builtin_voices_seeded": False,
     "default_tts_model": DEFAULT_TTS_MODEL,
     "default_clone_model": DEFAULT_CLONE_MODEL,
     "allow_online_models": False,
+    "allow_edge": False,
     "export_format": "wav",
     "sample_rate": DEFAULT_SAMPLE_RATE,
     "output_dir": "",
@@ -115,6 +117,9 @@ class SystemService:
             interrupted = job_service.recover_interrupted()
             if interrupted:
                 logger.info(f"Marked {interrupted} interrupted job(s) as failed")
+            from app.services.voice_service import voice_service
+
+            voice_service.ensure_builtin_voices()
             logger.info(f"VoxLabs {VERSION} ready (data: {data_dir()})")
         except Exception as exc:
             raise service_error(exc, "system_service.initialize")

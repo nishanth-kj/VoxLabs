@@ -2,6 +2,7 @@
 
 from app.constants.model_backend import Backend
 from app.constants.model_type import ModelType
+from app.constants.voices import KOKORO_VOICES
 
 
 # Backends that can synthesize speech in a cloned voice from reference samples.
@@ -57,9 +58,10 @@ MODEL_CATALOG = [
         "files": {
             "config.json": _hf("hexgrad/Kokoro-82M", "config.json"),
             "kokoro-v1_0.pth": _hf("hexgrad/Kokoro-82M", "kokoro-v1_0.pth"),
-            "voices/af_heart.pt": _hf("hexgrad/Kokoro-82M", "voices/af_heart.pt"),
-            "voices/af_bella.pt": _hf("hexgrad/Kokoro-82M", "voices/af_bella.pt"),
-            "voices/bm_george.pt": _hf("hexgrad/Kokoro-82M", "voices/bm_george.pt"),
+            **{
+                f"voices/{voice['id']}.pt": _hf("hexgrad/Kokoro-82M", f"voices/{voice['id']}.pt")
+                for voice in KOKORO_VOICES
+            },
         },
     },
     {

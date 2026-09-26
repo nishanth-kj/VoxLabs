@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
-    QFormLayout,
     QFrame,
     QGridLayout,
     QGroupBox,
@@ -34,6 +33,7 @@ from app.constants.audio import (
 )
 from app.models.request import AudioExportRequest, TTSRequest
 from app.services.audio_service import audio_service
+from app.services.model_service import model_service
 from app.services.system_service import system_service
 from app.services.tts_service import tts_service
 from app.services.voice_service import voice_service
@@ -51,6 +51,8 @@ class GeneratePage(BasePage):
         super().__init__(state, parent)
         self.sentences: list[dict] = []
         self.combined: dict | None = None
+        self._bound_model: str | None = None
+        self._syncing = False
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.root.addWidget(splitter, 1)
@@ -115,11 +117,15 @@ class GeneratePage(BasePage):
         right_layout.setContentsMargins(0, 0, 8, 0)
         right_layout.setSpacing(12)
         voice_box = QGroupBox("Voice and delivery")
-        form = QFormLayout(voice_box)
-        form.setVerticalSpacing(8)
-        self.voice = VoiceSelector()
+        voice_layout = QVBoxLayout(voice_box)
+        voice_layout.setSpacing(8)
+        # The page model is the filter, so the voice picker does not repeat a second model list.
+        self.voice = VoiceSelector(voice_box, filters=False)
+        self.voice.hide()
+        self.voice.search.show()
         self.voice.currentIndexChanged.connect(lambda _i: self._apply_voice())
         self.model = ModelSelector()
+        self.model.currentIndexChanged.connect(self._on_model)
         self.speed = self._spin(0.5, 2.0, 1.0)
         self.pitch = self._spin(0.5, 2.0, 1.0)
         self.energy = self._spin(0.1, 2.0, 1.0)
@@ -140,18 +146,22 @@ class GeneratePage(BasePage):
         self.seed.setSpecialValueText("random")
         self.pronunciations = QPlainTextEdit()
         self.pronunciations.setPlaceholderText("One per line: word = how to say it\nSQL = sequel")
-        self.pronunciations.setMaximumHeight(80)
-        form.addRow("Voice", self.voice)
-        form.addRow("Model", self.model)
-        form.addRow("Speed", self.speed)
-        form.addRow("Pitch", self.pitch)
-        form.addRow("Energy", self.energy)
-        form.addRow("Emotion", self.emotion)
-        form.addRow("Style", self.style_box)
-        form.addRow("Sentence pause", self.pause)
-        form.addRow("Temperature", self.temperature)
-        form.addRow("Seed", self.seed)
-        form.addRow("Pronunciation", self.pronunciations)
+        self.pronunciations.setFixedHeight(72)
+        voice_layout.addWidget(self._labeled("Model", self.model))
+        voice_layout.addWidget(self._labeled("Search voices", self.voice.search))
+        voice_layout.addWidget(self._labeled("Voice", self.voice.combo))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(8)
+        for index, (label, widget) in enumerate((
+            ("Speed", self.speed), ("Pitch", self.pitch),
+            ("Energy", self.energy), ("Emotion", self.emotion),
+            ("Style", self.style_box), ("Sentence pause", self.pause),
+            ("Temperature", self.temperature), ("Seed", self.seed),
+        )):
+            grid.addWidget(self._labeled(label, widget), index // 2, index % 2)
+        voice_layout.addLayout(grid)
+        voice_layout.addWidget(self._labeled("Pronunciation", self.pronunciations))
 
         right_layout.addWidget(voice_box)
 
@@ -185,11 +195,21 @@ class GeneratePage(BasePage):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setMinimumWidth(340)
+        scroll.setMinimumWidth(380)
         splitter.addWidget(scroll)
-        splitter.setSizes([700, 380])
+        splitter.setSizes([640, 460])
 
         state.data_changed.connect(self._on_data_changed)
+
+    @staticmethod
+    def _labeled(label: str, widget: QWidget) -> QWidget:
+        box = QWidget()
+        column = QVBoxLayout(box)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(2)
+        column.addWidget(QLabel(label))
+        column.addWidget(widget)
+        return box
 
     def _spin(self, low, high, value):
         spin = QDoubleSpinBox()
@@ -210,6 +230,7 @@ class GeneratePage(BasePage):
             self.voice.refresh()
         elif what in ("models", "settings"):
             self.model.refresh()
+            self.voice.refresh()
 
     def refresh(self):
         self.voice.refresh()
@@ -223,14 +244,34 @@ class GeneratePage(BasePage):
         self.voice.set_voices_id(voices_id)
         self._apply_voice()
 
+    def _on_model(self):
+        """Choosing a model shows only the voices bound to it."""
+        if self._syncing:
+            return
+        self._syncing = True
+        self._bound_model = self.model.model_key()
+        self.voice.set_model_filter(self._bound_model)
+        self._syncing = False
+
     def _apply_voice(self):
-        """Copy the voice editor's model and delivery into this form."""
+        """Selecting a voice switches the model to that voice, and the voice list follows."""
+        if self._syncing:
+            return
         voices_id = self.voice.voices_id()
         if voices_id is None:
+            self._bound_model = self.model.model_key()
             return
         voice = voice_service.get(voices_id, with_samples=False)
-        if voice.get("model_key"):
-            self.model.set_model_key(voice["model_key"])
+        bound = model_service.get(voice["model_key"]) if voice.get("model_key") else None
+        self._syncing = True
+        if bound is not None and bound["speaks"]:
+            self._bound_model = bound["key"]
+            self.model.set_model_key(bound["key"], force=True)
+            self.voice.set_model_filter(bound["key"])
+        else:
+            self._bound_model = self.model.model_key()
+            self.voice.set_model_filter(self._bound_model)
+        self._syncing = False
         delivery = voice.get("delivery") or {}
         if delivery.get("speed") is not None:
             self.speed.setValue(float(delivery["speed"]))
@@ -262,7 +303,7 @@ class GeneratePage(BasePage):
             post = None
         return {
             "voices_id": self.voice.voices_id(),
-            "model_key": self.model.model_key(),
+            "model_key": self._bound_model or self.model.model_key(),
             "speed": self.speed.value(),
             "pitch": self.pitch.value(),
             "energy": self.energy.value(),

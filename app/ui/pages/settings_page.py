@@ -82,12 +82,15 @@ class SettingsPage(BasePage):
         self.default_clone = ModelSelector(model_types=(ModelType.CLONE, ModelType.EMBED), default_label="",
                                            speaking_only=False, only_usable=False)
         self.allow_online = QCheckBox("Allow online engines (sends text to Google / Microsoft)")
+        self.allow_edge = QCheckBox("Microsoft Edge voices")
+        self.allow_edge.setToolTip("Off hides every Microsoft Edge voice. Turn this on to use them.")
         self.device = QComboBox()
         voice_form.addRow("Default voice", self.default_voice)
         voice_form.addRow("Default speech model", self.default_tts)
         voice_form.addRow("Default cloning model", self.default_clone)
         voice_form.addRow("GPU / device", self.device)
         voice_form.addRow("", self.allow_online)
+        voice_form.addRow("", self.allow_edge)
         column.addWidget(voice)
 
         api = QGroupBox("REST API (optional)")
@@ -170,6 +173,7 @@ class SettingsPage(BasePage):
             self.device.addItem(name, name)
         self._select(self.device, s["device"])
         self.allow_online.setChecked(bool(s["allow_online_models"]))
+        self.allow_edge.setChecked(bool(s.get("allow_edge")))
         self.api_enabled.setChecked(bool(s["api_enabled"]))
         self.api_host.setText(s["api_host"])
         self.api_port.setValue(int(s["api_port"]))
@@ -203,6 +207,7 @@ class SettingsPage(BasePage):
             "default_clone_model": self.default_clone.model_key() or system_service.get_setting("default_clone_model"),
             "device": self.device.currentData() or "auto",
             "allow_online_models": self.allow_online.isChecked(),
+            "allow_edge": self.allow_edge.isChecked(),
             "api_enabled": self.api_enabled.isChecked(),
             "api_host": self.api_host.text().strip() or "127.0.0.1",
             "api_port": self.api_port.value(),

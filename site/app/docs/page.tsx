@@ -51,14 +51,15 @@ const DESKTOP_PAGES = [
   { page: "Generate Speech (Ctrl+4)", desc: "Single or multi-sentence TTS with voice, built-in engine_voice, model, emotion, style, speed, pitch, energy, temperature, seed, inline pauses, pronunciations, and sentence regeneration." },
   { page: "Script to Audio (Ctrl+5)", desc: "Plain-text script & lesson editor (autosaves after 0.8 s) with Structure, Speakers, Section overrides, and Script settings tabs." },
   { page: "Audio Editor (Ctrl+6)", desc: "Non-destructive waveform editor with selection, cut/copy/paste/delete, trim, split, move, duplicate, join, silence, fade, gain, normalize, 8-stage DSP enhance, undo/redo, and loop playback." },
-  { page: "Voices (Ctrl+7)", desc: "Manage cloned and preset voices: preview, rename, edit, attach/remove samples, export metadata JSON, revoke consent (deletes samples & profile immediately), or delete." },
+  { page: "Voice Editor (Ctrl+9)", desc: "Edit a voice’s name, model, engine voice, and delivery (speed, pitch, energy, emotion, style). Preview it, then use that saved voice in Generate and script-to-audio." },
+  { page: "Voices (Ctrl+7)", desc: "Cloned voices plus every built-in preset: Piper Lessac (the default voice), all 54 Kokoro voices, and the Edge neural catalog. Preview, edit, export metadata, revoke, or delete." },
   { page: "Models (Ctrl+8)", desc: "Download weights directly from Hugging Face (single model or Download All), load/unload into CPU or CUDA memory, run health checks, set defaults, and rescan data/models/." },
   { page: "Settings (Ctrl+,)", desc: "Configure default TTS/cloning models, compute device (auto/cpu/cuda), online engine opt-in, editor autosave, appearance/theme, native title bar, and embedded REST API + MCP server." },
 ] as const
 
 const SHORTCUTS = [
   { key: "Ctrl+Shift+P / F1", action: "Open the Command Palette to search and trigger any menu command" },
-  { key: "Ctrl+1 … Ctrl+8", action: "Switch between Home, Studio, Clone, Generate, Script, Editor, Voices, and Models" },
+  { key: "Ctrl+1 … Ctrl+9", action: "Switch between Home, Studio, Clone, Generate, Script, Editor, Voices, Models, and Voice Editor (Ctrl+9)" },
   { key: "Ctrl+,", action: "Open Settings" },
   { key: "Ctrl+B", action: "Collapse or expand the navigation sidebar" },
   { key: "Ctrl+`", action: "Toggle the bottom live Logs panel (with source filter & warning/error badges)" },
@@ -82,7 +83,7 @@ const PACKAGES = [
   { pkg: "app/constants/", contents: "Fixed values and BaseEnum classes: base_enum, status, consent_status, response_status, error_code, error_message, project_type, audio_source, model_type, model_backend, audio, jobs, models." },
   { pkg: "app/exceptions/", contents: "AppError and subclasses (ValidationError, NotFoundError, ConsentError, VoiceError, AudioError, ModelError, JobError, ProjectError, AuthError, InternalError) + service_error()." },
   { pkg: "app/api/", contents: "FastAPI app (app.py), thin routers in routes/, and MCP server in mcp/ (tools.py, served over streamable HTTP at /mcp and over stdio with --stdio)." },
-  { pkg: "app/ui/", contents: "main_window.py, 9 pages, shared widgets (title_bar, nav_bar, command_palette, player, waveform, timeline, log_panel, job_status), app_menu.py, theme.py, and icons.py." },
+  { pkg: "app/ui/", contents: "main_window.py, 10 pages, shared widgets (title_bar, nav_bar, command_palette, player, waveform, timeline, log_panel, job_status), app_menu.py, theme.py, and icons.py." },
 ] as const
 
 const TTS_PARAMETERS = [

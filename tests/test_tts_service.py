@@ -73,6 +73,10 @@ def test_clone_voice_with_cloning_model_and_fallback(voice_wav, consent):
     profile_voice = clone_service.clone([voice_wav], "Profile", consent)
     matched = tts_service.generate(TTSRequest(text="Approximate my voice.", voices_id=profile_voice["voices_id"]))
     assert matched["params"]["model_key"] == "fake-tts" and matched["params"]["cloned"] is False
+    # A speaking voice stays on its own model even if the request names another one.
+    stuck = tts_service.generate(TTSRequest(
+        text="Stay on the clone model.", voices_id=voice["voices_id"], model_key="fake-tts"))
+    assert stuck["params"]["model_key"] == "fake-clone"
 
 
 def test_chunks_follow_the_engine_limit():

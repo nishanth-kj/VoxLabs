@@ -365,7 +365,7 @@ class ScriptService:
             request = TTSRequest(
                 text=section_data["text"],
                 voices_id=voices_id,
-                model_key=defaults.get("model_key") or (voice or {}).get("model_key"),
+                model_key=(voice or {}).get("model_key") or defaults.get("model_key"),
                 projects_id=script.get("projects_id"),
                 name=f"{script['title']} · {section_data['heading'] or 'section'} {section_data['position'] + 1}",
                 seed=seed,

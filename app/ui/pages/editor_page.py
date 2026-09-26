@@ -111,7 +111,7 @@ class EditorPage(BasePage):
         wv.addWidget(self.waveform, 1)
         wv.addWidget(self.timeline)
         self.player = AudioPlayer(compact=True)
-        self.player.play_button.setToolTip("Play from cursor / pause (Space)")
+        self.player.play_button.setToolTip("Play from cursor through the end (Space)")
         self.player.play_button.clicked.disconnect(self.player.toggle)
         self.player.play_button.clicked.connect(self.toggle_play)
         self.player.position_changed.connect(self._on_play_position)

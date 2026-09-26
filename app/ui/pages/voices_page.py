@@ -5,6 +5,7 @@ from datetime import datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -24,8 +25,10 @@ from app.services.clone_service import clone_service
 from app.services.voice_service import voice_service
 from app.ui.pages import BasePage
 from app.ui.pages.clone_page import AUDIO_FILTER
+from app.services.model_service import model_service
 from app.ui.widgets.audio_player import AudioPlayer
 from app.ui.widgets.model_selector import ModelSelector
+from app.ui.widgets.voice_selector import voice_matches
 from app.utils.time import local_display
 
 COLUMNS = ("Name", "Type", "Samples", "Consent", "Status", "Language", "Created", "Updated")
@@ -73,6 +76,16 @@ class VoicesPage(BasePage):
     def __init__(self, state, parent=None):
         super().__init__(state, parent)
         self.voices: list[dict] = []
+        filters = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Search voices")
+        self.search.setClearButtonEnabled(True)
+        self.search.textChanged.connect(lambda _text: self._show(self.voices))
+        self.model_filter = QComboBox()
+        self.model_filter.currentIndexChanged.connect(lambda _i: self._show(self.voices))
+        filters.addWidget(self.search, 1)
+        filters.addWidget(self.model_filter)
+        self.root.addLayout(filters)
         self.table = QTableWidget(0, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -99,15 +112,17 @@ class VoicesPage(BasePage):
         self.root.addLayout(actions)
         self.player = AudioPlayer()
         self.root.addWidget(self.player)
-        state.data_changed.connect(lambda what: self.refresh() if what == "voices" and self.isVisible() else None)
+        state.data_changed.connect(lambda what: self.refresh() if what in ("voices", "settings") and self.isVisible() else None)
 
     def refresh(self):
         self.run(lambda: voice_service.list_voices(include_revoked=True), self._show, busy=False)
 
     def _show(self, voices):
         self.voices = voices
-        self.table.setRowCount(len(voices))
-        for row, voice in enumerate(voices):
+        self._fill_models()
+        shown = [voice for voice in voices if voice_matches(voice, self.search.text(), self.model_filter.currentData())]
+        self.table.setRowCount(len(shown))
+        for row, voice in enumerate(shown):
             values = (voice["name"], "Cloned" if voice["source"] == "clone" else "Preset", str(voice["sample_count"]),
                       voice["consent_status_label"], voice["status_label"], voice["language"],
                       _date(voice["created_at"]), _date(voice["updated_at"]))
@@ -116,10 +131,29 @@ class VoicesPage(BasePage):
                 item.setData(Qt.ItemDataRole.UserRole, voice["voices_id"])
                 self.table.setItem(row, col, item)
 
+    def _fill_models(self):
+        current = self.model_filter.currentData()
+        names = {model["key"]: model["name"] for model in model_service.list_models(speaking_only=False)}
+        keys = []
+        for voice in self.voices:
+            key = voice.get("model_key")
+            if key and key not in keys and voice_matches(voice, "", None):
+                keys.append(key)
+        self.model_filter.blockSignals(True)
+        self.model_filter.clear()
+        self.model_filter.addItem("All models", None)
+        for key in keys:
+            self.model_filter.addItem(names.get(key, key), key)
+        index = self.model_filter.findData(current)
+        self.model_filter.setCurrentIndex(index if index >= 0 else 0)
+        self.model_filter.blockSignals(False)
+
     def _current(self) -> dict | None:
-        row = self.table.currentRow()
-        if 0 <= row < len(self.voices):
-            return self.voices[row]
+        item = self.table.item(self.table.currentRow(), 0)
+        voices_id = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+        for voice in self.voices:
+            if voice["voices_id"] == voices_id:
+                return voice
         self.error("Select a voice first")
         return None
 

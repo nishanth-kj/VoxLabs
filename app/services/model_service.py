@@ -434,14 +434,18 @@ class ModelService:
             raise service_error(exc, "model_service.select")
 
     def resolve_speech_model(self, model_ref: str | None = None, voice: dict | None = None) -> dict:
-        """Pick the model for a generation: explicit > the voice's cloning model > default > first
-        installed model in FALLBACK_TTS_MODELS."""
+        """Pick the model for a generation.
+
+        A voice is bound to its model. When that model speaks, it is used even if the request
+        names a different one. A voice profile that cannot speak falls through to the requested
+        model, then the default, then the first installed fallback.
+        """
         try:
-            if model_ref:
+            bound = self.get(voice["model_key"]) if voice and voice.get("model_key") else None
+            if bound is not None and bound["speaks"]:
+                model = bound
+            elif model_ref:
                 model = self.get(model_ref)
-            elif voice and voice.get("model_key") and self.get(voice["model_key"])["speaks"] \
-                    and self.get(voice["model_key"])["installed"]:
-                model = self.get(voice["model_key"])
             else:
                 model = self.get(system_service.get_setting("default_tts_model") or DEFAULT_TTS_MODEL)
                 if not model["installed"]:

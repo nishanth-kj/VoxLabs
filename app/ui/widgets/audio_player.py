@@ -80,14 +80,17 @@ class AudioPlayer(QWidget):
         self.title.setText(title or Path(path).stem)
         self.setEnabled(True)
 
-    def play(self, start: float | None = None) -> None:
+    def play(self, start: float | None = None, *, full: bool = True) -> None:
+        """Play from `start` (or the current position) through to the end of the file."""
+        if full:
+            self.clear_range()
         if start is not None:
             self.player.setPosition(int(start * 1000))
         self.player.play()
 
     def play_range(self, start: float, end: float, loop: bool = False) -> None:
         self._range, self._loop = (start, end), loop
-        self.play(start)
+        self.play(start, full=False)
 
     def clear_range(self) -> None:
         self._range, self._loop = None, False

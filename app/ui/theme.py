@@ -150,12 +150,14 @@ QLineEdit:hover, QTextEdit:hover, QPlainTextEdit:hover, QSpinBox:hover, QDoubleS
 QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
     border-color: $accent; }
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled { color: $text_disabled; }
-QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox { min-height: 22px; }
+QLineEdit, QSpinBox, QDoubleSpinBox { min-height: 22px; }
+QComboBox { min-height: 32px; padding: 4px 28px 4px 8px; }
 QSpinBox, QDoubleSpinBox { padding-right: 24px; }
-QComboBox { padding-right: 28px; }
 QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 26px; border: none; }
 QComboBox::down-arrow { image: url($chevron_down); width: 12px; height: 12px; }
 QComboBox::down-arrow:disabled { image: none; }
+/* The inner editor inherits QLineEdit padding, which clips the bottom of an editable combo. */
+QComboBox QLineEdit { background: transparent; border: none; padding: 0 2px; min-height: 0; margin: 0; }
 QSpinBox::up-button, QDoubleSpinBox::up-button { subcontrol-origin: border; subcontrol-position: top right;
     width: 22px; border: none; border-top-right-radius: 7px; background: transparent; }
 QSpinBox::down-button, QDoubleSpinBox::down-button { subcontrol-origin: border; subcontrol-position: bottom right;
@@ -164,8 +166,7 @@ QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
 QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover { background: $hover; }
 QSpinBox::up-arrow, QDoubleSpinBox::up-arrow { image: url($chevron_up); width: 10px; height: 10px; }
 QSpinBox::down-arrow, QDoubleSpinBox::down-arrow { image: url($chevron_down); width: 10px; height: 10px; }
-QComboBox QAbstractItemView { background: $surface; border: 1px solid $border_strong; border-radius: 6px;
-                              selection-background-color: $accent; selection-color: $accent_text; padding: 4px; }
+
 QCheckBox, QRadioButton { spacing: 8px; background: transparent; }
 QCheckBox::indicator, QRadioButton::indicator { width: 16px; height: 16px; }
 QCheckBox::indicator { border: 1px solid $border_strong; border-radius: 4px; background: $surface_alt; }
@@ -192,7 +193,37 @@ QListWidget::item:hover, QTreeWidget::item:hover, QTableWidget::item:hover { bac
 QListWidget::item:selected, QTreeWidget::item:selected, QTableWidget::item:selected {
     background: $selection; color: $text; }
 QGroupBox QListWidget, QGroupBox QTreeWidget, QGroupBox QTableWidget { background: transparent; border: none; }
+/* Combo popup. The shared list style (radius, padding) clips the last row, so this list is separate. */
+QComboBox QListView {
+    background: $surface;
+    alternate-background-color: $surface;
+    color: $text;
+    border: 1px solid $border_strong;
+    border-radius: 0;
+    padding: 4px 0;
+    margin: 0;
+    outline: 0;
+}
+QComboBox QListView::item {
+    height: 32px;
+    padding: 0 12px;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: $text;
+}
+QComboBox QListView::item:hover { background: $hover; color: $text; }
+QComboBox QListView::item:selected { background: $selection; color: $text; }
 QHeaderView { background: transparent; }
+/* Speaker mapping: one row divider, no box around the voice select. */
+#SpeakerMap { background: transparent; border: none; border-radius: 0; padding: 0; }
+#SpeakerMap::item { border: none; border-bottom: 1px solid $border; padding: 0 12px; background: transparent; }
+#SpeakerMap QHeaderView::section { background: transparent; border: none; border-bottom: 1px solid $border;
+    padding: 8px 12px; font-weight: 600; }
+#SpeakerVoice, #SpeakerVoice QComboBox { background: transparent; border: none; border-radius: 6px; min-height: 28px; }
+#SpeakerVoice QComboBox:hover { background: $hover; }
+#SpeakerVoice QComboBox:focus, #SpeakerVoice QComboBox:on { background: $selection; border: none; }
 QHeaderView::section { background: $surface; color: $text_muted; border: none; border-bottom: 1px solid $border;
                        padding: 6px 8px; font-weight: 600; }
 QTableCornerButton::section { background: $surface; border: none; }

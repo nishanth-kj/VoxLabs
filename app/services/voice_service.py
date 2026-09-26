@@ -8,11 +8,14 @@ from sqlalchemy.orm import Session
 
 from app.constants.audio import STYLE_PRESETS
 from app.constants.consent_status import ConsentStatus
+from app.constants.models import DEFAULT_TTS_MODEL
 from app.constants.status import Status
+from app.constants.voices import EDGE_VOICES, KOKORO_VOICES, PIPER_VOICE
 from app.exceptions import ConsentError, NotFoundError, VoiceError, service_error
 from app.models import Voice, VoiceSample
 from app.models.request import VoiceRequest
 from app.services.consent_service import consent_service
+from app.services.system_service import system_service
 from app.utils.database import deleted_result, read_session, serialize, transaction
 from app.utils.files import remove_file, remove_tree, save_upload, subdir
 from app.utils.logger import logger
@@ -60,6 +63,60 @@ class VoiceService:
         if source == CLONE:
             voice.storage_dir = str(self.storage_dir(voice.voices_id))
         return voice
+
+    def ensure_builtin_voices(self) -> int:
+        """Create the Piper, Kokoro and Edge preset voices once, and pick Piper Lessac as the default."""
+        try:
+            if system_service.get_setting("builtin_voices_seeded"):
+                return 0
+            specs = [{
+                "name": PIPER_VOICE["name"],
+                "language": PIPER_VOICE["language"],
+                "description": PIPER_VOICE["description"],
+                "model_key": DEFAULT_TTS_MODEL,
+                "engine_voice": None,
+            }]
+            specs.extend(
+                {"name": voice["name"], "language": voice["language"], "description": voice["description"],
+                 "model_key": "kokoro-82m", "engine_voice": voice["id"]}
+                for voice in KOKORO_VOICES
+            )
+            specs.extend(
+                {"name": voice["name"], "language": voice["language"], "description": voice["description"],
+                 "model_key": "edge-neural", "engine_voice": voice["id"]}
+                for voice in EDGE_VOICES
+            )
+            added = 0
+            with transaction() as session:
+                existing = {
+                    (row.model_key, row.engine_voice)
+                    for row in session.scalars(select(Voice).where(Voice.status != Status.DELETED.code))
+                }
+                for spec in specs:
+                    if (spec["model_key"], spec["engine_voice"]) in existing:
+                        continue
+                    self.create_in(
+                        session, spec["name"], source=PRESET, engine_voice=spec["engine_voice"],
+                        model_key=spec["model_key"], language=spec["language"], description=spec["description"],
+                        consent_status=ConsentStatus.NOT_REQUIRED.code,
+                    )
+                    added += 1
+            if system_service.get_setting("default_voices_id") is None:
+                with read_session() as session:
+                    piper = session.scalar(
+                        select(Voice).where(
+                            Voice.model_key == DEFAULT_TTS_MODEL,
+                            Voice.engine_voice.is_(None),
+                            Voice.status != Status.DELETED.code,
+                        )
+                    )
+                if piper is not None:
+                    system_service.update_settings(default_voices_id=piper.voices_id)
+            system_service.update_settings(builtin_voices_seeded=True)
+            logger.info(f"Added {added} built-in voices")
+            return added
+        except Exception as exc:
+            raise service_error(exc, "voice_service.ensure_builtin_voices")
 
     def create(self, name: str | None, *, engine_voice: str | None = None, model_key: str | None = None,
                language: str | None = "en", description: str | None = "", users_id: int | None = None) -> dict:

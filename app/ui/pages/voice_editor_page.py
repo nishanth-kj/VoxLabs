@@ -84,7 +84,9 @@ class VoiceEditorPage(BasePage):
         self.name = QLineEdit()
         self.description = QLineEdit()
         self.language = QLineEdit()
-        self.model = ModelSelector(default_label="Default speech model")
+        self.model = ModelSelector(default_label="No speaking model")
+        self.model.setEnabled(False)
+        self.model.setToolTip("A voice stays on the model it was created with.")
         self.engine_voice = QLineEdit()
         self.engine_voice.setPlaceholderText("Kokoro af_heart, Edge en-US-AriaNeural, …")
         identity_form.addRow("Name", self.name)
@@ -119,7 +121,8 @@ class VoiceEditorPage(BasePage):
 
         self.player = AudioPlayer()
         self.root.addWidget(self.player)
-        state.data_changed.connect(lambda what: self.voice.refresh() if what == "voices" and self.isVisible() else None)
+        state.data_changed.connect(
+            lambda what: self.voice.refresh() if what in ("voices", "settings") and self.isVisible() else None)
 
     def refresh(self):
         self.voice.refresh()
@@ -151,7 +154,7 @@ class VoiceEditorPage(BasePage):
         self.name.setText(voice.get("name") or "")
         self.description.setText(voice.get("description") or "")
         self.language.setText(voice.get("language") or "en")
-        self.model.set_model_key(voice.get("model_key"))
+        self.model.set_model_key(voice.get("model_key"), force=True)
         self.engine_voice.setText(voice.get("engine_voice") or "")
         delivery = voice.get("delivery") or DELIVERY_DEFAULTS
         self.speed.setValue(float(delivery.get("speed", 1.0)))
@@ -179,7 +182,6 @@ class VoiceEditorPage(BasePage):
             "name": self.name.text().strip(),
             "description": self.description.text(),
             "language": self.language.text().strip() or "en",
-            "model_key": self.model.model_key(),
             "engine_voice": self.engine_voice.text().strip() or None,
             "delivery": {
                 "speed": self.speed.value(),
@@ -218,7 +220,7 @@ class VoiceEditorPage(BasePage):
         request = TTSRequest(
             text=text,
             voices_id=voice["voices_id"],
-            model_key=values["model_key"],
+            model_key=voice.get("model_key"),
             engine_voice=values["engine_voice"],
             **values["delivery"],
         )
