@@ -10,9 +10,9 @@
 - **Local TTS & Cloning Engines**:
   - **Piper (`piper-en-us-lessac-medium`)**: 63 MB, CPU/CUDA, fast offline neural TTS.
   - **Kokoro 82M (`kokoro-82m`)**: 330 MB, CPU/CUDA (~1 GB VRAM), expressive built-in voices (`af_heart`, `af_bella`, `bm_george`).
-  - **Coqui XTTS v2 (`xtts-v2`)**: 1.87 GB, multilingual zero-shot voice cloning + temperature/speed control.
-  - **F5-TTS (`f5-tts`)**: 1.35 GB, flow-matching zero-shot voice cloning + seed/speed control.
-  - **Chatterbox (`chatterbox`)**: 2.10 GB, zero-shot voice cloning + native emotion exaggeration, temperature, and seed control.
+  - **Coqui XTTS v2 (`xtts-v2`)**: 2.08 GB, multilingual zero-shot voice cloning + temperature/speed control.
+  - **F5-TTS (`f5-tts`)**: 1.40 GB, flow-matching zero-shot voice cloning + seed/speed control.
+  - **Chatterbox (`chatterbox`)**: 3.20 GB, zero-shot voice cloning + native emotion exaggeration, temperature, and seed control.
   - **VoxLabs MFCC Voice Profile**: Pitch-matched profile approximation on CPU.
   - **Online Engines (Opt-In Only)**: Microsoft Edge Neural (`edge-tts`) and Google TTS (`gTTS`), disabled unless `allow_online_models` is enabled in Settings.
 - **DSP & Audio Editor**: Non-destructive edit list (`audios.edit_ops`) with cut, copy, paste, trim, split, move, duplicate, join, silence insertion, fade in/out, gain, normalize, and 8-stage enhancement (`trim_silence -> denoise -> eq -> compress -> deess -> normalize -> limit -> loudness` targeting BS.1770 LUFS).

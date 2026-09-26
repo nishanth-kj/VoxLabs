@@ -16,6 +16,12 @@ FALLBACK_TTS_MODELS = ("chatterbox", "kokoro-82m", "piper-en-us-lessac-medium")
 
 KOKORO_DEFAULT_VOICE = "af_heart"
 
+
+def _hf(repo: str, path: str) -> str:
+    """Direct Hugging Face file URL. The desktop app downloads these without the Python extra."""
+    return f"https://huggingface.co/{repo}/resolve/main/{path}"
+
+
 # Every model VoxLabs knows about. `package` is the import that must succeed for
 # the backend to work; `extra` is the uv extra that installs it.
 MODEL_CATALOG = [
@@ -48,6 +54,13 @@ MODEL_CATALOG = [
         "package": "kokoro",
         "extra": "kokoro",
         "capabilities": ["tts", "speed", "voices", "local"],
+        "files": {
+            "config.json": _hf("hexgrad/Kokoro-82M", "config.json"),
+            "kokoro-v1_0.pth": _hf("hexgrad/Kokoro-82M", "kokoro-v1_0.pth"),
+            "voices/af_heart.pt": _hf("hexgrad/Kokoro-82M", "voices/af_heart.pt"),
+            "voices/af_bella.pt": _hf("hexgrad/Kokoro-82M", "voices/af_bella.pt"),
+            "voices/bm_george.pt": _hf("hexgrad/Kokoro-82M", "voices/bm_george.pt"),
+        },
     },
     {
         "key": "xtts-v2",
@@ -55,12 +68,20 @@ MODEL_CATALOG = [
         "model_type": ModelType.CLONE,
         "backend": Backend.XTTS,
         "version": "2.0.3",
-        "size_mb": 1870,
+        "size_mb": 2080,
         "vram_mb": 4000,
         "online": False,
         "package": "TTS",
         "extra": "xtts",
         "capabilities": ["tts", "clone", "multilingual", "temperature", "speed", "local"],
+        "files": {
+            "config.json": _hf("coqui/XTTS-v2", "config.json"),
+            "vocab.json": _hf("coqui/XTTS-v2", "vocab.json"),
+            "model.pth": _hf("coqui/XTTS-v2", "model.pth"),
+            "dvae.pth": _hf("coqui/XTTS-v2", "dvae.pth"),
+            "mel_stats.pth": _hf("coqui/XTTS-v2", "mel_stats.pth"),
+            "speakers_xtts.pth": _hf("coqui/XTTS-v2", "speakers_xtts.pth"),
+        },
     },
     {
         "key": "f5-tts",
@@ -68,12 +89,18 @@ MODEL_CATALOG = [
         "model_type": ModelType.CLONE,
         "backend": Backend.F5,
         "version": "1.0",
-        "size_mb": 1350,
+        "size_mb": 1400,
         "vram_mb": 3000,
         "online": False,
         "package": "f5_tts",
         "extra": "f5",
         "capabilities": ["tts", "clone", "speed", "seed", "local"],
+        "files": {
+            "model_1250000.safetensors": _hf("SWivid/F5-TTS", "F5TTS_v1_Base/model_1250000.safetensors"),
+            "vocab.txt": _hf("SWivid/F5-TTS", "F5TTS_v1_Base/vocab.txt"),
+            "vocos/config.yaml": _hf("charactr/vocos-mel-24khz", "config.yaml"),
+            "vocos/pytorch_model.bin": _hf("charactr/vocos-mel-24khz", "pytorch_model.bin"),
+        },
     },
     {
         "key": "chatterbox",
@@ -81,12 +108,19 @@ MODEL_CATALOG = [
         "model_type": ModelType.CLONE,
         "backend": Backend.CHATTERBOX,
         "version": "0.1",
-        "size_mb": 2100,
+        "size_mb": 3200,
         "vram_mb": 4000,
         "online": False,
         "package": "chatterbox",
         "extra": "chatterbox",
         "capabilities": ["tts", "clone", "emotion", "temperature", "seed", "local"],
+        "files": {
+            "ve.safetensors": _hf("ResembleAI/chatterbox", "ve.safetensors"),
+            "t3_cfg.safetensors": _hf("ResembleAI/chatterbox", "t3_cfg.safetensors"),
+            "s3gen.safetensors": _hf("ResembleAI/chatterbox", "s3gen.safetensors"),
+            "tokenizer.json": _hf("ResembleAI/chatterbox", "tokenizer.json"),
+            "conds.pt": _hf("ResembleAI/chatterbox", "conds.pt"),
+        },
     },
     {
         "key": "voice-profile-mfcc",

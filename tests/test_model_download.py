@@ -1,5 +1,7 @@
 """Model weights can be downloaded even when the optional Python extra is not installed."""
 
+from app.constants.models import MODEL_CATALOG
+
 import urllib.error
 
 import pytest
@@ -8,6 +10,14 @@ from app.exceptions import ModelError
 from app.services import model_service as model_service_module
 from app.services.model_service import model_service
 from app.utils.model import download
+
+
+def test_every_local_engine_has_weight_urls():
+    by_key = {entry["key"]: entry for entry in MODEL_CATALOG}
+    for key in ("piper-en-us-lessac-medium", "kokoro-82m", "xtts-v2", "f5-tts", "chatterbox"):
+        files = by_key[key].get("files") or {}
+        assert files, key
+        assert all(url.startswith("https://huggingface.co/") for url in files.values())
 
 
 def test_download_reports_http_errors(monkeypatch, tmp_path):

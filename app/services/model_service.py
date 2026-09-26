@@ -257,7 +257,9 @@ class ModelService:
                                         "reason": "Coqui license not accepted"})
                         continue
                     targets.append(model)
-                elif not package_ok and entry.get("extra"):
+                elif not package_ok and entry.get("extra") and not files:
+                    # Weights that have a URL are downloaded above. This is only for engines
+                    # whose library fetches its own files and is not installed yet.
                     skipped.append({"key": model["key"], "name": model["name"],
                                     "reason": f"run uv sync --extra {entry['extra']}"})
             downloaded: list[dict] = []

@@ -282,7 +282,12 @@ class KokoroBackend(ModelBackend):
         except ImportError as exc:
             raise ModelError("Kokoro is not installed. Run: uv sync --extra kokoro") from exc
         os.environ.setdefault("HF_HOME", str(self.model_dir))
-        self._model = KModel(repo_id=self.REPO).to(self.device).eval()
+        config = self.model_dir / "config.json"
+        weights = self.model_dir / "kokoro-v1_0.pth"
+        if config.is_file() and weights.is_file():
+            self._model = KModel(repo_id=self.REPO, config=str(config), model=str(weights)).to(self.device).eval()
+        else:
+            self._model = KModel(repo_id=self.REPO).to(self.device).eval()
         self._pipelines: dict[str, Any] = {}
         self.loaded = True
 
@@ -298,8 +303,10 @@ class KokoroBackend(ModelBackend):
         lang = name[0]
         if lang not in self._pipelines:
             self._pipelines[lang] = KPipeline(lang_code=lang, repo_id=self.REPO, model=self._model)
+        voice_file = self.model_dir / "voices" / f"{name}.pt"
+        voice_arg = str(voice_file) if voice_file.is_file() else name
         try:
-            results = self._pipelines[lang](request.text, voice=name, speed=request.speed)
+            results = self._pipelines[lang](request.text, voice=voice_arg, speed=request.speed)
             parts = [r.audio.detach().cpu().numpy() for r in results if r.audio is not None]
         except Exception as exc:
             if type(exc).__name__ in ("EntryNotFoundError", "RemoteEntryNotFoundError"):
@@ -321,8 +328,13 @@ class XTTSBackend(ModelBackend):
             from TTS.api import TTS  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
             raise ModelError("XTTS is not installed. Run: uv sync --extra xtts") from exc
-        os.environ.setdefault("TTS_HOME", str(self.model_dir))
-        self._tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(self.device)
+        model_path = self.model_dir / "model.pth"
+        config_path = self.model_dir / "config.json"
+        if model_path.is_file() and config_path.is_file():
+            self._tts = TTS(model_path=str(model_path), config_path=str(config_path)).to(self.device)
+        else:
+            os.environ.setdefault("TTS_HOME", str(self.model_dir))
+            self._tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(self.device)
         self.loaded = True
 
     def unload(self):
@@ -350,7 +362,17 @@ class F5Backend(ModelBackend):
         except ImportError as exc:
             raise ModelError("F5-TTS is not installed. Run: uv sync --extra f5") from exc
         os.environ.setdefault("HF_HOME", str(self.model_dir))
-        self._f5 = F5TTS(device=self.device)
+        kwargs: dict[str, Any] = {"device": self.device}
+        checkpoint = self.model_dir / "model_1250000.safetensors"
+        vocab = self.model_dir / "vocab.txt"
+        vocoder = self.model_dir / "vocos"
+        if checkpoint.is_file():
+            kwargs["ckpt_file"] = str(checkpoint)
+        if vocab.is_file():
+            kwargs["vocab_file"] = str(vocab)
+        if (vocoder / "config.yaml").is_file() and (vocoder / "pytorch_model.bin").is_file():
+            kwargs["vocoder_local_path"] = str(vocoder)
+        self._f5 = F5TTS(**kwargs)
         self.loaded = True
 
     def unload(self):
@@ -381,8 +403,12 @@ class ChatterboxBackend(ModelBackend):
             from chatterbox.tts import ChatterboxTTS  # pyright: ignore[reportMissingImports]
         except ImportError as exc:
             raise ModelError("Chatterbox is not installed. Run: uv sync --extra chatterbox") from exc
-        os.environ.setdefault("HF_HOME", str(self.model_dir))
-        self._model = ChatterboxTTS.from_pretrained(device=self.device)
+        weights = ("ve.safetensors", "t3_cfg.safetensors", "s3gen.safetensors", "tokenizer.json", "conds.pt")
+        if all((self.model_dir / name).is_file() for name in weights):
+            self._model = ChatterboxTTS.from_local(self.model_dir, self.device)
+        else:
+            os.environ.setdefault("HF_HOME", str(self.model_dir))
+            self._model = ChatterboxTTS.from_pretrained(device=self.device)
         self._builtin_conds = self._model.conds
         self._sample_conds: dict[tuple[str, float], Any] = {}
         self.loaded = True

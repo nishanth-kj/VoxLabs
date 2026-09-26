@@ -27,9 +27,9 @@ uv run python -m app.api.app --stdio  # Launch REST API + stdio MCP server
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `piper-en-us-lessac-medium` | Piper · en_US Lessac (medium) | Local TTS | 63 MB | 0 MB | `tts`, `speed`, `local` |
 | `kokoro-82m` | Kokoro 82M | Local TTS | 330 MB | ~1000 MB | `tts`, `speed`, `voices` (`af_heart`, `af_bella`, `bm_george`), `local` |
-| `xtts-v2` | Coqui XTTS v2 | Zero-Shot Clone | 1870 MB | ~4000 MB | `tts`, `clone`, `multilingual`, `temperature`, `speed`, `local` |
-| `f5-tts` | F5-TTS | Zero-Shot Clone | 1350 MB | ~3000 MB | `tts`, `clone`, `speed`, `seed`, `local` |
-| `chatterbox` | Chatterbox TTS | Zero-Shot Clone | 2100 MB | ~4000 MB | `tts`, `clone`, `emotion`, `temperature`, `seed`, `local` |
+| `xtts-v2` | Coqui XTTS v2 | Zero-Shot Clone | 2080 MB | ~4000 MB | `tts`, `clone`, `multilingual`, `temperature`, `speed`, `local` |
+| `f5-tts` | F5-TTS | Zero-Shot Clone | 1400 MB | ~3000 MB | `tts`, `clone`, `speed`, `seed`, `local` |
+| `chatterbox` | Chatterbox TTS | Zero-Shot Clone | 3200 MB | ~4000 MB | `tts`, `clone`, `emotion`, `temperature`, `seed`, `local` |
 | `voice-profile-mfcc` | VoxLabs Voice Profile (MFCC) | Profile Embed | 0 MB | 0 MB | `embed`, `clone`, `local` |
 | `dsp-enhance` | VoxLabs DSP Enhancement | Audio DSP | 0 MB | 0 MB | `denoise`, `eq`, `compress`, `limit`, `loudness`, `local` |
 | `gtts-emotional` | Emotional TTS (Google) | Online TTS (Opt-In) | 0 MB | 0 MB | `tts`, `emotion`, `speed`, `pitch`, `online` |

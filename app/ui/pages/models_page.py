@@ -95,7 +95,7 @@ class ModelsPage(BasePage):
 
     def download_all(self):
         xtts = next((model for model in self.models
-                     if model["backend"] == Backend.XTTS and not model["installed"] and model["package_installed"]),
+                     if model["backend"] == Backend.XTTS and not model["installed"] and not model.get("files_ready")),
                     None)
         accept = False
         if xtts:
