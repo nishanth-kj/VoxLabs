@@ -3,7 +3,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDoubleSpinBox,
     QFileDialog,
     QFrame,
@@ -41,6 +40,7 @@ from app.ui.pages import BasePage
 from app.ui.widgets.audio_player import AudioPlayer
 from app.ui.widgets.model_selector import ModelSelector
 from app.ui.widgets.voice_selector import VoiceSelector
+from app.ui.widgets.select import Select
 
 
 class GeneratePage(BasePage):
@@ -95,7 +95,7 @@ class GeneratePage(BasePage):
         self.player = AudioPlayer()
         lv.addWidget(self.player)
         out = QHBoxLayout()
-        self.format = QComboBox()
+        self.format = Select()
         self.format.addItems(EXPORT_FORMATS)
         export = QPushButton("Export…")
         export.clicked.connect(self.export)
@@ -129,9 +129,9 @@ class GeneratePage(BasePage):
         self.speed = self._spin(0.5, 2.0, 1.0)
         self.pitch = self._spin(0.5, 2.0, 1.0)
         self.energy = self._spin(0.1, 2.0, 1.0)
-        self.emotion = QComboBox()
+        self.emotion = Select()
         self.emotion.addItems(list(EMOTIONS))
-        self.style_box = QComboBox()
+        self.style_box = Select()
         self.style_box.addItems(list(STYLES))
         self.pause = QSpinBox()
         self.pause.setRange(0, 5000)
@@ -171,7 +171,7 @@ class GeneratePage(BasePage):
         hint = QLabel("The untouched original is always kept.")
         hint.setObjectName("Hint")
         pv.addWidget(hint)
-        self.preset = QComboBox()
+        self.preset = Select()
         self.preset.addItem("Custom steps", None)
         for name in ENHANCE_PRESETS:
             self.preset.addItem(name, name)

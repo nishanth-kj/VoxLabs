@@ -53,6 +53,7 @@ from app.ui.widgets.nav_bar import NavBar
 from app.ui.widgets.title_bar import TitleBar
 from app.utils.files import data_dir
 from app.utils.logger import logger
+from app.ui.widgets.select import choose_item
 
 RESIZE_MARGIN = 6
 WEBSITE_URL = "https://nishanth-kj.github.io/VoxLabs/"
@@ -295,8 +296,8 @@ class MainWindow(QMainWindow):
         options: list[dict | None] = [None, *projects]
         labels = ["No project (show all work)"] + [f"{p['name']}  · {p['project_type']}" for p in projects]
         current = next((i for i, p in enumerate(options) if p and p["projects_id"] == self.state.projects_id), 0)
-        label, ok = QInputDialog.getItem(self, "Open project", "Project:", labels, current, False)
-        if ok:
+        label = choose_item(self, "Open project", "Project:", labels, current)
+        if label is not None:
             self.state.set_project(options[labels.index(label)])
 
     def close_project(self) -> None:

@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 from app.services.system_service import system_service
 from app.ui import icons, theme
 from app.utils.logger import LOG_BUFFER_SIZE
+from app.ui.widgets.select import Select
 
 LEVEL_RANK = {"debug": 0, "info": 1, "warning": 2, "error": 3, "critical": 4}
 LEVEL_FILTERS = (("All levels", "debug"), ("Info and above", "info"), ("Warnings and errors", "warning"),
@@ -69,7 +70,7 @@ class LogPanel(QFrame):
         self.search.setPlaceholderText("Filter text")
         self.search.setClearButtonEnabled(True)
         self.search.setMaximumWidth(220)
-        self.search.textChanged.connect(lambda _t: self.render())
+        self.search.textChanged.connect(lambda _t: self.redraw())
         self.clear_button = self._tool("delete", "Clear the panel", self.clear)
         self.file_button = self._tool("open", "Open the full log file (all history)", self.open_log_file)
         self.close_button = self._tool("close", "Close panel", self._close)
@@ -101,11 +102,11 @@ class LogPanel(QFrame):
         self.poll()
 
     def _combo(self, options, tip: str) -> QComboBox:
-        combo = QComboBox()
+        combo = Select()
         for label, value in options:
             combo.addItem(label, value)
         combo.setToolTip(tip)
-        combo.currentIndexChanged.connect(lambda _i: self.render())
+        combo.currentIndexChanged.connect(lambda _i: self.redraw())
         return combo
 
     def _tool(self, icon_name: str, tip: str, handler) -> QToolButton:
@@ -159,7 +160,7 @@ class LogPanel(QFrame):
 
     # ------------------------------------------------------------ rendering
 
-    def render(self) -> None:
+    def redraw(self) -> None:
         """Redraw every kept record (after a filter or theme change)."""
         self.view.clear()
         for record in self.records:
@@ -195,7 +196,7 @@ class LogPanel(QFrame):
     def refresh_icons(self) -> None:
         for button in (self.clear_button, self.file_button, self.close_button):
             button.setIcon(icons.icon(button.property("icon_name"), size=14))
-        self.render()
+        self.redraw()
 
     # ------------------------------------------------------------ actions
 

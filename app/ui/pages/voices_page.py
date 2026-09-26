@@ -5,7 +5,6 @@ from datetime import datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -30,6 +29,7 @@ from app.ui.widgets.audio_player import AudioPlayer
 from app.ui.widgets.model_selector import ModelSelector
 from app.ui.widgets.voice_selector import voice_matches
 from app.utils.time import local_display
+from app.ui.widgets.select import Select
 
 COLUMNS = ("Name", "Type", "Samples", "Consent", "Status", "Language", "Created", "Updated")
 
@@ -81,7 +81,7 @@ class VoicesPage(BasePage):
         self.search.setPlaceholderText("Search voices")
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(lambda _text: self._show(self.voices))
-        self.model_filter = QComboBox()
+        self.model_filter = Select()
         self.model_filter.currentIndexChanged.connect(lambda _i: self._show(self.voices))
         filters.addWidget(self.search, 1)
         filters.addWidget(self.model_filter)

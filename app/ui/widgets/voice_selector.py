@@ -1,21 +1,10 @@
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QAbstractItemView, QComboBox, QCompleter, QFrame, QLineEdit, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QLineEdit, QSizePolicy, QVBoxLayout, QWidget
 
 from app.services.model_service import model_service
 from app.services.system_service import system_service
 from app.services.voice_service import voice_service
-
-
-def _polish_popup(combo: QComboBox) -> None:
-    """Keep the open list a fixed row height so the last voice is not cut off."""
-    combo.setMaxVisibleItems(12)
-    view = combo.view()
-    view.setUniformItemSizes(True)
-    view.setSpacing(0)
-    view.setFrameShape(QFrame.Shape.NoFrame)
-    view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    view.setTextElideMode(Qt.TextElideMode.ElideRight)
-    view.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+from app.ui.widgets.select import Select
 
 
 def voice_matches(voice: dict, query: str, model_key: str | None, *, allow_edge: bool | None = None) -> bool:
@@ -39,7 +28,8 @@ class VoiceSelector(QWidget):
     """Voice picker with a text search and a model filter.
 
     `filters=False` keeps only the combo, for tight rows such as a speaker table.
-    Typing in the combo still searches, and Microsoft Edge stays hidden while its setting is off.
+    The open list starts with a search box (typing filters it), and Microsoft Edge stays hidden
+    while its setting is off.
     """
 
     currentIndexChanged = Signal(int)
@@ -57,7 +47,7 @@ class VoiceSelector(QWidget):
         self.search.setPlaceholderText("Search voices")
         self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(lambda _text: self._fill())
-        self.model_filter = QComboBox()
+        self.model_filter = Select()
         self.model_filter.currentIndexChanged.connect(lambda _i: self._fill())
         self.search.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.model_filter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -68,21 +58,11 @@ class VoiceSelector(QWidget):
             self.search.hide()
             self.model_filter.hide()
 
-        self.combo = QComboBox()
+        self.combo = Select()
         self.combo.setMinimumWidth(0)
         self.combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        if filters:
-            self.combo.setEditable(True)
-            self.combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-            completer = QCompleter(self.combo.model(), self)
-            completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
-            completer.setFilterMode(Qt.MatchFlag.MatchContains)
-            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-            self.combo.setCompleter(completer)
         self.combo.currentIndexChanged.connect(self.currentIndexChanged.emit)
         layout.addWidget(self.combo)
-        _polish_popup(self.model_filter)
-        _polish_popup(self.combo)
         self.refresh()
 
     def refresh(self):

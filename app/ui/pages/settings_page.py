@@ -28,6 +28,7 @@ from app.ui.pages import BasePage
 from app.ui.widgets.model_selector import ModelSelector
 from app.ui.widgets.voice_selector import VoiceSelector
 from app.utils import device
+from app.ui.widgets.select import Select
 
 
 class SettingsPage(BasePage):
@@ -40,7 +41,7 @@ class SettingsPage(BasePage):
 
         appearance = QGroupBox("Appearance")
         appearance_form = QFormLayout(appearance)
-        self.theme = QComboBox()
+        self.theme = Select()
         for mode, label in (("system", "Match system"), ("dark", "Dark"), ("light", "Light")):
             self.theme.addItem(label, mode)
         self.native_title_bar = QCheckBox("Use the system title bar (applies after restart)")
@@ -50,11 +51,11 @@ class SettingsPage(BasePage):
 
         audio = QGroupBox("Audio")
         audio_form = QFormLayout(audio)
-        self.output_device = QComboBox()
-        self.input_device = QComboBox()
-        self.export_format = QComboBox()
+        self.output_device = Select()
+        self.input_device = Select()
+        self.export_format = Select()
         self.export_format.addItems(list(EXPORT_FORMATS))
-        self.sample_rate = QComboBox()
+        self.sample_rate = Select()
         for rate in SAMPLE_RATES:
             self.sample_rate.addItem(f"{rate} Hz", rate)
         self.output_dir = QLineEdit()
@@ -65,7 +66,7 @@ class SettingsPage(BasePage):
         out_row.addWidget(browse)
         out_widget = QWidget()
         out_widget.setLayout(out_row)
-        self.enhance_preset = QComboBox()
+        self.enhance_preset = Select()
         self.enhance_preset.addItems(list(ENHANCE_PRESETS))
         audio_form.addRow("Output device", self.output_device)
         audio_form.addRow("Input device", self.input_device)
@@ -84,7 +85,7 @@ class SettingsPage(BasePage):
         self.allow_online = QCheckBox("Allow online engines (sends text to Google / Microsoft)")
         self.allow_edge = QCheckBox("Microsoft Edge voices")
         self.allow_edge.setToolTip("Off hides every Microsoft Edge voice. Turn this on to use them.")
-        self.device = QComboBox()
+        self.device = Select()
         voice_form.addRow("Default voice", self.default_voice)
         voice_form.addRow("Default speech model", self.default_tts)
         voice_form.addRow("Default cloning model", self.default_clone)
@@ -114,7 +115,7 @@ class SettingsPage(BasePage):
         general = QGroupBox("General")
         general_form = QFormLayout(general)
         self.autosave = QCheckBox("Autosave editor state")
-        self.log_level = QComboBox()
+        self.log_level = Select()
         self.log_level.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
         logs_hint = QLabel("Logs are in the bottom panel: View → Logs Panel (Ctrl+`).")
         logs_hint.setObjectName("Hint")

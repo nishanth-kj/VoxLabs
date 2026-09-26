@@ -7,12 +7,31 @@
 from dataclasses import dataclass
 from string import Template
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QGuiApplication, QPalette
-from PySide6.QtWidgets import QApplication, QHeaderView, QTableWidget, QTreeWidget, QWidget
+import shiboken6
+from PySide6.QtCore import QEvent, QModelIndex, QObject, QRectF, QSize, Qt
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QGuiApplication, QKeyEvent, QPainter, QPalette
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QComboBox,
+    QFrame,
+    QHeaderView,
+    QLineEdit,
+    QListView,
+    QMenu,
+    QStyle,
+    QStyledItemDelegate,
+    QTableWidget,
+    QTreeWidget,
+    QWidget,
+)
 
 THEMES = ("system", "dark", "light")
 UI_FONTS = ("Segoe UI Variable Text", "Segoe UI", "Inter", "SF Pro Text", "Helvetica Neue", "Ubuntu", "Cantarell")
+POPUP_MAX_ROWS = 8
+POPUP_ROW_HEIGHT = 32
+SEARCH_HEIGHT = 30
+SEARCH_GAP = 4
 
 
 @dataclass(frozen=True)
@@ -151,9 +170,10 @@ QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleS
     border-color: $accent; }
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled { color: $text_disabled; }
 QLineEdit, QSpinBox, QDoubleSpinBox { min-height: 22px; }
-QComboBox { min-height: 32px; padding: 4px 28px 4px 8px; }
+QComboBox { min-height: 32px; padding: 4px 30px 4px 10px; border-radius: 10px; combobox-popup: 0; }
 QSpinBox, QDoubleSpinBox { padding-right: 24px; }
-QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 26px; border: none; }
+QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 16px;
+    border: none; border-top-right-radius: 10px; border-bottom-right-radius: 10px; background: transparent; }
 QComboBox::down-arrow { image: url($chevron_down); width: 12px; height: 12px; }
 QComboBox::down-arrow:disabled { image: none; }
 /* The inner editor inherits QLineEdit padding, which clips the bottom of an editable combo. */
@@ -193,28 +213,39 @@ QListWidget::item:hover, QTreeWidget::item:hover, QTableWidget::item:hover { bac
 QListWidget::item:selected, QTreeWidget::item:selected, QTableWidget::item:selected {
     background: $selection; color: $text; }
 QGroupBox QListWidget, QGroupBox QTreeWidget, QGroupBox QTableWidget { background: transparent; border: none; }
-/* Combo popup. The shared list style (radius, padding) clips the last row, so this list is separate. */
-QComboBox QListView {
+/* Select popup. `combobox-popup: 0` above opens it below the select, or above when there is no room.
+   Its window is transparent (polish_combo_popup), so only this rounded list shows; _PopupRowDelegate
+   paints the rows and #ComboSearch is the search box at the top of every list. */
+#ComboPopup { background: transparent; border: none; }
+#ComboSearch { background: $surface_alt; border: 1px solid $border; border-radius: 6px; padding: 0 8px;
+    min-height: 0; color: $text; }
+#ComboSearch:focus { border-color: $accent; }
+QComboBox QListView, #ComboPopup QListView {
     background: $surface;
     alternate-background-color: $surface;
     color: $text;
     border: 1px solid $border_strong;
-    border-radius: 0;
-    padding: 4px 0;
+    border-radius: 10px;
+    padding: 4px;
     margin: 0;
     outline: 0;
 }
-QComboBox QListView::item {
+QComboBox QListView::item, #ComboPopup QListView::item {
     height: 32px;
-    padding: 0 12px;
+    padding: 0;
     margin: 0;
     border: none;
-    border-radius: 0;
     background: transparent;
     color: $text;
 }
-QComboBox QListView::item:hover { background: $hover; color: $text; }
-QComboBox QListView::item:selected { background: $selection; color: $text; }
+QComboBox QListView::item:hover, #ComboPopup QListView::item:hover { background: transparent; }
+QComboBox QListView::item:selected, #ComboPopup QListView::item:selected { background: transparent; color: $text; }
+#ComboPopup QScrollBar:vertical { background: transparent; width: 8px; margin: 10px 3px 10px 0; }
+/* With a search box, the scrollbar starts under it (the box sits above the rows in the same list). */
+#ComboPopup QListView[search="true"] QScrollBar:vertical { margin-top: $search_bar_top; }
+#ComboPopup QScrollBar::handle:vertical { background: $border_strong; border-radius: 3px; min-height: 24px; }
+#ComboPopup QScrollBar::add-line:vertical, #ComboPopup QScrollBar::sub-line:vertical { height: 0; width: 0; border: none; background: none; }
+#ComboPopup QScrollBar::add-page:vertical, #ComboPopup QScrollBar::sub-page:vertical { background: none; }
 QHeaderView { background: transparent; }
 /* Speaker mapping: one row divider, no box around the voice select. */
 #SpeakerMap { background: transparent; border: none; border-radius: 0; padding: 0; }
@@ -239,7 +270,8 @@ QScrollBar::handle:vertical { background: $border_strong; border-radius: 3px; mi
 QScrollBar:horizontal { background: transparent; height: 10px; margin: 2px; }
 QScrollBar::handle:horizontal { background: $border_strong; border-radius: 3px; min-width: 28px; }
 QScrollBar::handle:hover { background: $text_muted; }
-QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
+QScrollBar::add-line, QScrollBar::sub-line,
+QComboBox QScrollBar::add-line, QComboBox QScrollBar::sub-line { width: 0; height: 0; border: none; background: none; }
 QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 
 /* ---------- status bar ---------- */
@@ -311,6 +343,223 @@ def _palette(c: ThemeColors) -> QPalette:
     return palette
 
 
+def _transparent_popup(window: QWidget) -> None:
+    """Let a popup window show only its rounded content: no square background, no square system shadow.
+
+    Must run before the window is first shown. Turning transparency on later leaves black corners on
+    Windows, because the native window already exists without an alpha channel.
+    """
+    window.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+    window.setWindowFlag(Qt.WindowType.NoDropShadowWindowHint, True)
+    window.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+
+
+class _PopupRowDelegate(QStyledItemDelegate):
+    """Rows of an open select: a rounded highlight inset from the edges (the stylesheet can only draw square bars)."""
+
+    def paint(self, painter: QPainter, option, index) -> None:
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        colors = current()
+        enabled = bool(option.state & QStyle.StateFlag.State_Enabled)
+        selected = enabled and bool(option.state & QStyle.StateFlag.State_Selected)
+        hover = enabled and bool(option.state & QStyle.StateFlag.State_MouseOver)
+        if selected or hover:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(colors.accent if selected else colors.hover))
+            painter.drawRoundedRect(QRectF(option.rect).adjusted(2, 1, -2, -1), 6.0, 6.0)
+        text = str(index.data(Qt.ItemDataRole.DisplayRole) or "")
+        if not enabled:
+            painter.setPen(QColor(colors.text_disabled))
+        elif selected:
+            painter.setPen(QColor(colors.accent_text))
+        else:
+            painter.setPen(QColor(colors.text))
+        painter.setFont(option.font)
+        painter.drawText(
+            option.rect.adjusted(10, 0, -10, 0),
+            int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+            option.fontMetrics.elidedText(text, Qt.TextElideMode.ElideRight, max(option.rect.width() - 20, 20)),
+        )
+        painter.restore()
+
+    def sizeHint(self, option, index) -> QSize:
+        hint = super().sizeHint(option, index)
+        hint.setHeight(POPUP_ROW_HEIGHT)
+        return hint
+
+
+class _PopupSearch(QObject):
+    """Search as the first row of an open select: a real text box whose text filters the rows below it.
+
+    Click it to place the cursor or select text, or just start typing while the list is open: the keys
+    move into the box. From the box, Up/Down move through the matches, Enter picks the highlighted one
+    and Esc closes the list. The box sits in a top viewport margin of the list, which Qt counts when it
+    sizes the popup, so the popup still opens at its final size below the select (or above it when
+    there is no room).
+    """
+
+    NAVIGATION = (Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_PageUp, Qt.Key.Key_PageDown)
+
+    def __init__(self, combo: QComboBox, view: QListView, container: QWidget):
+        super().__init__(combo)
+        self.combo, self.view, self.container = combo, view, container
+        self.box = QLineEdit(view)
+        self.box.setObjectName("ComboSearch")
+        self.box.setPlaceholderText("Type to search")
+        self.box.setClearButtonEnabled(True)
+        self.box.hide()
+        self.box.textChanged.connect(self.search)
+        self.box.installEventFilter(self)
+        view.installEventFilter(self)
+        container.installEventFilter(self)
+        model = combo.model()
+        for signal in (model.rowsInserted, model.rowsRemoved, model.modelReset, model.layoutChanged):
+            signal.connect(self.reserve_space)
+        self.reserve_space()
+
+    def active(self) -> bool:
+        return not self.combo.isEditable()
+
+    def reserve_space(self, *_args) -> None:
+        active = self.active()
+        self.view.setViewportMargins(0, SEARCH_HEIGHT + SEARCH_GAP if active else 0, 0, 0)
+        self.box.setVisible(active)
+        self._place_box()
+        if self.view.property("search") != active:
+            self.view.setProperty("search", active)  # moves the scrollbar under the box (stylesheet)
+            bar = self.view.verticalScrollBar()
+            bar.style().unpolish(bar)
+            bar.style().polish(bar)
+
+    def _place_box(self) -> None:
+        area = self.view.contentsRect()
+        self.box.setGeometry(area.left() + 2, area.top(), area.width() - 4, SEARCH_HEIGHT)
+
+    def search(self, text: str) -> None:
+        """Show only rows containing every word of `text` (any case, any order) and highlight the first
+        one that can be chosen."""
+        words = text.lower().split()
+        needle = " ".join(words)
+        model, column = self.combo.model(), self.combo.modelColumn()
+        first = None
+        for row in range(self.combo.count()):
+            label = self.combo.itemText(row).lower()
+            match = all(word in label for word in words)
+            self.view.setRowHidden(row, not match)
+            if match and first is None and model.flags(model.index(row, column)) & Qt.ItemFlag.ItemIsEnabled:
+                first = row
+        if not needle:
+            self.view.setCurrentIndex(model.index(self.combo.currentIndex(), column))
+        elif first is None:
+            self.view.setCurrentIndex(QModelIndex())  # nothing to choose: Enter does nothing
+        else:
+            self.view.setCurrentIndex(model.index(first, column))
+
+    def choose(self) -> None:
+        """Pick the highlighted row, the way a click on it would."""
+        index = self.view.currentIndex()
+        if not index.isValid() or not index.flags() & Qt.ItemFlag.ItemIsEnabled:
+            return
+        row = index.row()
+        self.combo.hidePopup()
+        self.combo.setCurrentIndex(row)
+        self.combo.activated.emit(row)
+        self.combo.textActivated.emit(self.combo.itemText(row))
+
+    def reset(self) -> None:
+        """Empty search, every row back, for the next open. The highlight is left alone: Qt reads it
+        right after hiding the popup to know which row was chosen."""
+        self.box.blockSignals(True)
+        self.box.clear()
+        self.box.blockSignals(False)
+        for row in range(self.combo.count()):
+            self.view.setRowHidden(row, False)
+
+    def _box_key(self, event: QKeyEvent) -> bool:
+        """Keys typed in the box: navigation goes to the list, Enter picks, Esc closes."""
+        key = event.key()
+        if key in self.NAVIGATION:
+            QApplication.sendEvent(self.view, QKeyEvent(event.type(), key, event.modifiers()))
+            return True
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self.choose()
+            return True
+        if key == Qt.Key.Key_Escape:
+            self.combo.hidePopup()
+            return True
+        return False
+
+    def _list_key(self, event: QKeyEvent) -> bool:
+        """Typing while the list has focus: move the keys into the box and keep typing there."""
+        modifiers = event.modifiers() & (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier
+                                         | Qt.KeyboardModifier.MetaModifier)
+        if event.key() == Qt.Key.Key_Backspace:
+            self.box.setFocus()
+            self.box.backspace()
+            return True
+        if not modifiers and event.text() and event.text().isprintable():
+            self.box.setFocus()
+            self.box.insert(event.text())
+            return True
+        return False
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if not shiboken6.isValid(self.combo):
+            return False  # app shutdown: Qt hides the popup after the select itself is gone
+        kind = event.type()
+        if watched is self.container:
+            if kind == QEvent.Type.Hide and self.box.text():
+                self.reset()
+        elif watched is self.view and kind == QEvent.Type.Resize:
+            self._place_box()
+        elif isinstance(event, QKeyEvent) and self.active() and self.container.isVisible():
+            if kind == QEvent.Type.ShortcutOverride and watched is self.box and event.key() in (
+                    Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Escape):
+                event.accept()  # handled on the key press below, not as a window shortcut
+                return True
+            if kind == QEvent.Type.KeyPress:
+                if watched is self.box:
+                    return self._box_key(event)
+                if watched is self.view:
+                    return self._list_key(event)
+        return False
+
+
+def polish_combo_popup(combo: QComboBox) -> None:
+    """A select's list as a rounded dropdown with rounded row highlights and a search box first.
+
+    Qt's own popup is kept, so keyboard, wheel and item states behave as usual.
+    """
+    if combo.property("popup_polished"):
+        return
+    combo.setProperty("popup_polished", True)
+    combo.setMaxVisibleItems(POPUP_MAX_ROWS)
+    view = combo.view()
+    view.setItemDelegate(_PopupRowDelegate(view))
+    view.setFrameShape(QFrame.Shape.NoFrame)
+    view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    view.setTextElideMode(Qt.TextElideMode.ElideRight)
+    view.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+    view.setMouseTracking(True)
+    container = view.window()  # Qt's popup window around the list, created by view()
+    if container is combo.window():
+        return
+    container.setObjectName("ComboPopup")
+    _transparent_popup(container)
+    if isinstance(view, QListView):
+        view.setUniformItemSizes(True)
+        view.setSpacing(0)
+        _PopupSearch(combo, view, container)
+
+
+def polish_menu(menu: QMenu) -> None:
+    """Rounded menus (see the QMenu stylesheet) without a square backdrop."""
+    if not menu.property("popup_polished"):
+        menu.setProperty("popup_polished", True)
+        _transparent_popup(menu)
+
+
 def apply_theme(app: QApplication, mode: str | None) -> ThemeColors:
     """Apply "dark", "light" or "system" to the whole application and return its colors."""
     global _current, _mode
@@ -336,12 +585,17 @@ def apply_theme(app: QApplication, mode: str | None) -> ThemeColors:
         "chevron_down": icons.icon_file("chevron_down", _current.text_muted),
         "chevron_up": icons.icon_file("chevron_up", _current.text_muted),
     }
-    app.setStyleSheet(STYLESHEET.substitute({**vars(_current), **images}))
+    sizes = {"search_bar_top": f"{SEARCH_HEIGHT + SEARCH_GAP + 10}px"}
+    app.setStyleSheet(STYLESHEET.substitute({**vars(_current), **images, **sizes}))
     return _current
 
 
 def polish_views(root: QWidget) -> None:
-    """Uniform tables under `root`: left-aligned headers, columns sized to fit their text, no grid."""
+    """Uniform tables (left-aligned headers, columns sized to fit, no grid), select popups and menus under `root`."""
+    for combo in root.findChildren(QComboBox):
+        polish_combo_popup(combo)
+    for menu in root.findChildren(QMenu):
+        polish_menu(menu)
     for table in root.findChildren(QTableWidget):
         header = table.horizontalHeader()
         header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)

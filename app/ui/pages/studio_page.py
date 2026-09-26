@@ -2,7 +2,6 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QComboBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -28,6 +27,7 @@ from app.ui.widgets.voice_selector import VoiceSelector
 from app.ui.widgets.waveform import WaveformWidget
 from app.utils import audio as au
 from app.utils.time import format_duration
+from app.ui.widgets.select import Select
 
 
 class StudioPage(BasePage):
@@ -40,7 +40,7 @@ class StudioPage(BasePage):
         self.clips: list[dict] = []
 
         header = QHBoxLayout()
-        self.script_box = QComboBox()
+        self.script_box = Select()
         self.script_box.setMinimumWidth(280)
         self.script_box.activated.connect(lambda _i: self._load_script(self.script_box.currentData()))
         header.addWidget(QLabel("Script"))

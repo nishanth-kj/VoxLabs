@@ -6,7 +6,6 @@ are what Generate and script-to-audio use for this voice.
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
@@ -30,6 +29,7 @@ from app.ui.widgets.audio_player import AudioPlayer
 from app.ui.widgets.model_selector import ModelSelector
 from app.ui.widgets.voice_selector import VoiceSelector
 from app.utils.time import format_duration
+from app.ui.widgets.select import Select
 
 
 class VoiceEditorPage(BasePage):
@@ -101,15 +101,15 @@ class VoiceEditorPage(BasePage):
         self.speed = self._spin(0.5, 2.0, 1.0)
         self.pitch = self._spin(0.5, 2.0, 1.0)
         self.energy = self._spin(0.1, 2.0, 1.0)
-        self.emotion = QComboBox()
+        self.emotion = Select()
         self.emotion.addItems(list(EMOTIONS))
-        self.style = QComboBox()
-        self.style.addItems(list(STYLES))
+        self.style_box = Select()
+        self.style_box.addItems(list(STYLES))
         delivery_form.addRow("Speed", self.speed)
         delivery_form.addRow("Pitch", self.pitch)
         delivery_form.addRow("Energy", self.energy)
         delivery_form.addRow("Emotion", self.emotion)
-        delivery_form.addRow("Style", self.style)
+        delivery_form.addRow("Style", self.style_box)
         form_layout.addWidget(delivery)
 
         self.preview_text = QLineEdit("This is how the edited voice sounds with the selected model.")
@@ -165,7 +165,7 @@ class VoiceEditorPage(BasePage):
             self.emotion.setCurrentText(emotion)
         style = delivery.get("style") or "default"
         if style in STYLES:
-            self.style.setCurrentText(style)
+            self.style_box.setCurrentText(style)
         self.samples.clear()
         for sample in voice.get("samples") or []:
             item = QListWidgetItem(f"{format_duration(sample.get('duration') or 0)}  ·  sample {sample['voice_samples_id']}")
@@ -188,7 +188,7 @@ class VoiceEditorPage(BasePage):
                 "pitch": self.pitch.value(),
                 "energy": self.energy.value(),
                 "emotion": self.emotion.currentText(),
-                "style": self.style.currentText(),
+                "style": self.style_box.currentText(),
             },
         }
 

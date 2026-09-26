@@ -14,7 +14,6 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -45,6 +44,7 @@ from app.ui.widgets.waveform import WaveformWidget
 from app.utils import audio as au
 from app.utils.logger import logger
 from app.utils.time import format_duration
+from app.ui.widgets.select import Select, choose_item
 
 
 class LibraryDialog(QDialog):
@@ -138,7 +138,7 @@ class EditorPage(BasePage):
 
         effects = QGroupBox("Effects (apply to selection, or whole file when nothing is selected)")
         ef = QFormLayout(effects)
-        self.preset = QComboBox()
+        self.preset = Select()
         self.preset.addItems([p for p in ENHANCE_PRESETS if p != "Raw"])
         apply_preset = QPushButton("Apply enhancement preset")
         apply_preset.setObjectName("Primary")
@@ -527,9 +527,8 @@ class EditorPage(BasePage):
             return
         formats = list(EXPORT_FORMATS)
         default = system_service.get_setting("export_format")
-        fmt, ok = QInputDialog.getItem(self, "Export", "Format:", formats,
-                                       formats.index(default) if default in formats else 0, False)
-        if not ok:
+        fmt = choose_item(self, "Export", "Format:", formats, formats.index(default) if default in formats else 0)
+        if fmt is None:
             return
         start = Path(system_service.get_setting("output_dir") or ".") / f"{self.audio['name']}.{fmt}"
         path, _ = QFileDialog.getSaveFileName(self, "Export audio", str(start), f"*.{fmt}")

@@ -191,3 +191,80 @@ def test_theme_menu_choice_reaches_settings(window, qtbot):
     assert system_service.get_setting("theme") == "light"
     window.set_theme("system")  # hands the scheme back to the OS
     qtbot.waitUntil(lambda: settings.theme.currentData() == "system", timeout=5000)
+
+
+def test_select_opens_below_with_search_first(qtbot):
+    """Selects open under the box on a transparent window; long ones start with a search row."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QComboBox, QLineEdit, QVBoxLayout, QWidget
+
+    from app.ui import theme
+
+    theme.apply_theme(QApplication.instance(), "dark")
+    host = QWidget()
+    qtbot.addWidget(host)
+    combo, short = QComboBox(), QComboBox()
+    combo.addItems([f"Voice {i}" for i in range(12)])
+    short.addItems(["Match system", "Dark", "Light"])
+    layout = QVBoxLayout(host)
+    layout.addWidget(combo)
+    layout.addWidget(short)
+    host.setGeometry(40, 40, 300, 120)
+    theme.polish_views(host)
+    host.show()
+
+    combo.showPopup()
+    popup, view = combo.view().window(), combo.view()
+    qtbot.waitUntil(popup.isVisible)
+    assert popup.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)  # no black corners
+    assert popup.geometry().top() >= combo.mapToGlobal(combo.rect().bottomLeft()).y()  # below, not over it
+    search = view.findChild(QLineEdit, "ComboSearch")
+    assert search.isVisible() and search.geometry().bottom() < view.viewport().geometry().top()  # first row
+
+    assert not search.isReadOnly()  # a real input: click to place the cursor, select, type
+    qtbot.mouseClick(search, Qt.MouseButton.LeftButton)
+    assert search.hasFocus() and popup.isVisible()
+    qtbot.keyClicks(search, "1 voice")  # every word, any order
+    assert [combo.itemText(r) for r in range(combo.count()) if not view.isRowHidden(r)] == \
+        ["Voice 1", "Voice 10", "Voice 11"]
+    qtbot.keyClick(search, Qt.Key.Key_Down)  # Up/Down move through the matches from the box
+    qtbot.keyClick(search, Qt.Key.Key_Return)
+    assert combo.currentText() == "Voice 10" and not popup.isVisible()
+    assert not any(view.isRowHidden(r) for r in range(combo.count()))  # the next open shows every row
+
+    combo.showPopup()
+    qtbot.waitUntil(popup.isVisible)
+    view.setFocus()
+    qtbot.keyClicks(view, "11")  # typing on the list moves into the box
+    assert search.text() == "11" and search.hasFocus()
+    qtbot.keyClick(search, Qt.Key.Key_Escape)
+    assert not popup.isVisible() and combo.currentText() == "Voice 10"
+
+    short.showPopup()
+    qtbot.waitUntil(short.view().window().isVisible)
+    assert short.view().findChild(QLineEdit, "ComboSearch").isVisible()
+    short.hidePopup()
+
+
+def test_every_select_is_the_app_select(window, qtbot):
+    """Every select in the window, and the item-picker dialog, gets the rounded list with search first."""
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication, QComboBox, QLineEdit
+
+    from app.ui.widgets.select import choose_item
+
+    combos = window.findChildren(QComboBox)
+    assert len(combos) > 20
+    assert [c for c in combos if not c.property("popup_polished")] == []
+    assert all(c.view().findChild(QLineEdit, "ComboSearch") is not None for c in combos)
+
+    seen = {}
+
+    def accept_dialog():
+        dialog = QApplication.activeModalWidget()
+        seen["polished"] = bool(dialog.findChild(QComboBox).property("popup_polished"))
+        dialog.accept()
+
+    QTimer.singleShot(0, accept_dialog)
+    assert choose_item(window, "Export", "Format:", ["wav", "mp3"], 1) == "mp3"
+    assert seen["polished"]

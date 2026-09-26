@@ -1,13 +1,13 @@
 from typing import cast
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QStandardItemModel
-from PySide6.QtWidgets import QAbstractItemView, QComboBox, QFrame
+from PySide6.QtWidgets import QComboBox
 
 from app.services.model_service import model_service
+from app.ui.widgets.select import Select
 
 
-class ModelSelector(QComboBox):
+class ModelSelector(Select):
     """Speech models; unusable ones are listed but disabled with a reason."""
 
     def __init__(self, parent=None, model_types: tuple[str, ...] | None = None,
@@ -18,14 +18,6 @@ class ModelSelector(QComboBox):
         self.default_label = default_label
         self.speaking_only = speaking_only
         self.setMinimumWidth(240)
-        self.setMaxVisibleItems(12)
-        view = self.view()
-        view.setUniformItemSizes(True)
-        view.setSpacing(0)
-        view.setFrameShape(QFrame.Shape.NoFrame)
-        view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        view.setTextElideMode(Qt.TextElideMode.ElideRight)
-        view.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.refresh()
 
     def refresh(self, preferred: str | None = None):

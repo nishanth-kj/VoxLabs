@@ -3,7 +3,6 @@
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
@@ -37,6 +36,7 @@ from app.ui.widgets.audio_player import AudioPlayer
 from app.ui.widgets.model_selector import ModelSelector
 from app.ui.widgets.voice_selector import VoiceSelector
 from app.utils.time import format_duration
+from app.ui.widgets.select import Select
 
 EXAMPLE = """Lesson 1
 
@@ -204,11 +204,11 @@ class ScriptPage(BasePage):
         self.section_voice = VoiceSelector(none_label="Use speaker mapping")
         self.section_speed = self._spin(0.0, 2.0)
         self.section_pitch = self._spin(0.0, 2.0)
-        self.section_emotion = QComboBox()
+        self.section_emotion = Select()
         self.section_emotion.addItem("Script default", None)
         for emotion in EMOTIONS:
             self.section_emotion.addItem(emotion, emotion)
-        self.section_style = QComboBox()
+        self.section_style = Select()
         self.section_style.addItem("Script default", None)
         for style in STYLES:
             self.section_style.addItem(style, style)
@@ -251,11 +251,11 @@ class ScriptPage(BasePage):
         self.default_model = ModelSelector()
         self.default_model.currentIndexChanged.connect(self._filter_voices_to_model)
         self.default_speed = self._spin(0.0, 2.0)
-        self.default_emotion = QComboBox()
+        self.default_emotion = Select()
         self.default_emotion.addItems(list(EMOTIONS))
-        self.default_style = QComboBox()
+        self.default_style = Select()
         self.default_style.addItems(list(STYLES))
-        self.final_preset = QComboBox()
+        self.final_preset = Select()
         self.final_preset.addItems(list(ENHANCE_PRESETS))
         self.speak_headings = QCheckBox("Read headings aloud")
         self.intro = QPlainTextEdit()
