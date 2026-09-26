@@ -74,6 +74,27 @@ def test_edit_ops():
         audio_service.apply_edit_ops(y, sr, [{"op": "explode"}])
 
 
+def test_edit_ops_persist_on_audio_without_a_project(voice_wav):
+    audio = audio_service.import_file(voice_wav)
+    assert audio["projects_id"] is None and audio["edit_ops"] == []
+    ops = [{"op": "delete", "start": 0, "end": 1}, {"op": "gain", "start": 0, "end": 1, "db": -3}]
+    audio_service.save_edit_ops(audio["audios_id"], ops)
+    assert audio_service.get(audio["audios_id"])["edit_ops"] == ops
+    # Non-destructive: the file on disk is untouched.
+    assert au.info(audio["path"])["duration"] == pytest.approx(4.0, abs=0.01)
+
+
+def test_time_stretch_and_pitch_shift():
+    sr = 16000
+    y = (0.3 * np.sin(2 * np.pi * 200 * np.arange(sr) / sr)).astype(np.float32)
+    fast = au.time_stretch(y, 2.0)
+    assert fast.dtype == np.float32 and fast.size == sr // 2
+    assert au.time_stretch(y, 1.0) is y
+    up = au.pitch_shift(y, sr, 12)
+    assert up.dtype == np.float32 and up.size == y.size
+    assert au.estimate_pitch_hz(up, sr) == pytest.approx(400, rel=0.05)
+
+
 def test_render_edits_split_join_and_export(voice_wav, tmp_path):
     source = audio_service.import_file(voice_wav)
     edited = audio_service.render_edits(source["audios_id"], [{"op": "delete", "start": 0, "end": 1}])

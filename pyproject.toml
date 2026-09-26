@@ -50,6 +50,8 @@ conflicts = [
 testpaths = ["tests"]
 pythonpath = ["."]
 qt_api = "pyside6"
+# Keep the suite warning-free: a new deprecation fails the run instead of scrolling past.
+filterwarnings = ["error"]
 
 [tool.pyright]
 include = ["app", "tests"]

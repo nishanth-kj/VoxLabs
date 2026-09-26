@@ -7,6 +7,7 @@ import pytest
 from app.constants.status import Status
 from app.exceptions import JobError, NotFoundError, ValidationError
 from app.models.request import TTSRequest
+from app.services.audio_service import audio_service
 from app.services.job_service import job_service
 from app.services.project_service import project_service
 from app.services.script_service import script_service
@@ -25,9 +26,12 @@ def test_project_lifecycle(tmp_path):
     assert project_service.get(project["projects_id"])["edit_state"] == {"zoom": 2}
     assert project_service.rename_project(project["projects_id"], "Course v2")["name"] == "Course v2"
 
+    ops = [{"op": "delete", "start": 0, "end": 0.1}]
+    audio_service.save_edit_ops(opened["audios"][0]["audios_id"], ops)
     copy = project_service.duplicate_project(project["projects_id"])
     copied = project_service.open_project(copy["projects_id"])
     assert copied["takes"] == 1 and len(copied["audios"]) == len(opened["audios"])
+    assert ops in [a["edit_ops"] for a in copied["audios"]]
     assert {a["path"] for a in copied["audios"]}.isdisjoint({a["path"] for a in opened["audios"]})
 
     archive = project_service.export_project(project["projects_id"], tmp_path / "course.zip")

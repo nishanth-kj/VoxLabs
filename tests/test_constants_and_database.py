@@ -1,11 +1,17 @@
+import json
+
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 
 from app.constants.base_enum import BaseEnum
 from app.constants.consent_status import ConsentStatus
 from app.constants.status import Status
 from app.models import User
-from app.utils.database import Base, get_engine, read_session, transaction
+from app.models.request import TTSRequest
+from app.services.audio_service import audio_service
+from app.services.project_service import project_service
+from app.services.tts_service import tts_service
+from app.utils.database import Base, get_engine, init_db, read_session, transaction
 
 
 def test_base_enum_code_and_value():
@@ -75,3 +81,18 @@ def test_timestamps_are_set_and_updated():
         assert user.status == Status.ACTIVE.code
         assert user.updated_at >= created
         assert user.created_at is not None
+
+
+def test_upgrade_moves_editor_ops_from_project_onto_audio():
+    """A database from an earlier 3.0 build has no audios.edit_ops; init_db adds it and moves project ops."""
+    project = project_service.create_project("Old")
+    audio = tts_service.generate(TTSRequest(text="Legacy edits.", projects_id=project["projects_id"]))
+    ops = [{"op": "delete", "start": 0, "end": 0.2}]
+    with get_engine().begin() as conn:
+        conn.execute(text("ALTER TABLE audios DROP COLUMN edit_ops"))
+        conn.execute(text("UPDATE projects SET edit_state = :state"),
+                     {"state": json.dumps({"zoom": 2, "editor": {str(audio["audios_id"]): ops}})})
+    init_db()
+    assert audio_service.get(audio["audios_id"])["edit_ops"] == ops
+    assert project_service.get(project["projects_id"])["edit_state"] == {"zoom": 2}
+    init_db()  # idempotent
