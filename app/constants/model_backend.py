@@ -4,6 +4,7 @@ class Backend:
     EMOTIONAL = "emotional"  # gTTS + librosa DSP (online, opt-in)
     EDGE = "edge"  # Microsoft Edge neural TTS (online, opt-in)
     PIPER = "piper"
+    KOKORO = "kokoro"
     XTTS = "xtts"
     F5 = "f5"
     CHATTERBOX = "chatterbox"

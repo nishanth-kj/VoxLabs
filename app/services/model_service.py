@@ -12,7 +12,15 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.constants.jobs import JobType
-from app.constants.models import CLONING_BACKENDS, DEFAULT_TTS_MODEL, MODEL_CATALOG, Backend, ModelType
+from app.constants.models import (
+    CLONING_BACKENDS,
+    DEFAULT_TTS_MODEL,
+    FALLBACK_TTS_MODELS,
+    FETCH_ON_LOAD_BACKENDS,
+    MODEL_CATALOG,
+    Backend,
+    ModelType,
+)
 from app.constants.status import Status
 from app.exceptions import ModelError, NotFoundError, ValidationError, service_error
 from app.models import Model
@@ -22,7 +30,15 @@ from app.utils import device as device_utils
 from app.utils.database import read_session, serialize, transaction
 from app.utils.files import remove_tree, subdir
 from app.utils.logger import logger
-from app.utils.model import ModelBackend, backend_class, create_backend, download, package_installed
+from app.utils.model import (
+    ModelBackend,
+    backend_class,
+    create_backend,
+    download,
+    free_cuda_memory,
+    is_cuda_oom,
+    package_installed,
+)
 
 _CATALOG = {entry["key"]: entry for entry in MODEL_CATALOG}
 # Backends that are built into VoxLabs and never synthesize speech.
@@ -178,7 +194,7 @@ class ModelService:
                     logger.info(f"Downloading {name} for {key}")
                     download(url, target, cancelled=cancelled,
                              progress=(lambda v, i=index: progress((i + v) / len(files))) if progress else None)
-            if model["backend"] in CLONING_BACKENDS:
+            if model["backend"] in FETCH_ON_LOAD_BACKENDS:
                 # These libraries fetch their weights on first load; do it now so the download is visible.
                 if model["backend"] == Backend.XTTS:
                     import os
@@ -252,7 +268,17 @@ class ModelService:
                 if key in self._loaded:
                     return self.get(key)
                 backend = create_backend(model["backend"], self.model_dir(key), self.pick_device(model, device))
-                backend.load()
+                try:
+                    backend.load()
+                except Exception as exc:
+                    if not (backend.device.startswith("cuda") and is_cuda_oom(exc)):
+                        raise
+                    # The GPU is too full (e.g. a local LLM is running): retry on the CPU instead of failing.
+                    logger.warning(f"Not enough GPU memory for {key}; loading it on the CPU instead")
+                    backend.unload()
+                    free_cuda_memory()
+                    backend = create_backend(model["backend"], self.model_dir(key), "cpu")
+                    backend.load()
                 self._loaded[key] = backend
             logger.info(f"Model {key} loaded on {backend.device}")
             return self.get(key)
@@ -326,7 +352,8 @@ class ModelService:
             raise service_error(exc, "model_service.select")
 
     def resolve_speech_model(self, model_ref: str | None = None, voice: dict | None = None) -> dict:
-        """Pick the model for a generation: explicit > the voice's cloning model > default."""
+        """Pick the model for a generation: explicit > the voice's cloning model > default > first
+        installed model in FALLBACK_TTS_MODELS."""
         try:
             if model_ref:
                 model = self.get(model_ref)
@@ -335,6 +362,9 @@ class ModelService:
                 model = self.get(voice["model_key"])
             else:
                 model = self.get(system_service.get_setting("default_tts_model") or DEFAULT_TTS_MODEL)
+                if not model["installed"]:
+                    model = next((m for m in map(self._catalog_model, FALLBACK_TTS_MODELS)
+                                  if m and m["installed"] and m["allowed"]), model)
             if not model["speaks"]:
                 raise ModelError(f"{model['name']} cannot generate speech")
             if not model["installed"]:
@@ -344,6 +374,12 @@ class ModelService:
             return model
         except Exception as exc:
             raise service_error(exc, "model_service.resolve_speech_model")
+
+    def _catalog_model(self, key: str) -> dict | None:
+        try:
+            return self.get(key)
+        except NotFoundError:
+            return None
 
     def backend_for(self, model_ref: str) -> ModelBackend:
         """Return a loaded backend, loading it on first use."""

@@ -22,6 +22,12 @@ dependencies = [
 
 [project.optional-dependencies]
 piper = ["piper-tts>=1.2"]
+kokoro = [
+    "kokoro>=0.9.4",
+    # misaki (Kokoro's phonemizer) downloads this spaCy model on first use when it is missing;
+    # installing it here keeps generation offline.
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+]
 xtts = ["coqui-tts>=0.24"]
 f5 = ["f5-tts>=1.0"]
 chatterbox = ["chatterbox-tts>=0.1"]

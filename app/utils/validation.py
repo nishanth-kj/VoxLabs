@@ -11,6 +11,7 @@ types before it is sent in an ApiResponse.
 """
 
 import math
+import re
 from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
@@ -25,6 +26,7 @@ from app.utils.logger import logger
 
 MAX_TEXT_LENGTH = 200_000
 MAX_LIMIT = 1000
+_ENGINE_VOICE = re.compile(r"[A-Za-z0-9_.:-]{1,80}")
 
 
 class Validation:
@@ -113,6 +115,16 @@ class Validation:
         if emotion not in EMOTIONS:
             raise ValidationError(f"Unknown emotion '{emotion}'", field="emotion")
         return emotion
+
+    @staticmethod
+    def optional_engine_voice(value: str | None, field: str = "engine_voice") -> str | None:
+        """A built-in engine voice id such as Kokoro "af_heart" or Edge "en-US-AriaNeural"."""
+        cleaned = (value or "").strip()
+        if not cleaned:
+            return None
+        if not _ENGINE_VOICE.fullmatch(cleaned):
+            raise ValidationError("Engine voice must be a short id like 'af_heart'", field=field)
+        return cleaned
 
     @staticmethod
     def require_choice(value: str, choices, field: str) -> str:

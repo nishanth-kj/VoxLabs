@@ -12,6 +12,7 @@ import asyncio
 import importlib.util
 import io
 import os
+import threading
 import urllib.request
 import wave
 from collections.abc import Callable
@@ -22,7 +23,7 @@ from typing import Any
 import numpy as np
 import soundfile as sf
 
-from app.constants.models import EDGE_DEFAULT_VOICE, Backend
+from app.constants.models import EDGE_DEFAULT_VOICE, KOKORO_DEFAULT_VOICE, Backend
 from app.exceptions import ModelError
 from app.utils import audio as audio_utils
 from app.utils.logger import logger
@@ -35,7 +36,7 @@ class VoiceRef:
     sample_paths: list[str] = field(default_factory=list)
     language: str = "en"
     pitch_hz: float = 0.0
-    engine_voice: str | None = None  # e.g. an Edge voice short name
+    engine_voice: str | None = None  # a built-in engine voice, e.g. Kokoro "af_heart" or an Edge short name
 
 
 @dataclass
@@ -57,11 +58,15 @@ class ModelBackend:
     supports_cloning = False
     # Parameters the engine handles itself; the rest are applied with DSP afterwards.
     native_params: frozenset[str] = frozenset()
+    # Longest text the engine speaks well in one call; None uses TTS_CHUNK_CHARS.
+    max_chunk_chars: int | None = None
 
     def __init__(self, model_dir: Path, device: str = "cpu"):
         self.model_dir = Path(model_dir)
         self.device = device
         self.loaded = False
+        # One generation at a time: GPU memory and these models are not safe to share between threads.
+        self.lock = threading.Lock()
 
     def load(self) -> None:
         self.loaded = True
@@ -149,6 +154,21 @@ def _torch_to_numpy(wav) -> np.ndarray:
     return np.asarray(wav, dtype=np.float32).squeeze()
 
 
+def is_cuda_oom(exc: BaseException) -> bool:
+    """True for torch's CUDA out-of-memory error, matched by name so torch is never imported here."""
+    return type(exc).__name__ == "OutOfMemoryError" or "CUDA out of memory" in str(exc)
+
+
+def free_cuda_memory() -> None:
+    try:
+        import torch  # pyright: ignore[reportMissingImports]
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except ImportError:
+        pass
+
+
 # ---------------------------------------------------------------- online backends (opt-in)
 
 class EmotionalBackend(ModelBackend):
@@ -226,6 +246,53 @@ class PiperBackend(ModelBackend):
         return _decode_bytes(buf.getvalue())
 
 
+class KokoroBackend(ModelBackend):
+    """Kokoro 82M (hexgrad, Apache-2.0): small and fast, fine on CPU. Built-in voices only, picked with
+    `engine_voice` (af_heart, af_bella, bm_george, ...); the first letter is the language."""
+
+    REPO = "hexgrad/Kokoro-82M"
+    SAMPLE_RATE = 24000
+
+    _model: Any = None
+    backend_id = Backend.KOKORO
+    native_params = frozenset({"speed"})
+    # KPipeline splits long input itself; this only bounds one call.
+    max_chunk_chars = 500
+
+    def load(self):
+        try:
+            from kokoro import KModel  # pyright: ignore[reportMissingImports]
+        except ImportError as exc:
+            raise ModelError("Kokoro is not installed. Run: uv sync --extra kokoro") from exc
+        os.environ.setdefault("HF_HOME", str(self.model_dir))
+        self._model = KModel(repo_id=self.REPO).to(self.device).eval()
+        self._pipelines: dict[str, Any] = {}
+        self.loaded = True
+
+    def unload(self):
+        self._model = None
+        self._pipelines = {}
+        self.loaded = False
+
+    def synthesize(self, request, voice):
+        from kokoro import KPipeline  # pyright: ignore[reportMissingImports]
+
+        name = (voice.engine_voice if voice else None) or KOKORO_DEFAULT_VOICE
+        lang = name[0]
+        if lang not in self._pipelines:
+            self._pipelines[lang] = KPipeline(lang_code=lang, repo_id=self.REPO, model=self._model)
+        try:
+            results = self._pipelines[lang](request.text, voice=name, speed=request.speed)
+            parts = [r.audio.detach().cpu().numpy() for r in results if r.audio is not None]
+        except Exception as exc:
+            if type(exc).__name__ in ("EntryNotFoundError", "RemoteEntryNotFoundError"):
+                raise ModelError(f"Kokoro has no voice '{name}'", field="engine_voice") from exc
+            raise
+        if not parts:
+            raise ModelError("Kokoro returned no audio for this text")
+        return np.concatenate(parts).astype(np.float32), self.SAMPLE_RATE
+
+
 class XTTSBackend(ModelBackend):
     _tts: Any = None
     backend_id = Backend.XTTS
@@ -283,10 +350,14 @@ class F5Backend(ModelBackend):
 
 
 class ChatterboxBackend(ModelBackend):
+    """Chatterbox (Resemble AI, MIT). Speaks in its built-in voice, or clones the voice's first sample."""
+
     _model: Any = None
     backend_id = Backend.CHATTERBOX
     supports_cloning = True
     native_params = frozenset({"temperature", "emotion"})
+    # Chatterbox starts to drift or cut off past a couple of sentences.
+    max_chunk_chars = 280
 
     def load(self):
         try:
@@ -295,30 +366,48 @@ class ChatterboxBackend(ModelBackend):
             raise ModelError("Chatterbox is not installed. Run: uv sync --extra chatterbox") from exc
         os.environ.setdefault("HF_HOME", str(self.model_dir))
         self._model = ChatterboxTTS.from_pretrained(device=self.device)
+        self._builtin_conds = self._model.conds
+        self._sample_conds: dict[tuple[str, float], Any] = {}
         self.loaded = True
 
     def unload(self):
         self._model = None
+        self._builtin_conds = None
+        self._sample_conds = {}
         self.loaded = False
 
     def synthesize(self, request, voice):
-        refs = self._require_reference(voice)
         if request.seed is not None:
             import torch  # pyright: ignore[reportMissingImports]
 
             torch.manual_seed(request.seed)
         exaggeration = {"neutral": 0.5, "calm": 0.3, "sad": 0.4}.get(request.emotion, 0.7)
+        # generate(audio_prompt_path=...) replaces the model's current voice, so the conditionals for
+        # each sample are prepared once and swapped in explicitly.
+        self._model.conds = self._conds(voice, exaggeration)
         wav = self._model.generate(
-            request.text, audio_prompt_path=refs[0], exaggeration=exaggeration,
+            request.text, exaggeration=exaggeration,
+            cfg_weight=0.6 if request.emotion == "calm" else 0.5,
             temperature=request.temperature if request.temperature is not None else 0.8,
         )
         return _torch_to_numpy(wav), int(self._model.sr)
+
+    def _conds(self, voice: VoiceRef | None, exaggeration: float) -> Any:
+        if not voice or not voice.sample_paths:
+            return self._builtin_conds
+        sample = Path(voice.sample_paths[0])
+        key = (str(sample.resolve()), sample.stat().st_mtime)
+        if key not in self._sample_conds:
+            self._model.prepare_conditionals(str(sample), exaggeration=exaggeration)
+            self._sample_conds[key] = self._model.conds
+        return self._sample_conds[key]
 
 
 _BACKENDS: dict[str, type[ModelBackend]] = {
     Backend.EMOTIONAL: EmotionalBackend,
     Backend.EDGE: EdgeBackend,
     Backend.PIPER: PiperBackend,
+    Backend.KOKORO: KokoroBackend,
     Backend.XTTS: XTTSBackend,
     Backend.F5: F5Backend,
     Backend.CHATTERBOX: ChatterboxBackend,

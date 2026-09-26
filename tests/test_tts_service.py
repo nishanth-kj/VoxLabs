@@ -5,11 +5,14 @@ import pytest
 from app.constants.audio import AI_GENERATED_TAG
 from app.exceptions import ModelError, ValidationError
 from app.models.request import RegenerateRequest, TTSRequest
+from app.services import model_service as model_service_module
 from app.services.clone_service import clone_service
 from app.services.model_service import model_service
 from app.services.system_service import system_service
 from app.services.tts_service import _chunks, apply_pronunciations, split_sentences, tts_service
 from app.utils import audio as au
+from app.utils.model import register_backend
+from tests.conftest import FakeBackend
 
 
 def test_split_sentences_and_pause_tags():
@@ -70,3 +73,60 @@ def test_clone_voice_with_cloning_model_and_fallback(voice_wav, consent):
     profile_voice = clone_service.clone([voice_wav], "Profile", consent)
     matched = tts_service.generate(TTSRequest(text="Approximate my voice.", voices_id=profile_voice["voices_id"]))
     assert matched["params"]["model_key"] == "fake-tts" and matched["params"]["cloned"] is False
+
+
+def test_chunks_follow_the_engine_limit():
+    text = "First sentence here. Second sentence here. Third sentence here."
+    assert len(_chunks(text)) == 1
+    assert [c for c, _ in _chunks(text, max_chars=45)] == [
+        "First sentence here. Second sentence here.", "Third sentence here."]
+
+
+def test_cache_returns_the_earlier_audio():
+    first = tts_service.generate(TTSRequest(text="Cache me once.", cache=True))
+    again = tts_service.generate(TTSRequest(text="Cache me once.", cache=True, name="Other label"))
+    assert first["cached"] is False and again["cached"] is True
+    assert again["audios_id"] == first["audios_id"]
+    different = tts_service.generate(TTSRequest(text="Cache me once.", cache=True, speed=1.5))
+    assert different["audios_id"] != first["audios_id"]
+    uncached = tts_service.generate(TTSRequest(text="Cache me once."))
+    assert uncached["audios_id"] != first["audios_id"] and uncached["cached"] is False
+
+
+def test_engine_voice_reaches_the_backend():
+    seen = []
+
+    class RecordingBackend(FakeBackend):
+        def synthesize(self, request, voice):
+            seen.append(voice.engine_voice if voice else None)
+            return super().synthesize(request, voice)
+
+    register_backend("fake", RecordingBackend)
+    audio = tts_service.generate(TTSRequest(text="Pick a built-in voice.", engine_voice="af_bella"))
+    assert seen == ["af_bella"] and audio["params"]["engine_voice"] == "af_bella"
+    with pytest.raises(ValidationError):
+        tts_service.generate(TTSRequest(text="Hi", engine_voice="not a voice!"))
+
+
+def test_falls_back_to_an_installed_model(monkeypatch):
+    monkeypatch.setattr(model_service_module, "FALLBACK_TTS_MODELS", ("xtts-v2", "fake-tts"))
+    system_service.update_settings(default_tts_model="piper-en-us-lessac-medium")  # not installed in tests
+    audio = tts_service.generate(TTSRequest(text="Fallback please."))
+    assert audio["params"]["model_key"] == "fake-tts"
+    with pytest.raises(ModelError, match="not installed"):
+        tts_service.generate(TTSRequest(text="Explicit model.", model_key="piper-en-us-lessac-medium"))
+
+
+def test_gpu_out_of_memory_loads_on_cpu(monkeypatch):
+    class OutOfMemoryError(RuntimeError):
+        pass
+
+    class GreedyBackend(FakeBackend):
+        def load(self):
+            if self.device.startswith("cuda"):
+                raise OutOfMemoryError("CUDA out of memory")
+            super().load()
+
+    register_backend("fake", GreedyBackend)
+    monkeypatch.setattr(model_service, "pick_device", lambda model, requested=None: "cuda:0")
+    assert model_service.load("fake-tts")["loaded_device"] == "cpu"

@@ -15,7 +15,7 @@ VoxLabs is a native Python desktop application (PySide6). An optional REST API e
 - **Audio editor.** Non-destructive waveform editing: select, cut, copy, paste, delete, split, trim, move, duplicate, join, fade, volume, normalize, undo/redo and loop playback.
 - **Enhancement.** Denoise, EQ, compression, de-esser, limiter and loudness, with the presets Voice Clean, Podcast, Narration, Lesson, Studio and Raw. Originals are always kept.
 - **Projects.** Group scripts, takes and audio. Duplicate projects or export them to a zip. Editor state is autosaved.
-- **Local models.** Piper, XTTS v2, F5-TTS and Chatterbox run on this machine (CPU or CUDA). Online engines (Google, Microsoft Edge) are opt-in.
+- **Local models.** Piper, Kokoro, XTTS v2, F5-TTS and Chatterbox run on this machine (CPU or CUDA, falling back to the CPU when the GPU is full). Online engines (Google, Microsoft Edge) are opt-in.
 - **Background jobs.** Long work never freezes the UI. You can see progress and cancel jobs.
 
 All generated audio is flagged as AI-generated in the library and tagged in the file metadata.
@@ -30,12 +30,18 @@ uv sync --extra piper            # + Piper, a fast offline TTS engine (recommend
 uv run python -m app.main        # start the desktop app
 ```
 
-On first launch, open **Models** and install *Piper · en_US Lessac*, a 63 MB download. For real zero-shot cloning, install one of the heavier engines:
+On first launch, open **Models** and install *Piper · en_US Lessac*, a 63 MB download. For more natural narration that still runs well on a CPU, add Kokoro (82M parameters, about 330 MB, built-in voices such as `af_heart` and `af_bella`):
+
+```bash
+uv sync --extra piper --extra kokoro
+```
+
+For real zero-shot cloning, install one of the heavier engines:
 
 ```bash
 uv sync --extra xtts             # Coqui XTTS v2 (non-commercial CPML license)
 uv sync --extra f5               # F5-TTS
-uv sync --extra chatterbox       # Chatterbox
+uv sync --extra chatterbox       # Chatterbox (also speaks without a cloned voice, in its built-in voice)
 ```
 
 These pull in PyTorch. A CUDA GPU is strongly recommended.

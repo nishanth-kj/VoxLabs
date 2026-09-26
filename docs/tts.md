@@ -6,21 +6,32 @@
 
 ```
 text → validate → pronunciations → resolve voice → resolve model → load backend
-     → chunk (≤ 400 chars, sentence-aligned, [pause] tags) → synthesize each chunk
+     → chunk (sentence-aligned, [pause] tags; ≤ 400 chars, or the engine's own limit)
+     → synthesize each chunk (one generation at a time per engine)
      → join with pauses → pitch-match (profile voices) → prosody DSP
      → save original WAV → clean-up steps → processed WAV → audios row (ai_generated)
 ```
 
 - `synthesize(...)` returns `(audio, sample_rate, info)` in memory.
-- `generate(...)` does the full pipeline and returns the `audios` dict. The raw output is kept as `original_path`.
+- `generate(...)` does the full pipeline and returns the `audios` dict plus `cached`. The raw output is kept as `original_path`.
 - `generate_async(...)` does the same in a background job.
+
+### Cache
+
+With `cache: true`, `generate` first hashes everything that changes the sound (text, every speech setting, the resolved model and the voice's last update) and returns the newest generated audio with the same hash whose file still exists, with `cached: true`. Nothing is generated or saved. This is meant for pipelines that regenerate the same lines repeatedly, such as video narration. Leave it off (the default) to get a new take every time.
+
+### Loading and fallbacks
+
+- When a model does not fit in free GPU memory while loading, it is loaded on the CPU instead.
+- When no model is requested and `default_tts_model` is not installed, the first installed model in `FALLBACK_TTS_MODELS` (`app/constants/models.py`: Chatterbox, Kokoro, Piper) is used. An explicitly requested model never falls back.
 
 ## Parameters
 
 | Parameter | Range | Notes |
 |---|---|---|
 | `voices_id` | — | Cloned or preset voice. Omit it for the engine's default voice. |
-| `model_key` | — | Resolved in this order: explicit key → the voice's own cloning model (if installed) → `default_tts_model`. |
+| `engine_voice` | short id | One of the engine's built-in voices, e.g. Kokoro `af_heart` / `af_bella` / `bm_george` or an Edge short name. Overrides the voice's own `engine_voice`. |
+| `model_key` | — | Resolved in this order: explicit key → the voice's own cloning model (if installed) → `default_tts_model` → the first installed fallback model. |
 | `speed`, `pitch` | 0.5–2.0 | Passed to the engine when it supports them, otherwise applied with librosa. |
 | `energy` | 0.1–2.0 | Gain, with peak protection. |
 | `emotion` | neutral, happy, sad, angry, calm, excited, fearful, confident | A preset multiplier on speed, pitch and energy. Chatterbox handles emotion natively. |
@@ -30,6 +41,7 @@ text → validate → pronunciations → resolve voice → resolve model → loa
 | `temperature` | 0.1–1.5 | XTTS and Chatterbox only. |
 | `seed` | int | F5 and Chatterbox only. |
 | `post` / `preset` | — | Clean-up steps. The default is trim silence + normalize. `{}` means raw output. See [audio-engine.md](audio-engine.md). |
+| `cache` | bool | Return an identical earlier generation instead of generating again (see above). |
 
 ## Sentence-level work
 
@@ -42,9 +54,10 @@ text → validate → pronunciations → resolve voice → resolve model → loa
 | Backend | Install | Runs | Native params |
 |---|---|---|---|
 | Piper | `uv sync --extra piper`, then install the voice on the Models page | local CPU/GPU | speed |
+| Kokoro 82M | `--extra kokoro`, then install it on the Models page (weights download on first load) | local, fine on CPU | speed; built-in voices via `engine_voice` (default `af_heart`) |
 | XTTS v2 | `--extra xtts` (CPML, non-commercial) | local, GPU recommended | speed, temperature; cloning |
 | F5-TTS | `--extra f5` | local, GPU recommended | speed, seed; cloning |
-| Chatterbox | `--extra chatterbox` | local, GPU recommended | emotion, temperature, seed; cloning |
+| Chatterbox | `--extra chatterbox` | local, GPU recommended | emotion, temperature, seed; cloning, or its built-in voice without a cloned voice |
 | Emotional (gTTS) | base | **online** (Google), opt-in | — |
 | Edge neural | base | **online** (Microsoft), opt-in | speed, pitch; preset voices via `engine_voice` |
 

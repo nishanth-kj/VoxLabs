@@ -4,6 +4,9 @@ Flow: validate → resolve voice → resolve model → synthesize (chunked) →
 shape prosody → save the untouched original → post-process → audios record.
 """
 
+import dataclasses
+import hashlib
+import json
 import re
 from collections.abc import Callable
 
@@ -28,7 +31,7 @@ from app.utils import audio as au
 from app.utils.database import transaction
 from app.utils.files import subdir, unique_path
 from app.utils.logger import logger
-from app.utils.model import SynthesisRequest, apply_prosody
+from app.utils.model import SynthesisRequest, VoiceRef, apply_prosody
 from app.utils.validation import Validation
 
 _SENTENCE_END = re.compile(r"(?<=[.!?…])[\"')\]]*\s+(?=[\"'(\[]?[A-Z0-9À-ÖØ-Þ])")
@@ -45,8 +48,8 @@ def split_sentences(text: str) -> list[str]:
     return sentences
 
 
-def _chunks(text: str) -> list[tuple[str, int]]:
-    """(text, pause_after_ms) chunks no longer than TTS_CHUNK_CHARS, honouring [pause N] tags."""
+def _chunks(text: str, max_chars: int = TTS_CHUNK_CHARS) -> list[tuple[str, int]]:
+    """(text, pause_after_ms) chunks no longer than `max_chars`, honouring [pause N] tags."""
     pieces: list[tuple[str, int]] = []
     position = 0
     for match in _PAUSE_TAG.finditer(text):
@@ -65,7 +68,7 @@ def _chunks(text: str) -> list[tuple[str, int]]:
             continue
         current = ""
         for sentence in split_sentences(piece):
-            if current and len(current) + len(sentence) + 1 > TTS_CHUNK_CHARS:
+            if current and len(current) + len(sentence) + 1 > max_chars:
                 chunks.append((current, -1))
                 current = sentence
             else:
@@ -95,11 +98,15 @@ class TTSService:
             temperature = body.temperature
             if temperature is not None:
                 temperature = Validation.in_range(temperature, 0.1, 1.5, "temperature", 0.7)
+            engine_voice = Validation.optional_engine_voice(body.engine_voice)
             voices_id, seed, pause_ms = body.voices_id, body.seed, body.pause_ms
 
             voice_ref, voice = (None, None)
             if voices_id:
                 voice_ref, voice = voice_service.voice_ref(voices_id)
+            if engine_voice:
+                voice_ref = dataclasses.replace(voice_ref, engine_voice=engine_voice) if voice_ref \
+                    else VoiceRef(engine_voice=engine_voice)
             model = model_service.resolve_speech_model(body.model_key, voice)
             backend = model_service.backend_for(model["key"])
             native = backend.native_params
@@ -118,13 +125,14 @@ class TTSService:
                 speed=eff_speed if "speed" in native else 1.0, pitch=eff_pitch if "pitch" in native else 1.0,
                 emotion=emotion, style=style, temperature=temperature, seed=seed,
             )
-            chunks = _chunks(apply_pronunciations(text, body.pronunciations))
+            chunks = _chunks(apply_pronunciations(text, body.pronunciations), backend.max_chunk_chars or TTS_CHUNK_CHARS)
             logger.info(f"TTS: {len(text)} characters in {len(chunks)} chunk(s) with {model['key']}")
             parts: list[np.ndarray] = []
             sr = 0
             for index, (chunk, pause_after) in enumerate(chunks):
                 request.text = chunk
-                y, chunk_sr = backend.synthesize(request, voice_ref)
+                with backend.lock:
+                    y, chunk_sr = backend.synthesize(request, voice_ref)
                 if sr and chunk_sr != sr:
                     y = au.resample(y, chunk_sr, sr)
                 sr = sr or chunk_sr
@@ -153,6 +161,7 @@ class TTSService:
                 "text": text,
                 "voices_id": voices_id,
                 "voice_name": voice["name"] if voice else None,
+                "engine_voice": engine_voice,
                 "model_key": model["key"],
                 "online": model["online"],
                 "cloned": cloned,
@@ -166,9 +175,32 @@ class TTSService:
         except Exception as exc:
             raise service_error(exc, "tts_service.synthesize")
 
-    def generate(self, body: TTSRequest, progress: Callable[[float], None] | None = None) -> dict:
-        """Generate, save original + processed files and create the audios record."""
+    def cache_key(self, body: TTSRequest) -> str:
+        """Everything that changes the sound: text, settings, the resolved model and the voice's version."""
         try:
+            voice = voice_service.get(body.voices_id, with_samples=False) if body.voices_id else None
+            model = model_service.resolve_speech_model(body.model_key, voice)
+            settings = body.model_dump(exclude={"projects_id", "name", "background", "cache"})
+            blob = json.dumps({**settings, "model_key": model["key"], "voice_version": (voice or {}).get("updated_at")},
+                              sort_keys=True, default=str)
+            return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
+        except Exception as exc:
+            raise service_error(exc, "tts_service.cache_key")
+
+    def generate(self, body: TTSRequest, progress: Callable[[float], None] | None = None) -> dict:
+        """Generate, save original + processed files and create the audios record.
+
+        With `body.cache`, an identical earlier request returns its audio (`cached: true`) instead.
+        """
+        try:
+            cache_key = self.cache_key(body) if body.cache else None
+            if cache_key:
+                cached = audio_service.find_generated(cache_key)
+                if cached:
+                    logger.info(f"TTS request served from the cache (audio {cached['audios_id']})")
+                    if progress:
+                        progress(1.0)
+                    return {**cached, "cached": True}
             y, sr, info = self.synthesize(body, progress=progress)
             post = DEFAULT_TTS_POST if body.post is None and not body.preset else body.post
             steps = audio_service.resolve_steps(post, body.preset)
@@ -182,14 +214,14 @@ class TTSService:
             with transaction() as session:
                 audio = audio_service.register(
                     session, path, AudioSource.GENERATED, name=label, ai_generated=True, original_path=original,
-                    params={**info, "steps": steps, "preset": body.preset}, projects_id=body.projects_id,
-                    y=out, sr=sr,
+                    params={**info, "steps": steps, "preset": body.preset, "cache_key": cache_key},
+                    projects_id=body.projects_id, y=out, sr=sr,
                 )
                 result = audio_service.to_dict(audio)
             logger.info(f"Saved generated speech as audio {result['audios_id']}")
             if progress:
                 progress(1.0)
-            return result
+            return {**result, "cached": False}
         except Exception as exc:
             raise service_error(exc, "tts_service.generate")
 
@@ -215,7 +247,8 @@ class TTSService:
             params = dict(source["params"] or {})
             if "text" not in params:
                 raise ValidationError("This audio was not generated from text", field="audios_id")
-            keep = ("speed", "pitch", "energy", "emotion", "style", "pause_ms", "pronunciations", "temperature")
+            keep = ("engine_voice", "speed", "pitch", "energy", "emotion", "style", "pause_ms", "pronunciations",
+                    "temperature")
             request = TTSRequest(
                 text=params["text"], voices_id=params.get("voices_id"), model_key=params.get("model_key"),
                 post=params.get("steps"), projects_id=source["projects_id"], name=source["name"], seed=body.seed,

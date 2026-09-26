@@ -96,6 +96,8 @@ def register_tools(mcp: MCPServer) -> None:
     # ------------------------------------------------------------ speech
 
     @mcp.tool(description="Generate speech from text. Returns the new audio, or a job with background=true. "
+                          "engine_voice picks a built-in engine voice (e.g. Kokoro 'af_bella'); cache=true "
+                          "returns an identical earlier generation instead of generating again. "
                           "Generated audio is labeled as AI-generated.", annotations=WRITE)
     def generate_speech(body: TTSRequest) -> dict:
         if body.background:

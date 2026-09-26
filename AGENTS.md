@@ -40,7 +40,7 @@ PySide6 UI (app/ui)      REST API + MCP (app/api)
 ## Commands
 
 ```bash
-uv sync                               # install (add --extra piper / xtts / f5 / chatterbox for engines)
+uv sync                               # install (add --extra piper / kokoro / xtts / f5 / chatterbox for engines)
 uv run python -m app.main             # desktop app
 uv run python -m app.api.app          # REST API + MCP over HTTP (binds 127.0.0.1)
 uv run python -m app.api.app --stdio  # the same, plus MCP over stdin/stdout

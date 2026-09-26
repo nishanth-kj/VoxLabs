@@ -99,6 +99,22 @@ class AudioService:
             raise NotFoundError(f"Audio {audios_id} not found", field="audios_id")
         return audio
 
+    def find_generated(self, cache_key: str) -> dict | None:
+        """The newest generated audio made with this TTS cache key whose file still exists."""
+        try:
+            with read_session() as session:
+                query = select(Audio).where(
+                    Audio.status != Status.DELETED.code,
+                    Audio.source == AudioSource.GENERATED,
+                    Audio.params["cache_key"].as_string() == cache_key,
+                ).order_by(Audio.created_at.desc())
+                for audio in session.scalars(query):
+                    if Path(audio.path).is_file():
+                        return self.to_dict(audio)
+            return None
+        except Exception as exc:
+            raise service_error(exc, "audio_service.find_generated")
+
     def list_audios(self, projects_id: int | None = None, limit: int = 100) -> list[dict]:
         try:
             with read_session() as session:

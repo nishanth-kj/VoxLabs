@@ -6,9 +6,15 @@ from app.constants.model_type import ModelType
 
 # Backends that can synthesize speech in a cloned voice from reference samples.
 CLONING_BACKENDS = (Backend.XTTS, Backend.F5, Backend.CHATTERBOX)
+# Backends whose library downloads its own weights on first load, so installing means loading once.
+FETCH_ON_LOAD_BACKENDS = (Backend.KOKORO, Backend.XTTS, Backend.F5, Backend.CHATTERBOX)
 
 DEFAULT_TTS_MODEL = "piper-en-us-lessac-medium"
 DEFAULT_CLONE_MODEL = "voice-profile-mfcc"
+# Tried in this order when no model is requested and the default one is not installed.
+FALLBACK_TTS_MODELS = ("chatterbox", "kokoro-82m", "piper-en-us-lessac-medium")
+
+KOKORO_DEFAULT_VOICE = "af_heart"
 
 # Every model VoxLabs knows about. `package` is the import that must succeed for
 # the backend to work; `extra` is the uv extra that installs it.
@@ -29,6 +35,19 @@ MODEL_CATALOG = [
             "model.onnx": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/lessac/medium/en_US-lessac-medium.onnx",
             "model.onnx.json": "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json",
         },
+    },
+    {
+        "key": "kokoro-82m",
+        "name": "Kokoro 82M",
+        "model_type": ModelType.TTS,
+        "backend": Backend.KOKORO,
+        "version": "1.0",
+        "size_mb": 330,
+        "vram_mb": 1000,
+        "online": False,
+        "package": "kokoro",
+        "extra": "kokoro",
+        "capabilities": ["tts", "speed", "voices", "local"],
     },
     {
         "key": "xtts-v2",
