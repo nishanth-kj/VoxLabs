@@ -185,7 +185,7 @@ class ModelService:
             return "Not downloaded"
         if not environment_ready(entry.get("environment")):
             if not environment_supported():
-                return "Downloaded · this app cannot set up its engine"
+                return "Downloaded · needs uv to set up its engine"
             return "Downloaded · engine not set up (Install sets it up)"
         if not package_installed(entry.get("package")):
             if getattr(sys, "frozen", False):
@@ -297,7 +297,7 @@ class ModelService:
                 needs_environment = not environment_ready(entry.get("environment"))
                 if needs_environment and not environment_supported():
                     skipped.append({"key": model["key"], "name": model["name"],
-                                    "reason": "this copy of VoxLabs cannot set up its engine environment"})
+                                    "reason": "needs uv to set up its engine environment (https://docs.astral.sh/uv/)"})
                 elif files_missing or needs_library or needs_environment:
                     targets.append(model)
                 elif not package_ok and entry.get("extra") and not files:

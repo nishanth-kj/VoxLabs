@@ -35,6 +35,22 @@ def test_package_and_installer_names_match_the_release_assets():
     assert "uv run build --require-installers" in workflow and "dist/VoxLabs-*" in workflow
 
 
+def test_bundle_includes_what_engines_read_at_runtime(monkeypatch):
+    """Chatterbox fails to load without Perth's watermark checkpoint (package data), and the app sets up
+    Qwen3-TTS's environment with a bundled uv and runs the worker script from the bundle."""
+    build = _build_script()
+    commands = []
+    monkeypatch.setattr(build, "app_icon_file", lambda: None)
+    monkeypatch.setattr(build.subprocess, "call", lambda command, **_kwargs: commands.append(command) or 0)
+    monkeypatch.setattr(build.importlib.util, "find_spec", lambda _name: object())  # chatterbox installed
+    monkeypatch.setenv("UV", str(ROOT / "uv-binary"))
+    assert build.bundle() == 0
+    command = commands[0]
+    assert command[command.index("perth") - 1] == "--collect-data"
+    assert f"{ROOT / 'uv-binary'}{build.os.pathsep}." in command
+    assert any(arg.endswith("app/utils/engine_workers") for arg in command)
+
+
 def test_built_app_keeps_data_in_the_user_folder(monkeypatch, tmp_path):
     monkeypatch.delattr(sys, "frozen", raising=False)
     assert files.default_data_dir() == files.PROJECT_ROOT / "data"  # from source: ./data

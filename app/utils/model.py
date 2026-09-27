@@ -137,12 +137,28 @@ def environment_ready(name: str | None) -> bool:
 
 
 def environment_supported() -> bool:
-    """Engine environments are set up with uv, from a source checkout. A built app has neither."""
-    return not getattr(sys, "frozen", False) and _uv() is not None
+    """Engine environments are set up with uv: the one a built app bundles, or the one on PATH."""
+    return _uv() is not None
 
 
 def _uv() -> str | None:
+    bundled = Path(getattr(sys, "_MEIPASS", "")) / ("uv.exe" if os.name == "nt" else "uv")
+    if getattr(sys, "frozen", False) and bundled.is_file():
+        return str(bundled)
     return os.environ.get("UV") or shutil.which("uv")
+
+
+def _child_env() -> dict[str, str]:
+    """Environment for helper processes. A built app on Linux points LD_LIBRARY_PATH at its own libraries
+    (PyInstaller keeps the original in LD_LIBRARY_PATH_ORIG); another Python must not load those."""
+    env = dict(os.environ)
+    if getattr(sys, "frozen", False) and "LD_LIBRARY_PATH" in env:
+        original = env.pop("LD_LIBRARY_PATH_ORIG", None)
+        if original:
+            env["LD_LIBRARY_PATH"] = original
+        else:
+            del env["LD_LIBRARY_PATH"]
+    return env
 
 
 def create_environment(name: str, cancelled: Callable[[], bool] | None = None) -> None:
@@ -150,14 +166,16 @@ def create_environment(name: str, cancelled: Callable[[], bool] | None = None) -
     when VoxLabs already uses the same versions, so only the engine's own libraries are downloaded."""
     spec = ENGINE_ENVIRONMENTS[name]
     uv = _uv()
-    if getattr(sys, "frozen", False) or uv is None:
-        raise ModelError(f"The {name} engine runs in its own Python environment, which is set up with uv "
-                         "from a source checkout of VoxLabs. This copy cannot set it up.")
+    if uv is None:
+        raise ModelError(f"The {name} engine runs in its own Python environment, which VoxLabs sets up with uv, "
+                         "and uv was not found. Install uv (https://docs.astral.sh/uv/) and try again.")
+    # A built app's sys.executable is VoxLabs itself: uv finds (or downloads) a Python of the same version.
+    base_python = f"{sys.version_info[0]}.{sys.version_info[1]}" if getattr(sys, "frozen", False) else sys.executable
     folder, python = environment_dir(name), environment_python(name)
     (folder / _ENV_MARKER).unlink(missing_ok=True)
     logger.info(f"Setting up the {name} engine environment in {folder}")
     steps = (
-        [uv, "venv", str(folder), "--python", sys.executable, "--allow-existing", "--quiet"],
+        [uv, "venv", str(folder), "--python", base_python, "--allow-existing", "--quiet"],
         [uv, "pip", "install", "--python", str(python), "--quiet", *spec["requirements"]],
         [str(python), "-c", f"import {spec['module']}"],
     )
@@ -170,7 +188,8 @@ def create_environment(name: str, cancelled: Callable[[], bool] | None = None) -
 def _run_step(command: list[str], name: str, cancelled: Callable[[], bool] | None) -> None:
     output: collections.deque[str] = collections.deque(maxlen=12)
     with subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                          text=True, encoding="utf-8", errors="replace", creationflags=_NO_WINDOW) as process:
+                          text=True, encoding="utf-8", errors="replace", env=_child_env(),
+                          creationflags=_NO_WINDOW) as process:
         reader = threading.Thread(target=lambda: output.extend(process.stdout or ()), daemon=True)
         reader.start()
         while process.poll() is None:
@@ -567,7 +586,7 @@ class WorkerBackend(ModelBackend):
         self._process = subprocess.Popen(
             [str(environment_python(self.environment)), str(worker), str(self.model_dir), self.device],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
-            errors="replace", creationflags=_NO_WINDOW,
+            errors="replace", env=_child_env(), creationflags=_NO_WINDOW,
         )
         self._stderr_reader = threading.Thread(target=self._drain_stderr, args=(self._process,), daemon=True)
         self._stderr_reader.start()

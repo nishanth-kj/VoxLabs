@@ -12,7 +12,8 @@
 
 PyInstaller cannot cross-compile: build the .exe on Windows, the .dmg on macOS and the Linux
 archive on Linux (.github/workflows/desktop.yml builds all three). Engines installed in the
-environment are bundled too, e.g. `uv sync --extra piper --extra kokoro` first.
+environment are bundled too, e.g. `uv sync --extra piper --extra kokoro` first, and so is uv, which
+the app uses to set up engine environments (Qwen3-TTS).
 
 The app icon is rendered from the same logo the app draws at runtime (app/ui/icons.py), as .ico
 on Windows and .icns on macOS; Linux reads the window icon at runtime.
@@ -110,10 +111,20 @@ def bundle() -> int:
         "--collect-all", "espeakng_loader",
         "--collect-all", "en_core_web_sm",
         "--collect-submodules", "app",
+        # Helper scripts that engine environments (Qwen3-TTS) run with their own Python.
+        "--add-data", f"{ROOT / 'app' / 'utils' / 'engine_workers'}{os.pathsep}app/utils/engine_workers",
     ]
     if importlib.util.find_spec("chatterbox") is not None:
         # Diffusers/Transformers check distribution versions at runtime, including transitive dependencies.
         command += ["--recursive-copy-metadata", "chatterbox-tts"]
+        # Chatterbox loads Resemble's Perth watermarker, whose checkpoint is package data.
+        command += ["--collect-data", "perth"]
+    uv = os.environ.get("UV") or shutil.which("uv")
+    if uv:
+        # The built app sets up engine environments with its own copy of uv.
+        command += ["--add-binary", f"{uv}{os.pathsep}."]
+    else:
+        print("uv not found: the built app cannot set up engine environments (Qwen3-TTS).", file=sys.stderr)
     icon = app_icon_file()
     if icon:
         command += ["--icon", str(icon)]

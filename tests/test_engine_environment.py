@@ -161,24 +161,43 @@ def test_install_downloads_weights_and_sets_up_the_environment(monkeypatch):
     assert model["installed"] and model["install_label"] == "Installed" and model["supports_cloning"]
 
 
-def test_a_built_app_skips_engines_it_cannot_set_up(monkeypatch):
+def test_without_uv_engines_that_need_an_environment_are_skipped(monkeypatch):
     original = model_service.list_models
     monkeypatch.setattr(model_service, "list_models",
                         lambda *args, **kwargs: [m for m in original() if m["key"] == "qwen3-tts-0.6b"])
     monkeypatch.setattr(model_service_module, "environment_supported", lambda: False)
 
     def refuse(*_args, **_kwargs):
-        raise AssertionError("a built app must not try to install it")
+        raise AssertionError("without uv it must not try to install it")
 
     monkeypatch.setattr(model_service, "install", refuse)
     result = model_service.install_all()
     assert result == {"downloaded": [], "failed": [], "skipped": [
         {"key": "qwen3-tts-0.6b", "name": "Qwen3-TTS 0.6B",
-         "reason": "this copy of VoxLabs cannot set up its engine environment"}]}
+         "reason": "needs uv to set up its engine environment (https://docs.astral.sh/uv/)"}]}
     assert model_service.get("qwen3-tts-0.6b")["install_label"] == "Not downloaded"
 
 
-def test_create_environment_needs_uv_from_source(monkeypatch):
-    monkeypatch.setattr(sys, "frozen", True, raising=False)
-    with pytest.raises(ModelError, match="source checkout"):
+def test_create_environment_needs_uv(monkeypatch):
+    monkeypatch.setattr(model_utils, "_uv", lambda: None)
+    with pytest.raises(ModelError, match="uv was not found"):
         model_utils.create_environment("qwen3-tts")
+
+
+def test_a_built_app_sets_up_environments_with_its_bundled_uv(monkeypatch, tmp_path):
+    """sys.executable is VoxLabs itself in a built app, so uv is asked for a Python of the same version."""
+    bundled = tmp_path / ("uv.exe" if sys.platform == "win32" else "uv")
+    bundled.write_bytes(b"")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    monkeypatch.setenv("LD_LIBRARY_PATH", str(tmp_path))
+    monkeypatch.setenv("LD_LIBRARY_PATH_ORIG", "/usr/lib")
+    assert model_utils.environment_supported()
+
+    steps = []
+    monkeypatch.setattr(model_utils, "_run_step", lambda command, name, cancelled: steps.append(command))
+    environment_dir("qwen3-tts").mkdir(parents=True)  # what `uv venv` would make
+    model_utils.create_environment("qwen3-tts")
+    assert steps[0][:2] == [str(bundled), "venv"]
+    assert steps[0][steps[0].index("--python") + 1] == f"{sys.version_info[0]}.{sys.version_info[1]}"
+    assert model_utils._child_env()["LD_LIBRARY_PATH"] == "/usr/lib"  # not the bundle's libraries
