@@ -113,7 +113,7 @@ def test_engine_voice_reaches_the_backend():
 
 
 def test_falls_back_to_an_installed_model(monkeypatch):
-    monkeypatch.setattr(model_service_module, "FALLBACK_TTS_MODELS", ("xtts-v2", "fake-tts"))
+    monkeypatch.setattr(model_service_module, "FALLBACK_TTS_MODELS", ("chatterbox-turbo", "fake-tts"))
     system_service.update_settings(default_tts_model="piper-en-us-lessac-medium")  # not installed in tests
     audio = tts_service.generate(TTSRequest(text="Fallback please."))
     assert audio["params"]["model_key"] == "fake-tts"

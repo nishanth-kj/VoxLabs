@@ -14,7 +14,7 @@ from app.utils.model import download
 
 def test_every_local_engine_has_weight_urls():
     by_key = {entry["key"]: entry for entry in MODEL_CATALOG}
-    for key in ("piper-en-us-lessac-medium", "kokoro-82m", "xtts-v2", "f5-tts", "chatterbox"):
+    for key in ("piper-en-us-lessac-medium", "kokoro-82m", "chatterbox", "chatterbox-turbo"):
         files = by_key[key].get("files") or {}
         assert files, key
         assert all(url.startswith("https://huggingface.co/") for url in files.values())
@@ -81,7 +81,7 @@ def test_install_all_downloads_file_models_and_skips_the_rest(monkeypatch):
         "package": "no_such_voxlabs_pkg",
         "extra": "piper",
     }
-    catalog["fake-clone"] = {**catalog["fake-clone"], "package": "no_such_voxlabs_pkg", "extra": "f5"}
+    catalog["fake-clone"] = {**catalog["fake-clone"], "package": "no_such_voxlabs_pkg", "extra": "chatterbox"}
     model_service_module._CATALOG = catalog
     original = model_service.list_models
     monkeypatch.setattr(model_service, "list_models",
@@ -97,4 +97,33 @@ def test_install_all_downloads_file_models_and_skips_the_rest(monkeypatch):
     assert [item["name"] for item in result["downloaded"]] == ["Fake TTS"]
     assert result["downloaded"][0]["ready"] is True
     assert result["failed"] == []
-    assert result["skipped"] == [{"key": "fake-clone", "name": "Fake Clone", "reason": "close VoxLabs and run: uv sync --inexact --extra f5"}]
+    assert result["skipped"] == [{"key": "fake-clone", "name": "Fake Clone", "reason": "close VoxLabs and run: uv sync --inexact --extra chatterbox"}]
+
+
+def test_retired_engines_are_gone():
+    """XTTS v2 and F5-TTS were removed: not in the catalog, and a database row left from them is hidden."""
+    from app.constants.status import Status
+    from app.models import Model
+    from app.utils.database import transaction
+
+    assert not {"xtts-v2", "f5-tts"} & {entry["key"] for entry in MODEL_CATALOG}
+    with transaction() as session:
+        session.add(Model(key="xtts-v2", name="Coqui XTTS v2", model_type="clone", backend="xtts", version="2",
+                          size_mb=0, vram_mb=0, capabilities=[], online=False))
+    model_service.sync_catalog()
+    assert "xtts-v2" not in {model["key"] for model in model_service.list_models()}
+    assert model_service.get("xtts-v2")["status"] == Status.DELETED.code
+
+
+def test_chatterbox_watermarker_can_load():
+    """Chatterbox and Chatterbox Turbo watermark their output with resemble-perth, which imports pkg_resources.
+    setuptools 82 dropped it, which left perth's watermarker as None and neither model could start."""
+    import warnings
+
+    perth = pytest.importorskip("perth")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # pkg_resources warns that it is deprecated
+        import importlib
+
+        importlib.reload(perth)
+    assert perth.PerthImplicitWatermarker is not None

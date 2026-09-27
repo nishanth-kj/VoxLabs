@@ -30,7 +30,7 @@ Heavy work and progress reporting happen before the transaction, so it stays sho
 
 | Cloning model | At generation time |
 |---|---|
-| XTTS v2, F5-TTS, Chatterbox | The backend receives the stored sample paths as reference audio (zero-shot cloning). `params.cloned = true`. |
+| Chatterbox, Chatterbox Turbo | The backend receives the stored sample paths as reference audio (zero-shot cloning). `params.cloned = true`. |
 | Voice profile (MFCC) | The voice speaks through the default TTS model. Its output pitch is shifted to match the speaker's median pitch (`params.pitch_matched = true`). This is an approximation, not a clone. |
 
 ## Lifecycle (VoiceService)

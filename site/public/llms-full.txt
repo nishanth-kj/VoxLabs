@@ -1,6 +1,6 @@
 # VoxLabs — Full Technical Reference for LLMs and AI Agents
 
-> VoxLabs v3.0.0 is a local-first Python desktop studio (PySide6) with an optional FastAPI REST API and Model Context Protocol (MCP) server. The desktop UI, REST API, and MCP tools all call the same service singletons backed by SQLite (`data/database/voxlabs.db`).
+> VoxLabs v3.0.0 is a local Python desktop studio (PySide6) with an optional FastAPI REST API and Model Context Protocol (MCP) server. The desktop UI, REST API, and MCP tools all call the same service singletons backed by SQLite (`data/database/voxlabs.db`).
 
 ## 1. Installation & Quick Start
 
@@ -15,7 +15,7 @@ git clone https://github.com/nishanth-kj/VoxLabs.git
 cd VoxLabs
 uv sync                          # Base install + DSP + MFCC
 uv sync --extra piper --extra kokoro  # Fast local CPU/GPU TTS engines
-uv sync --extra xtts             # Or --extra f5 / --extra chatterbox for zero-shot cloning
+uv sync --extra chatterbox       # Chatterbox + Chatterbox Turbo zero-shot cloning
 uv run python -m app.main        # Launch desktop studio
 uv run python -m app.api.app     # Launch REST API + HTTP MCP server on 127.0.0.1:8942
 uv run python -m app.api.app --stdio  # Launch REST API + stdio MCP server
@@ -27,16 +27,15 @@ uv run python -m app.api.app --stdio  # Launch REST API + stdio MCP server
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `piper-en-us-lessac-medium` | Piper · en_US Lessac (medium) | Local TTS | 63 MB | 0 MB | `tts`, `speed`, `local` |
 | `kokoro-82m` | Kokoro 82M | Local TTS | 330 MB | ~1000 MB | `tts`, `speed`, `voices` (`af_heart`, `af_bella`, `bm_george`), `local` |
-| `xtts-v2` | Coqui XTTS v2 | Zero-Shot Clone | 2080 MB | ~4000 MB | `tts`, `clone`, `multilingual`, `temperature`, `speed`, `local` |
-| `f5-tts` | F5-TTS | Zero-Shot Clone | 1400 MB | ~3000 MB | `tts`, `clone`, `speed`, `seed`, `local` |
 | `chatterbox` | Chatterbox TTS | Zero-Shot Clone | 3200 MB | ~4000 MB | `tts`, `clone`, `emotion`, `temperature`, `seed`, `local` |
+| `chatterbox-turbo` | Chatterbox Turbo | Zero-Shot Clone | 2990 MB | ~3000 MB | `tts`, `clone`, `temperature`, `seed`, `local` |
 | `voice-profile-mfcc` | VoxLabs Voice Profile (MFCC) | Profile Embed | 0 MB | 0 MB | `embed`, `clone`, `local` |
 | `dsp-enhance` | VoxLabs DSP Enhancement | Audio DSP | 0 MB | 0 MB | `denoise`, `eq`, `compress`, `limit`, `loudness`, `local` |
 | `gtts-emotional` | Emotional TTS (Google) | Online TTS (Opt-In) | 0 MB | 0 MB | `tts`, `emotion`, `speed`, `pitch`, `online` |
 | `edge-neural` | Microsoft Edge Neural | Online TTS (Opt-In) | 0 MB | 0 MB | `tts`, `speed`, `pitch`, `locales`, `online` |
 
 - **Automatic GPU -> CPU Fallback**: If a model encounters a CUDA OutOfMemoryError during load, VoxLabs automatically frees CUDA cache and reloads the model on CPU.
-- **Automatic TTS Model Fallback**: When `default_tts_model` is not installed and no explicit model is requested, VoxLabs resolves the first installed local engine in `("chatterbox", "kokoro-82m", "piper-en-us-lessac-medium")`.
+- **Automatic TTS Model Fallback**: When `default_tts_model` is not installed and no explicit model is requested, VoxLabs resolves the first installed local engine in `("chatterbox", "chatterbox-turbo", "kokoro-82m", "piper-en-us-lessac-medium")`.
 
 ## 3. Non-Destructive Audio Editor & 8-Stage DSP Pipeline
 

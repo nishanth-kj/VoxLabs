@@ -2,7 +2,7 @@
 
 from PySide6.QtWidgets import QHBoxLayout, QHeaderView, QLabel, QMessageBox, QPushButton, QTableWidget, QTableWidgetItem
 
-from app.constants.models import Backend, ModelType
+from app.constants.models import ModelType
 from app.services.model_service import model_service
 from app.services.system_service import system_service
 from app.ui.pages import BasePage
@@ -40,7 +40,8 @@ class ModelsPage(BasePage):
         actions.addStretch()
         self.root.addLayout(actions)
         hint = QLabel("Online engines (Google, Microsoft Edge) send text to a third party and are disabled unless "
-                      "enabled in Settings. Heavy engines need their Python extra, e.g. `uv sync --inexact --extra xtts` (XTTS, F5 and Chatterbox exclude each other: one at a time).")
+                      "enabled in Settings. Heavy engines need their Python extra, e.g. `uv sync --inexact --extra chatterbox` "
+                      "(Chatterbox and Chatterbox Turbo).")
         hint.setObjectName("Hint")
         hint.setWordWrap(True)
         self.root.addWidget(hint)
@@ -90,17 +91,8 @@ class ModelsPage(BasePage):
         return model["install_label"]
 
     def download_all(self):
-        xtts = next((model for model in self.models
-                     if model["backend"] == Backend.XTTS and not model["installed"] and not model.get("files_ready")),
-                    None)
-        accept = False
-        if xtts:
-            accept = QMessageBox.question(
-                self, "Coqui Public Model License",
-                "XTTS v2 is licensed for non-commercial use. Accept the license to include it?\n\n"
-                "The other models download either way.") == QMessageBox.StandardButton.Yes
         try:
-            job = model_service.install_all_async(accept_license=accept)
+            job = model_service.install_all_async()
         except Exception as exc:
             self.error(exc)
             return
@@ -126,16 +118,8 @@ class ModelsPage(BasePage):
         model = self._current()
         if not model:
             return
-        accept = False
-        if model["backend"] == Backend.XTTS:
-            accept = QMessageBox.question(
-                self, "Coqui Public Model License",
-                "XTTS v2 is licensed under the Coqui Public Model License (non-commercial use only). "
-                "Do you accept the license and want to download the model (~1.9 GB)?") == QMessageBox.StandardButton.Yes
-            if not accept:
-                return
         try:
-            job = model_service.install_async(model["key"], accept_license=accept)
+            job = model_service.install_async(model["key"])
         except Exception as exc:
             self.error(exc)
             return

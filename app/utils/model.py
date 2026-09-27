@@ -358,77 +358,6 @@ class KokoroBackend(ModelBackend):
         return np.concatenate(parts).astype(np.float32), self.SAMPLE_RATE
 
 
-class XTTSBackend(ModelBackend):
-    _tts: Any = None
-    backend_id = Backend.XTTS
-    supports_cloning = True
-    native_params = frozenset({"speed", "temperature"})
-
-    def load(self):
-        try:
-            from TTS.api import TTS  # pyright: ignore[reportMissingImports]
-        except ImportError as exc:
-            raise ModelError(f"XTTS is not installed. Run: {ENGINE_INSTALL_COMMAND.format(extra='xtts')}") from exc
-        model_path = self.model_dir / "model.pth"
-        config_path = self.model_dir / "config.json"
-        if model_path.is_file() and config_path.is_file():
-            self._tts = TTS(model_path=str(model_path), config_path=str(config_path)).to(self.device)
-        else:
-            os.environ.setdefault("TTS_HOME", str(self.model_dir))
-            self._tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(self.device)
-        self.loaded = True
-
-    def unload(self):
-        self._tts = None
-        self.loaded = False
-
-    def synthesize(self, request, voice):
-        refs = self._require_reference(voice)
-        kwargs = {"speed": request.speed}
-        if request.temperature is not None:
-            kwargs["temperature"] = request.temperature
-        wav = self._tts.tts(text=request.text, speaker_wav=refs, language=(voice.language if voice else None) or "en", **kwargs)
-        return _torch_to_numpy(wav), int(self._tts.synthesizer.output_sample_rate)
-
-
-class F5Backend(ModelBackend):
-    _f5: Any = None
-    backend_id = Backend.F5
-    supports_cloning = True
-    native_params = frozenset({"speed"})
-
-    def load(self):
-        try:
-            from f5_tts.api import F5TTS  # pyright: ignore[reportMissingImports]
-        except ImportError as exc:
-            raise ModelError(f"F5-TTS is not installed. Run: {ENGINE_INSTALL_COMMAND.format(extra='f5')}") from exc
-        os.environ.setdefault("HF_HOME", str(self.model_dir))
-        kwargs: dict[str, Any] = {"device": self.device}
-        checkpoint = self.model_dir / "model_1250000.safetensors"
-        vocab = self.model_dir / "vocab.txt"
-        vocoder = self.model_dir / "vocos"
-        if checkpoint.is_file():
-            kwargs["ckpt_file"] = str(checkpoint)
-        if vocab.is_file():
-            kwargs["vocab_file"] = str(vocab)
-        if (vocoder / "config.yaml").is_file() and (vocoder / "pytorch_model.bin").is_file():
-            kwargs["vocoder_local_path"] = str(vocoder)
-        self._f5 = F5TTS(**kwargs)
-        self.loaded = True
-
-    def unload(self):
-        self._f5 = None
-        self.loaded = False
-
-    def synthesize(self, request, voice):
-        refs = self._require_reference(voice)
-        wav, sr, _ = self._f5.infer(
-            ref_file=refs[0], ref_text="", gen_text=request.text, speed=request.speed,
-            seed=request.seed if request.seed is not None else -1,
-        )
-        return _torch_to_numpy(wav), int(sr)
-
-
 class ChatterboxBackend(ModelBackend):
     """Chatterbox (Resemble AI, MIT). Speaks in its built-in voice, or clones the voice's first sample."""
 
@@ -487,14 +416,58 @@ class ChatterboxBackend(ModelBackend):
         return self._sample_conds[key]
 
 
+class ChatterboxTurboBackend(ChatterboxBackend):
+    """Chatterbox Turbo (Resemble AI, MIT): faster than Chatterbox. Speaks in its built-in voice, or clones
+    the voice's first sample, which Turbo needs to be longer than 5 seconds. It ignores the emotion
+    exaggeration and CFG settings, so emotion is shaped afterwards like on any other engine."""
+
+    backend_id = Backend.CHATTERBOX_TURBO
+    native_params = frozenset({"temperature"})
+    WEIGHTS = ("ve.safetensors", "t3_turbo_v1.safetensors", "s3gen_meanflow.safetensors", "conds.pt", "vocab.json",
+               "merges.txt", "tokenizer_config.json", "special_tokens_map.json", "added_tokens.json")
+    MIN_SAMPLE_SECONDS = 5.0
+
+    def load(self):
+        try:
+            from chatterbox.tts_turbo import ChatterboxTurboTTS  # pyright: ignore[reportMissingImports]
+        except ImportError as exc:
+            raise ModelError(f"Chatterbox is not installed. Run: {ENGINE_INSTALL_COMMAND.format(extra='chatterbox')}") from exc
+        if all((self.model_dir / name).is_file() for name in self.WEIGHTS):
+            self._model = ChatterboxTurboTTS.from_local(self.model_dir, self.device)
+        else:
+            os.environ.setdefault("HF_HOME", str(self.model_dir))
+            self._model = ChatterboxTurboTTS.from_pretrained(device=self.device)
+        self._builtin_conds = self._model.conds
+        self._sample_conds = {}
+        self.loaded = True
+
+    def synthesize(self, request, voice):
+        if request.seed is not None:
+            import torch  # pyright: ignore[reportMissingImports]
+
+            torch.manual_seed(request.seed)
+        self._model.conds = self._conds(voice, 0.0)
+        wav = self._model.generate(
+            request.text, temperature=request.temperature if request.temperature is not None else 0.8,
+        )
+        return _torch_to_numpy(wav), int(self._model.sr)
+
+    def _conds(self, voice: VoiceRef | None, exaggeration: float) -> Any:
+        if voice and voice.sample_paths:
+            seconds = audio_utils.info(voice.sample_paths[0])["duration"]
+            if seconds <= self.MIN_SAMPLE_SECONDS:
+                raise ModelError(f"Chatterbox Turbo needs a voice sample longer than {self.MIN_SAMPLE_SECONDS:.0f} "
+                                 f"seconds (this one is {seconds:.1f} s). Add a longer sample, or use Chatterbox.")
+        return super()._conds(voice, exaggeration)
+
+
 _BACKENDS: dict[str, type[ModelBackend]] = {
     Backend.EMOTIONAL: EmotionalBackend,
     Backend.EDGE: EdgeBackend,
     Backend.PIPER: PiperBackend,
     Backend.KOKORO: KokoroBackend,
-    Backend.XTTS: XTTSBackend,
-    Backend.F5: F5Backend,
     Backend.CHATTERBOX: ChatterboxBackend,
+    Backend.CHATTERBOX_TURBO: ChatterboxTurboBackend,
 }
 
 

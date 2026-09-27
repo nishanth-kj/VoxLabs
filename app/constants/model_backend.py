@@ -5,8 +5,7 @@ class Backend:
     EDGE = "edge"  # Microsoft Edge neural TTS (online, opt-in)
     PIPER = "piper"
     KOKORO = "kokoro"
-    XTTS = "xtts"
-    F5 = "f5"
     CHATTERBOX = "chatterbox"
+    CHATTERBOX_TURBO = "chatterbox-turbo"
     MFCC = "mfcc"  # built-in voice profile extractor (local, no downloads)
     DSP = "dsp"  # built-in scipy enhancement (local)

@@ -4,7 +4,7 @@
 
 ```bash
 uv sync                      # Python 3.12–3.13, base + dev dependencies
-uv sync --extra piper        # optional engines: piper, kokoro, xtts, f5, chatterbox (xtts/f5/chatterbox are mutually exclusive)
+uv sync --extra piper        # optional engines: piper, kokoro, chatterbox (Chatterbox and Chatterbox Turbo)
 uv run python -m app.main    # desktop
 uv run uvicorn app.api.app:app --reload
 ```

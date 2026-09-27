@@ -12,7 +12,7 @@ Discover, install, load and select local AI models (TTS, cloning, enhancement, e
 ## Workflow
 
 - The catalog is `MODEL_CATALOG` in `app/constants/models.py`. `model_service.sync_catalog()` upserts it into `models` at startup, and it also picks up user-added Piper voices in `data/models/<key>/model.onnx`.
-- `install()` checks that the Python package is present and tells the user the `uv sync --extra …` command if it isn't. It then downloads `files` (Piper), or loads the model to fetch its weights (XTTS, F5, Chatterbox). XTTS requires `accept_license=True`.
+- `install()` checks that the Python package is present and tells the user the `uv sync --inexact --extra …` command if it isn't. It then downloads `files` (direct Hugging Face URLs for every local engine) and loads fetch-on-load engines once (Kokoro, Chatterbox, Chatterbox Turbo) so the download is visible.
 - `load()` checks the model is allowed (online opt-in), picks a device with `pick_device()` (explicit → settings → CUDA if free VRAM ≥ `vram_mb` → CPU), creates the backend and calls `backend.load()`. Loaded backends live in `ModelService._loaded`.
 - `unload()`, `reload()`, `remove()`, `health()`, `select(model_type, key)`, `resolve_speech_model()` and `backend_for()` cover the rest.
 
@@ -27,7 +27,7 @@ Discover, install, load and select local AI models (TTS, cloning, enhancement, e
 - Online engines must set `online: True`. They are only usable when `allow_online_models` is on.
 - Never import torch or other engine libraries at module import time.
 - Device *inspection* belongs in `app/utils/device.py`. Device *policy* belongs in `ModelService`.
-- Document license restrictions (e.g. CPML for XTTS) in the install flow.
+- Document license restrictions (for example a non-commercial model license) in the install flow.
 
 ## References
 

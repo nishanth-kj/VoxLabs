@@ -35,15 +35,15 @@ def unload_model(model_id: str) -> ApiResponse:
 
 
 @router.post("/install-all")
-def install_all_models(accept_license: bool = False) -> ApiResponse:
-    data = {"job": model_service.install_all_async(accept_license)}
+def install_all_models() -> ApiResponse:
+    data = {"job": model_service.install_all_async()}
     return ApiResponse(data).success()
 
 
 @router.post("/{model_id}/install")
-def install_model(model_id: str, accept_license: bool = False) -> ApiResponse:
+def install_model(model_id: str) -> ApiResponse:
     model_ref = Validation.require_ref(model_id, "model_id")
-    data = {"job": model_service.install_async(model_ref, accept_license)}
+    data = {"job": model_service.install_async(model_ref)}
     return ApiResponse(data).success()
 
 

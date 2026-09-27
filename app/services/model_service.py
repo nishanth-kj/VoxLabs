@@ -114,6 +114,11 @@ class ModelService:
                     row.size_mb = onnx.stat().st_size // (1 << 20)
                     row.capabilities, row.online = ["tts", "speed", "local"], False
                     self._refresh_row(row)
+                # Retired engines (e.g. XTTS v2 and F5-TTS) leave rows behind: hide them.
+                user_voices = {onnx.parent.name for onnx in subdir("models").glob("*/model.onnx")}
+                for key, row in rows.items():
+                    if key not in _CATALOG and key not in user_voices:
+                        row.status = Status.DELETED.code
         except Exception as exc:
             raise service_error(exc, "model_service.sync_catalog")
 
@@ -202,14 +207,11 @@ class ModelService:
 
     # ------------------------------------------------------------ install / remove
 
-    def install(self, model_ref: str | int, progress=None, cancelled=None, accept_license: bool = False) -> dict:
+    def install(self, model_ref: str | int, progress=None, cancelled=None) -> dict:
         try:
             model = self.get(model_ref)
             key = model["key"]
             entry = _CATALOG.get(key, {})
-            if model["backend"] == Backend.XTTS and not accept_license:
-                raise ModelError("XTTS v2 is released under the Coqui Public Model License (non-commercial). "
-                                 "Accept the license to download it.", field="accept_license")
             files = entry.get("files") or {}
             for index, (name, url) in enumerate(files.items()):
                 target = self.model_dir(key) / name
@@ -228,10 +230,6 @@ class ModelService:
                 raise ModelError(f"{model['name']} needs its {extra} engine: {engine_hint(extra)}.")
             if model["backend"] in FETCH_ON_LOAD_BACKENDS:
                 # These libraries fetch their weights on first load; do it now so the download is visible.
-                if model["backend"] == Backend.XTTS:
-                    import os
-
-                    os.environ["COQUI_TOS_AGREED"] = "1"
                 self.load(key)
             with transaction() as session:
                 row = self._row(session, key)
@@ -241,24 +239,23 @@ class ModelService:
         except Exception as exc:
             raise service_error(exc, "model_service.install")
 
-    def install_async(self, model_ref: str | int, accept_license: bool = False) -> dict:
+    def install_async(self, model_ref: str | int) -> dict:
         try:
             model = self.get(model_ref)
             return job_service.submit(
                 JobType.MODEL_INSTALL,
-                lambda ctx: {"model": self.install(model["key"], progress=ctx.progress, cancelled=lambda: ctx.cancelled,
-                                                   accept_license=accept_license)},
+                lambda ctx: {"model": self.install(model["key"], progress=ctx.progress, cancelled=lambda: ctx.cancelled)},
                 title=f"Install {model['name']}",
                 params={"model": model["key"]},
             )
         except Exception as exc:
             raise service_error(exc, "model_service.install_async")
 
-    def install_all(self, progress=None, cancelled=None, accept_license: bool = False) -> dict:
+    def install_all(self, progress=None, cancelled=None) -> dict:
         """Download every local model that still needs weights. One failure does not stop the rest.
 
-        XTTS is skipped unless `accept_license` is set. Models with no direct files and no
-        installed Python extra are skipped with the `uv sync` command, instead of failing the batch.
+        Models with no direct files and no installed Python extra are skipped with the `uv sync`
+        command, instead of failing the batch.
         """
         try:
             targets: list[dict] = []
@@ -272,10 +269,6 @@ class ModelService:
                 package_ok = package_installed(entry.get("package"))
                 needs_library = model["backend"] in FETCH_ON_LOAD_BACKENDS and package_ok and not model["installed"]
                 if files_missing or needs_library:
-                    if model["backend"] == Backend.XTTS and not accept_license:
-                        skipped.append({"key": model["key"], "name": model["name"],
-                                        "reason": "Coqui license not accepted"})
-                        continue
                     targets.append(model)
                 elif not package_ok and entry.get("extra") and not files:
                     # Weights that have a URL are downloaded above. This is only for engines
@@ -296,8 +289,7 @@ class ModelService:
                         progress((i + value) / count if count else 1)
 
                 try:
-                    saved = self.install(model["key"], progress=scaled, cancelled=cancelled,
-                                         accept_license=accept_license)
+                    saved = self.install(model["key"], progress=scaled, cancelled=cancelled)
                     downloaded.append({"key": model["key"], "name": model["name"],
                                        "ready": bool(saved.get("installed") or saved.get("files_ready"))})
                 except JobCancelled:
@@ -312,14 +304,12 @@ class ModelService:
         except Exception as exc:
             raise service_error(exc, "model_service.install_all")
 
-    def install_all_async(self, accept_license: bool = False) -> dict:
+    def install_all_async(self) -> dict:
         try:
             return job_service.submit(
                 JobType.MODEL_INSTALL,
-                lambda ctx: self.install_all(progress=ctx.progress, cancelled=lambda: ctx.cancelled,
-                                             accept_license=accept_license),
+                lambda ctx: self.install_all(progress=ctx.progress, cancelled=lambda: ctx.cancelled),
                 title="Download all models",
-                params={"accept_license": accept_license},
             )
         except Exception as exc:
             raise service_error(exc, "model_service.install_all_async")
@@ -462,6 +452,8 @@ class ModelService:
         """
         try:
             bound = self.get(voice["model_key"]) if voice and voice.get("model_key") else None
+            if bound is not None and bound["status"] == Status.DELETED.code:
+                bound = None  # the voice's engine was retired: use the requested or default model
             if bound is not None and bound["speaks"]:
                 model = bound
             elif model_ref:

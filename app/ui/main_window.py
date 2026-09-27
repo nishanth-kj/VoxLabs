@@ -287,7 +287,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self, "About VoxLabs",
             f"<h3>VoxLabs {VERSION}</h3>"
-            "<p>Local-first voice cloning, text-to-speech and audio production.</p>"
+            "<p>Local voice cloning, text-to-speech and audio production.</p>"
             "<p>Generated audio is labeled as AI-generated. Cloning a voice requires the speaker's "
             "recorded consent, and revoking a voice deletes its samples.</p>"
             f'<p><a href="{WEBSITE_URL}">Website</a> &nbsp;·&nbsp; '

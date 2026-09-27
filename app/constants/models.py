@@ -6,9 +6,9 @@ from app.constants.voices import KOKORO_VOICES
 
 
 # Backends that can synthesize speech in a cloned voice from reference samples.
-CLONING_BACKENDS = (Backend.XTTS, Backend.F5, Backend.CHATTERBOX)
+CLONING_BACKENDS = (Backend.CHATTERBOX, Backend.CHATTERBOX_TURBO)
 # Backends whose library downloads its own weights on first load, so installing means loading once.
-FETCH_ON_LOAD_BACKENDS = (Backend.KOKORO, Backend.XTTS, Backend.F5, Backend.CHATTERBOX)
+FETCH_ON_LOAD_BACKENDS = (Backend.KOKORO, Backend.CHATTERBOX, Backend.CHATTERBOX_TURBO)
 
 DEFAULT_TTS_MODEL = "piper-en-us-lessac-medium"
 DEFAULT_CLONE_MODEL = "voice-profile-mfcc"
@@ -17,7 +17,7 @@ DEFAULT_CLONE_MODEL = "voice-profile-mfcc"
 ENGINE_INSTALL_COMMAND = "uv sync --inexact --extra {extra}"
 
 # Tried in this order when no model is requested and the default one is not installed.
-FALLBACK_TTS_MODELS = ("chatterbox", "kokoro-82m", "piper-en-us-lessac-medium")
+FALLBACK_TTS_MODELS = ("chatterbox", "chatterbox-turbo", "kokoro-82m", "piper-en-us-lessac-medium")
 
 KOKORO_DEFAULT_VOICE = "af_heart"
 
@@ -69,46 +69,6 @@ MODEL_CATALOG = [
         },
     },
     {
-        "key": "xtts-v2",
-        "name": "Coqui XTTS v2",
-        "model_type": ModelType.CLONE,
-        "backend": Backend.XTTS,
-        "version": "2.0.3",
-        "size_mb": 2080,
-        "vram_mb": 4000,
-        "online": False,
-        "package": "TTS",
-        "extra": "xtts",
-        "capabilities": ["tts", "clone", "multilingual", "temperature", "speed", "local"],
-        "files": {
-            "config.json": _hf("coqui/XTTS-v2", "config.json"),
-            "vocab.json": _hf("coqui/XTTS-v2", "vocab.json"),
-            "model.pth": _hf("coqui/XTTS-v2", "model.pth"),
-            "dvae.pth": _hf("coqui/XTTS-v2", "dvae.pth"),
-            "mel_stats.pth": _hf("coqui/XTTS-v2", "mel_stats.pth"),
-            "speakers_xtts.pth": _hf("coqui/XTTS-v2", "speakers_xtts.pth"),
-        },
-    },
-    {
-        "key": "f5-tts",
-        "name": "F5-TTS",
-        "model_type": ModelType.CLONE,
-        "backend": Backend.F5,
-        "version": "1.0",
-        "size_mb": 1400,
-        "vram_mb": 3000,
-        "online": False,
-        "package": "f5_tts",
-        "extra": "f5",
-        "capabilities": ["tts", "clone", "speed", "seed", "local"],
-        "files": {
-            "model_1250000.safetensors": _hf("SWivid/F5-TTS", "F5TTS_v1_Base/model_1250000.safetensors"),
-            "vocab.txt": _hf("SWivid/F5-TTS", "F5TTS_v1_Base/vocab.txt"),
-            "vocos/config.yaml": _hf("charactr/vocos-mel-24khz", "config.yaml"),
-            "vocos/pytorch_model.bin": _hf("charactr/vocos-mel-24khz", "pytorch_model.bin"),
-        },
-    },
-    {
         "key": "chatterbox",
         "name": "Chatterbox TTS",
         "model_type": ModelType.CLONE,
@@ -126,6 +86,31 @@ MODEL_CATALOG = [
             "s3gen.safetensors": _hf("ResembleAI/chatterbox", "s3gen.safetensors"),
             "tokenizer.json": _hf("ResembleAI/chatterbox", "tokenizer.json"),
             "conds.pt": _hf("ResembleAI/chatterbox", "conds.pt"),
+        },
+    },
+    {
+        # Faster Chatterbox (MIT). Same engine package; clones from a sample longer than 5 seconds.
+        "key": "chatterbox-turbo",
+        "name": "Chatterbox Turbo",
+        "model_type": ModelType.CLONE,
+        "backend": Backend.CHATTERBOX_TURBO,
+        "version": "turbo-v1",
+        "size_mb": 2990,
+        "vram_mb": 3000,
+        "online": False,
+        "package": "chatterbox",
+        "extra": "chatterbox",
+        "capabilities": ["tts", "clone", "temperature", "seed", "local"],
+        "files": {
+            "ve.safetensors": _hf("ResembleAI/chatterbox-turbo", "ve.safetensors"),
+            "t3_turbo_v1.safetensors": _hf("ResembleAI/chatterbox-turbo", "t3_turbo_v1.safetensors"),
+            "s3gen_meanflow.safetensors": _hf("ResembleAI/chatterbox-turbo", "s3gen_meanflow.safetensors"),
+            "conds.pt": _hf("ResembleAI/chatterbox-turbo", "conds.pt"),
+            "vocab.json": _hf("ResembleAI/chatterbox-turbo", "vocab.json"),
+            "merges.txt": _hf("ResembleAI/chatterbox-turbo", "merges.txt"),
+            "tokenizer_config.json": _hf("ResembleAI/chatterbox-turbo", "tokenizer_config.json"),
+            "special_tokens_map.json": _hf("ResembleAI/chatterbox-turbo", "special_tokens_map.json"),
+            "added_tokens.json": _hf("ResembleAI/chatterbox-turbo", "added_tokens.json"),
         },
     },
     {

@@ -23,5 +23,5 @@ These are short, task-oriented workflows for working on VoxLabs. They are docume
 - Every table declares `<table>_id`, `status` (`Integer`, `default=Status.X.code`), `created_at` and `updated_at`. Use `.code` for status everywhere.
 - Multi-row changes go in one `with transaction() as session:`.
 - Slow work goes through `job_service.submit()`, so it never blocks the Qt thread.
-- Consent before cloning, AI-generated labelling, local-first defaults and complete revoke/delete are non-negotiable.
+- Consent before cloning, AI-generated labelling, local defaults and complete revoke/delete are non-negotiable.
 - Run `uv run pytest` before finishing.

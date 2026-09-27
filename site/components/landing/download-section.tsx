@@ -70,7 +70,7 @@ export function DownloadSection() {
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-sm text-muted-foreground">
                     <span className="inline-flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                        Local-first. No silent uploads of voice data.
+                        Runs locally. No silent uploads of voice data.
                     </span>
                     <span className="hidden sm:inline text-border">·</span>
                     <a href={RELEASES_URL} className="underline underline-offset-4 hover:text-foreground">

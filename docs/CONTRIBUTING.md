@@ -4,7 +4,7 @@ Thanks for helping. VoxLabs is a Python desktop app (PySide6) with an optional F
 
 ## Code of conduct
 
-Be respectful and constructive. Harassment, discrimination and publishing others' private information are not acceptable. This project clones real people's voices, so contributions must keep its consent, labelling and local-first guarantees intact.
+Be respectful and constructive. Harassment, discrimination and publishing others' private information are not acceptable. This project clones real people's voices, so contributions must keep its consent, labelling and local-processing guarantees intact.
 
 ## Getting started
 

@@ -1,7 +1,7 @@
 [project]
 name = "voxlabs"
 version = "3.0.0"
-description = "VoxLabs - local-first desktop voice cloning, TTS and audio production"
+description = "VoxLabs - local desktop voice cloning, TTS and audio production"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
@@ -28,9 +28,9 @@ kokoro = [
     # installing it here keeps generation offline.
     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
 ]
-xtts = ["coqui-tts>=0.24"]
-f5 = ["f5-tts>=1.0"]
-chatterbox = ["chatterbox-tts>=0.1"]
+# Chatterbox and Chatterbox Turbo (0.1.7 ships Turbo). Their audio watermarker (resemble-perth) imports
+# pkg_resources, which setuptools 82 removed: without the cap neither model can start.
+chatterbox = ["chatterbox-tts>=0.1.7", "setuptools<82"]
 
 [dependency-groups]
 dev = [
@@ -59,16 +59,12 @@ packages = ["app", "scripts"]
 
 [tool.uv]
 package = true
-# Tested 2026-09: installed together, XTTS fails (its code needs transformers < 5, Chatterbox pins
-# transformers==5.2.0) and F5-TTS falls back to a release that breaks on current pyarrow.
-# One of the three per environment, and so per built app.
-conflicts = [
-    [{ extra = "xtts" }, { extra = "f5" }, { extra = "chatterbox" }],
-]
+# Every extra installs together (one resolution, so `uv run` never swaps library versions).
+# Checked 2026-09 and left out: XTTS v2 (needs transformers < 5), Qwen3-TTS (pins transformers==4.57.3)
+# and F5-TTS all clash with Chatterbox, which pins transformers==5.2.0.
 
 [tool.voxlabs]
-# Engines (extras above) bundled into the desktop app by `uv run build`, at the exact versions in
-# uv.lock. At most one of xtts, f5 and chatterbox (see the conflicts in [tool.uv]).
+# Engines (extras above) bundled into the desktop app by `uv run build`, at the exact versions in uv.lock.
 build-engines = ["piper", "kokoro", "chatterbox"]
 
 [tool.pytest.ini_options]

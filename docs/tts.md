@@ -38,8 +38,8 @@ With `cache: true`, `generate` first hashes everything that changes the sound (t
 | `style` | default, narration, conversational, lecture, news, storytelling | Adjusts speed and the pause between sentences. |
 | `pause_ms` | ≥ 0 | Gap between chunks. You can also write `[pause 800ms]` or `[pause 2s]` in the text. |
 | `pronunciations` | `{word: spoken}` | Whole-word replacement before synthesis. |
-| `temperature` | 0.1–1.5 | XTTS and Chatterbox only. |
-| `seed` | int | F5 and Chatterbox only. |
+| `temperature` | 0.1–1.5 | Chatterbox and Chatterbox Turbo only. |
+| `seed` | int | Chatterbox and Chatterbox Turbo only. |
 | `post` / `preset` | — | Clean-up steps. The default is trim silence + normalize. `{}` means raw output. See [audio-engine.md](audio-engine.md). |
 | `cache` | bool | Return an identical earlier generation instead of generating again (see above). |
 
@@ -55,9 +55,8 @@ With `cache: true`, `generate` first hashes everything that changes the sound (t
 | --- | --- | --- | --- |
 | Piper | `uv sync --extra piper`, then install the voice on the Models page | local CPU/GPU | speed |
 | Kokoro 82M | `--extra kokoro`, then install it on the Models page (weights download on first load) | local, fine on CPU | speed; built-in voices via `engine_voice` (default `af_heart`) |
-| XTTS v2 | `--extra xtts` (CPML, non-commercial) | local, GPU recommended | speed, temperature; cloning |
-| F5-TTS | `--extra f5` | local, GPU recommended | speed, seed; cloning |
 | Chatterbox | `--extra chatterbox` | local, GPU recommended | emotion, temperature, seed; cloning, or its built-in voice without a cloned voice |
+| Chatterbox Turbo | `--extra chatterbox` (same package) | local, GPU recommended, faster | temperature, seed; cloning from a sample longer than 5 s, or its built-in voice |
 | Emotional (gTTS) | base | **online** (Google), opt-in | — |
 | Edge neural | base | **online** (Microsoft), opt-in | speed, pitch; preset voices via `engine_voice` |
 

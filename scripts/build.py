@@ -34,7 +34,7 @@ BUILD = ROOT / "build"
 DIST = ROOT / "dist"
 ICON_DIR = BUILD / "icon"
 HOMEPAGE = "https://github.com/nishanth-kj/VoxLabs"
-SUMMARY = "Local-first voice cloning, text-to-speech and audio studio"
+SUMMARY = "Local voice cloning, text-to-speech and audio studio"
 DESCRIPTION = ("VoxLabs clones voices with recorded consent, turns text and scripts into speech and "
                "edits audio, all on this computer.")
 

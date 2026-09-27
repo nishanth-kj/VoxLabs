@@ -8,7 +8,7 @@ export const metadata = pageMetadata({
   path: "/legal/ethics",
   title: "Ethical AI Guidelines",
   description:
-    "VoxLabs requires consent for voice cloning, local-first processing, AI-generated labels, and simple deletion of voice data.",
+    "VoxLabs requires consent for voice cloning, local processing, AI-generated labels, and simple deletion of voice data.",
 })
 
 export default function EthicsPage() {
@@ -28,7 +28,7 @@ export default function EthicsPage() {
         Voice cloning requires explicit consent. Clone only your own voice, or a voice you have documented permission to use. Do not bypass consent capture in the app.
       </p>
 
-      <h2>Local-first processing</h2>
+      <h2>Local processing</h2>
       <p>
         Processing stays on your machine. Do not configure the software to silently upload user audio or voice data to external services. See the{" "}
         <Link href="/legal/privacy">privacy policy</Link>.

@@ -28,7 +28,7 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Why VoxLabs?</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              A complete local-first desktop voice studio for creators, educators, and developers who want expressive speech without sending audio to the cloud.
+              A complete local desktop voice studio for creators, educators, and developers who want expressive speech without sending audio to the cloud.
             </p>
           </div>
 
@@ -56,7 +56,7 @@ export default function LandingPage() {
             <FeatureCard
               icon={<Lock className="w-6 h-6 text-emerald-400" />}
               title="Local & Private by Default"
-              description="Run Piper, Kokoro 82M, Coqui XTTS v2, F5-TTS, and Chatterbox on your CPU or CUDA GPU (with automatic CPU fallback when VRAM is full)."
+              description="Run Piper, Kokoro 82M, Chatterbox, and Chatterbox Turbo on your CPU or CUDA GPU (with automatic CPU fallback when VRAM is full)."
             />
             <FeatureCard
               icon={<Terminal className="w-6 h-6 text-cyan-400" />}

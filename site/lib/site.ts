@@ -8,13 +8,13 @@ function normalizeBasePath(value: string | undefined) {
 
 export const SITE_NAME = "VoxLabs"
 export const SITE_VERSION = "3.0.0"
-export const SITE_TAGLINE = "Local-First Desktop Voice Cloning, TTS & Audio Studio"
+export const SITE_TAGLINE = "Local Desktop Voice Cloning, TTS & Audio Studio"
 // Meta description: search results cut it off after ~155 characters.
 export const SITE_DESCRIPTION =
   "Free, open-source desktop app for consent-based AI voice cloning, offline text-to-speech, script-to-audio and audio editing on Windows, macOS and Linux."
 // The full summary, for structured data and AI assistants.
 export const SITE_SUMMARY =
-  "Ethical AI voice cloning, emotional text-to-speech, script-to-audio, and non-destructive waveform editing in a local-first desktop app for Windows, macOS, and Linux. Powered by Piper, Kokoro 82M, XTTS v2, F5-TTS, and Chatterbox with built-in REST API and MCP server."
+  "Ethical AI voice cloning, emotional text-to-speech, script-to-audio, and non-destructive waveform editing in a local desktop app for Windows, macOS, and Linux. Powered by Piper, Kokoro 82M, Chatterbox, and Chatterbox Turbo with built-in REST API and MCP server."
 export const SITE_KEYWORDS = [
   "VoxLabs",
   "voice cloning",
@@ -23,8 +23,7 @@ export const SITE_KEYWORDS = [
   "TTS desktop app",
   "Kokoro 82M",
   "Piper TTS",
-  "Coqui XTTS v2",
-  "F5-TTS",
+  "Chatterbox Turbo",
   "Chatterbox TTS",
   "script to audio",
   "non-destructive audio editor",
@@ -83,25 +82,18 @@ export const ENGINE_SPECS = [
     highlights: "Expressive 82M-parameter model with built-in voices (af_heart, af_bella, bm_george)",
   },
   {
-    name: "Coqui XTTS v2",
-    type: "Zero-Shot Clone & TTS",
-    size: "2.08 GB",
-    compute: "CUDA (~4 GB VRAM) / CPU fallback",
-    highlights: "Multilingual zero-shot voice cloning from reference samples",
-  },
-  {
-    name: "F5-TTS",
-    type: "Zero-Shot Clone & TTS",
-    size: "1.40 GB",
-    compute: "CUDA (~3 GB VRAM) / CPU fallback",
-    highlights: "Flow-matching zero-shot voice cloning with deterministic seed control",
-  },
-  {
     name: "Chatterbox TTS",
     type: "Zero-Shot Clone & TTS",
     size: "3.20 GB",
     compute: "CUDA (~4 GB VRAM) / CPU fallback",
     highlights: "Native emotion exaggeration, temperature control, and zero-shot cloning",
+  },
+  {
+    name: "Chatterbox Turbo",
+    type: "Zero-Shot Clone & TTS",
+    size: "2.99 GB",
+    compute: "CUDA (~3 GB VRAM) / CPU fallback",
+    highlights: "Faster Chatterbox for long narration; zero-shot cloning from a sample over 5 seconds",
   },
   {
     name: "VoxLabs DSP & MFCC",
@@ -116,12 +108,12 @@ export const SITE_FAQS = [
   {
     question: "Does VoxLabs run completely offline?",
     answer:
-      "Yes. VoxLabs is a local-first native desktop application (PySide6). Local engines—including Piper, Kokoro 82M, Coqui XTTS v2, F5-TTS, and Chatterbox—synthesize speech and clone voices entirely on your computer without uploading audio to the cloud. Online engines (Microsoft Edge Neural and Google TTS) are disabled by default unless explicitly enabled in Settings.",
+      "Yes. VoxLabs is a native desktop application (PySide6) that runs locally. Local engines—including Piper, Kokoro 82M, Chatterbox, and Chatterbox Turbo—synthesize speech and clone voices entirely on your computer without uploading audio to the cloud. Online engines (Microsoft Edge Neural and Google TTS) are disabled by default unless explicitly enabled in Settings.",
   },
   {
     question: "Which TTS and voice cloning models does VoxLabs support?",
     answer:
-      "VoxLabs supports Piper (63 MB fast CPU TTS), Kokoro 82M (330 MB natural CPU/GPU TTS), Coqui XTTS v2 (multilingual zero-shot cloning), F5-TTS (flow-matching zero-shot cloning), Chatterbox TTS (emotional zero-shot cloning), MFCC pitch-matched voice profiles, and an 8-stage DSP audio enhancement engine.",
+      "VoxLabs supports Piper (63 MB fast CPU TTS), Kokoro 82M (330 MB natural CPU/GPU TTS), Chatterbox TTS (emotional zero-shot cloning), Chatterbox Turbo (faster zero-shot cloning for long narration), MFCC pitch-matched voice profiles, and an 8-stage DSP audio enhancement engine.",
   },
   {
     question: "How does VoxLabs enforce ethical voice cloning and speaker consent?",
@@ -136,7 +128,7 @@ export const SITE_FAQS = [
   {
     question: "Does VoxLabs require a GPU or FFmpeg?",
     answer:
-      "Neither is strictly required. Piper and Kokoro 82M run smoothly on a standard CPU, and heavier GPU models (XTTS v2, F5-TTS, Chatterbox) automatically fall back to CPU if CUDA memory is full. WAV, FLAC, OGG, and MP3 work out of the box via libsndfile; FFmpeg on your PATH is only needed for M4A/AAC import and export.",
+      "Neither is strictly required. Piper and Kokoro 82M run smoothly on a standard CPU, and heavier GPU models (Chatterbox, Chatterbox Turbo) automatically fall back to CPU if CUDA memory is full. WAV, FLAC, OGG, and MP3 work out of the box via libsndfile; FFmpeg on your PATH is only needed for M4A/AAC import and export.",
   },
   {
     question: "What operating systems does VoxLabs support?",
@@ -234,7 +226,7 @@ export const HOME_JSON_LD = {
       isAccessibleForFree: true,
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       featureList: [
-        "Consent-enforced local AI voice cloning (XTTS v2, F5-TTS, Chatterbox)",
+        "Consent-enforced local AI voice cloning (Chatterbox, Chatterbox Turbo)",
         "Offline neural text-to-speech (Piper, Kokoro 82M) with automatic CPU fallback",
         "Multi-speaker script and lesson to narrated audio with per-section takes",
         "Non-destructive waveform audio editor with instant undo and redo",
@@ -285,7 +277,7 @@ export const HOME_JSON_LD = {
           "@type": "HowToStep",
           position: 3,
           name: "Synthesize speech or render multi-speaker scripts",
-          text: "Choose Piper, Kokoro 82M, XTTS v2, F5-TTS, or Chatterbox and adjust emotion, speed, pitch, and pauses.",
+          text: "Choose Piper, Kokoro 82M, Chatterbox, or Chatterbox Turbo and adjust emotion, speed, pitch, and pauses.",
         },
         {
           "@type": "HowToStep",

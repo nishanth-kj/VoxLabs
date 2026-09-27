@@ -95,8 +95,8 @@ const TTS_PARAMETERS = [
   { param: "style", range: "6 presets", notes: "default, narration, conversational, lecture, news, storytelling. Adjusts speed and inter-sentence pause." },
   { param: "pause_ms", range: "≥ 0 ms", notes: "Gap between chunks. You can also write [pause 800ms] or [pause 2s] inline in the text." },
   { param: "pronunciations", range: "{word: spoken}", notes: "Whole-word case-insensitive replacement applied before synthesis." },
-  { param: "temperature", range: "0.1 – 1.5", notes: "Sampling temperature (XTTS v2 and Chatterbox only)." },
-  { param: "seed", range: "int", notes: "Deterministic generation seed (F5-TTS and Chatterbox only)." },
+  { param: "temperature", range: "0.1 – 1.5", notes: "Sampling temperature (Chatterbox and Chatterbox Turbo only)." },
+  { param: "seed", range: "int", notes: "Deterministic generation seed (Chatterbox and Chatterbox Turbo only)." },
   { param: "post / preset", range: "steps | name", notes: "Clean-up DSP steps or preset name. Default is trim_silence + normalize; {} means raw output." },
   { param: "cache", range: "bool", notes: "When true, returns an identical earlier generation matching text + settings + model + voice hash without re-synthesizing." },
 ] as const
@@ -104,9 +104,8 @@ const TTS_PARAMETERS = [
 const ENGINE_DETAILS = [
   { backend: "Piper", install: "uv sync --extra piper + install on Models page", runs: "Local CPU / GPU (63 MB)", native: "speed; direct ONNX weight download" },
   { backend: "Kokoro 82M", install: "uv sync --extra kokoro + install on Models page", runs: "Local CPU / GPU (330 MB)", native: "speed; built-in voices via engine_voice (default af_heart)" },
-  { backend: "Coqui XTTS v2", install: "uv sync --extra xtts (CPML non-commercial)", runs: "Local GPU rec. / CPU fallback (2.08 GB)", native: "speed, temperature; multilingual zero-shot cloning" },
-  { backend: "F5-TTS", install: "uv sync --extra f5 (MIT)", runs: "Local GPU rec. / CPU fallback (1.40 GB)", native: "speed, seed; flow-matching zero-shot cloning" },
   { backend: "Chatterbox", install: "uv sync --extra chatterbox (MIT)", runs: "Local GPU rec. / CPU fallback (3.20 GB)", native: "emotion, temperature, seed; zero-shot cloning or built-in voice" },
+  { backend: "Chatterbox Turbo", install: "uv sync --extra chatterbox (MIT, same package)", runs: "Local GPU rec. / CPU fallback (2.99 GB)", native: "temperature, seed; faster zero-shot cloning (sample over 5 s) or built-in voice" },
   { backend: "Voice Profile (MFCC)", install: "Built into base install (librosa)", runs: "Local CPU", native: "Extracts MFCC + pYIN median pitch; pitch-matches default TTS output" },
   { backend: "Emotional (gTTS)", install: "Built into base install", runs: "Online (Google), opt-in only", native: "Shaped with local prosody DSP afterwards" },
   { backend: "Edge Neural", install: "Built into base install", runs: "Online (Microsoft), opt-in only", native: "speed, pitch; preset voices via engine_voice (default en-US-AriaNeural)" },
@@ -240,7 +239,7 @@ export default function DocsPage() {
               Documentation
             </h1>
             <p className="text-xl text-muted-foreground leading-relaxed">
-              VoxLabs is a local-first Python desktop application (PySide6) with an optional FastAPI REST API and Model Context Protocol (MCP) server. This manual covers every feature, page, model engine, DSP stage, database table, and API endpoint in VoxLabs 3.0.
+              VoxLabs is a local Python desktop application (PySide6) with an optional FastAPI REST API and Model Context Protocol (MCP) server. This manual covers every feature, page, model engine, DSP stage, database table, and API endpoint in VoxLabs 3.0.
             </p>
             <div className="flex flex-wrap gap-3">
               <a href={RELEASES_URL}>
@@ -292,8 +291,6 @@ uv sync
 uv sync --extra piper --extra kokoro
 
 # Optional heavy zero-shot cloning engines (mutually exclusive PyTorch dependencies; pick one):
-uv sync --extra xtts             # Coqui XTTS v2 (non-commercial CPML license)
-uv sync --extra f5               # F5-TTS (MIT)
 uv sync --extra chatterbox       # Chatterbox TTS (MIT, zero-shot cloning + native emotion)
 
 # Start the desktop application
@@ -466,7 +463,7 @@ uv run python -m app.main`}
               <div className="rounded-xl border border-border/40 bg-card/50 p-5 space-y-2">
                 <h3 className="font-semibold text-base">Zero-Shot vs. Profile vs. Preset</h3>
                 <p className="text-muted-foreground leading-relaxed">
-                  <strong>XTTS v2, F5-TTS, Chatterbox:</strong> Receive stored reference WAV paths for true zero-shot voice cloning (<code>params.cloned = true</code>).<br />
+                  <strong>Chatterbox, Chatterbox Turbo:</strong> Receive stored reference WAV paths for true zero-shot voice cloning (<code>params.cloned = true</code>).<br />
                   <strong>Voice Profile (MFCC):</strong> Speaks through the default TTS model and shifts output pitch to match the speaker&apos;s median pitch (<code>params.pitch_matched = true</code>).<br />
                   <strong>Preset Voices:</strong> Built-in engine speakers (e.g. Kokoro or Edge <code>engine_voice</code>); nobody is cloned, so <code>consent_status = NotRequired</code>.
                 </p>
@@ -878,7 +875,7 @@ docker build -t voxlabs-api --build-arg EXTRAS="piper kokoro" .`}
                 Safety &amp; Privacy Guarantees
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Processing is local-first. Voice samples are never silently uploaded to external servers, online engines are opt-in only, every generated file is tagged <code>AI-generated by VoxLabs</code>, and revoking consent deletes voice data immediately. Read our{" "}
+                Processing is local. Voice samples are never silently uploaded to external servers, online engines are opt-in only, every generated file is tagged <code>AI-generated by VoxLabs</code>, and revoking consent deletes voice data immediately. Read our{" "}
                 <Link href="/legal/privacy" className="text-foreground underline underline-offset-4">Privacy Policy</Link>
                 {" "}and{" "}
                 <Link href="/legal/ethics" className="text-foreground underline underline-offset-4">Ethical AI Guidelines</Link>.

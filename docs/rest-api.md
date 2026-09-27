@@ -20,7 +20,7 @@ docker compose up -d --build                      # http://127.0.0.1:8942/docs
 VOXLABS_EXTRAS="piper kokoro" docker compose up -d --build   # with local engines baked in
 ```
 
-Compose publishes the port on the host's loopback only. Engines from `pyproject.toml` extras go in through the `EXTRAS` build argument (`xtts`, `f5` and `chatterbox` exclude each other).
+Compose publishes the port on the host's loopback only. Engines from `pyproject.toml` extras go in through the `EXTRAS` build argument (`piper`, `kokoro`, `chatterbox`).
 
 ## Security
 

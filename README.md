@@ -1,6 +1,6 @@
 # VoxLabs
 
-**A local-first desktop studio for voice cloning, text-to-speech, narrated lessons and audio editing.**
+**A local desktop studio for voice cloning, text-to-speech, narrated lessons and audio editing.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://python.org)
@@ -15,7 +15,7 @@ VoxLabs is a native Python desktop application (PySide6). An optional REST API e
 - **Audio editor.** Non-destructive waveform editing: select, cut, copy, paste, delete, split, trim, move, duplicate, join, fade, volume, normalize, undo/redo and loop playback.
 - **Enhancement.** Denoise, EQ, compression, de-esser, limiter and loudness, with the presets Voice Clean, Podcast, Narration, Lesson, Studio and Raw. Originals are always kept.
 - **Takes and autosave.** Every script section keeps its takes, and the audio editor autosaves its edit list on each audio.
-- **Local models.** Piper, Kokoro, XTTS v2, F5-TTS and Chatterbox run on this machine (CPU or CUDA, falling back to the CPU when the GPU is full). Online engines (Google, Microsoft Edge) are opt-in.
+- **Local models.** Piper, Kokoro, Chatterbox and Chatterbox Turbo run on this machine (CPU or CUDA, falling back to the CPU when the GPU is full). Online engines (Google, Microsoft Edge) are opt-in.
 - **Background jobs.** Long work never freezes the UI. You can see progress and cancel jobs.
 
 All generated audio is flagged as AI-generated in the library and tagged in the file metadata.
@@ -36,11 +36,9 @@ On first launch, open **Models** and install *Piper · en_US Lessac*, a 63 MB do
 uv sync --extra piper --extra kokoro
 ```
 
-For real zero-shot cloning, install one of the heavier engines:
+For real zero-shot cloning, install Chatterbox (it includes Chatterbox Turbo):
 
 ```bash
-uv sync --extra xtts             # Coqui XTTS v2 (non-commercial CPML license)
-uv sync --extra f5               # F5-TTS
 uv sync --extra chatterbox       # Chatterbox (also speaks without a cloned voice, in its built-in voice)
 ```
 
@@ -80,4 +78,4 @@ Only clone a voice with the speaker's explicit permission. VoxLabs records who g
 
 ## License
 
-MIT. See [LICENSE](./LICENSE). Model weights have their own licenses (for example, XTTS v2 is non-commercial).
+MIT. See [LICENSE](./LICENSE). Model weights have their own licenses; check a model's license before commercial use.

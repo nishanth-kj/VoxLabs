@@ -71,7 +71,9 @@ describe('Landing smoke', () => {
         expect(siteTypes).toEqual(['Organization', 'WebSite'])
         expect(homeTypes).toEqual(['SoftwareApplication', 'SoftwareSourceCode', 'HowTo', 'FAQPage'])
         expect(JSON.stringify(HOME_JSON_LD)).toContain(SITE_FAQS[0].question)
-        expect(ENGINE_SPECS.length).toBeGreaterThanOrEqual(6)
+        const engines = ENGINE_SPECS.map((engine) => engine.name)
+        expect(engines).toContain('Chatterbox Turbo')
+        expect(engines.some((name) => /XTTS|F5/.test(name))).toBe(false)
         expect(SITE_FAQS.length).toBeGreaterThanOrEqual(6)
         const rules = robots().rules
         const agents = Array.isArray(rules) ? rules[0].userAgent : rules.userAgent

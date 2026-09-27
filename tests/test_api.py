@@ -116,7 +116,7 @@ def test_install_all_route_queues_a_job(client, monkeypatch):
     from app.services.model_service import model_service
 
     monkeypatch.setattr(model_service, "install_all_async",
-                        lambda accept_license=False: {"jobs_id": 1, "title": "Download all models"})
+                        lambda: {"jobs_id": 1, "title": "Download all models"})
     assert ok(client.post("/api/models/install-all"))["job"]["title"] == "Download all models"
 
 
