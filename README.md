@@ -39,12 +39,12 @@ uv sync --extra piper --extra kokoro
 For real zero-shot cloning, install Chatterbox (it includes Chatterbox Turbo):
 
 ```bash
-uv sync --extra chatterbox       # Chatterbox (also speaks without a cloned voice, in its built-in voice)
+uv sync --extra chatterbox       # Chatterbox and Chatterbox Turbo (each also has its own built-in voice)
 ```
 
 These pull in PyTorch. A CUDA GPU is strongly recommended.
 
-Qwen3-TTS needs other library versions than Chatterbox, so it gets its own environment: install it on the Models page and VoxLabs sets up `data/engines/qwen3-tts` with uv (from a source checkout; built apps cannot).
+Qwen3-TTS needs other library versions than Chatterbox, so it gets its own environment: install it on the Models page and VoxLabs sets up `data/engines/qwen3-tts` with uv (from a source checkout; built apps cannot). Besides cloning, it has 9 built-in voices (Ryan, Aiden, Vivian, Serena, Uncle Fu, Dylan, Eric, Ono Anna, Sohee).
 
 On a slow connection, large wheels (onnxruntime, PyTorch) can hit uv's download timeout. Raise it and retry, e.g. in PowerShell: `$env:UV_HTTP_TIMEOUT = "900"; uv sync --extra piper`.
 

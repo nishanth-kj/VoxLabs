@@ -20,7 +20,8 @@ DEFAULT_SETTINGS = {
     "output_device": "",
     "input_device": "",
     "default_voices_id": None,
-    "builtin_voices_seeded": False,
+    "builtin_voices_seeded": False,  # set by builds before `builtin_voice_packs`; read only
+    "builtin_voice_packs": [],
     "default_tts_model": DEFAULT_TTS_MODEL,
     "default_clone_model": DEFAULT_CLONE_MODEL,
     "allow_online_models": False,

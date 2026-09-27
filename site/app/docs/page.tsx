@@ -106,7 +106,7 @@ const ENGINE_DETAILS = [
   { backend: "Kokoro 82M", install: "uv sync --extra kokoro + install on Models page", runs: "Local CPU / GPU (330 MB)", native: "speed; built-in voices via engine_voice (default af_heart)" },
   { backend: "Chatterbox", install: "uv sync --extra chatterbox (MIT)", runs: "Local GPU rec. / CPU fallback (3.20 GB)", native: "emotion, temperature, seed; zero-shot cloning or built-in voice" },
   { backend: "Chatterbox Turbo", install: "uv sync --extra chatterbox (MIT, same package)", runs: "Local GPU rec. / CPU fallback (2.99 GB)", native: "temperature, seed; faster zero-shot cloning (sample over 5 s) or built-in voice" },
-  { backend: "Qwen3-TTS 0.6B", install: "Install on Models page, from source (Apache-2.0; sets up its own engine environment with uv)", runs: "Local helper process (2.4 GB)", native: "temperature, seed; zero-shot cloning only, 10 languages" },
+  { backend: "Qwen3-TTS 0.6B", install: "Install on Models page, from source (Apache-2.0; sets up its own engine environment with uv)", runs: "Local helper process (4.15 GB: Base + CustomVoice)", native: "temperature, seed; zero-shot cloning or 9 built-in voices via engine_voice (default ryan), 10 languages" },
   { backend: "Voice Profile (MFCC)", install: "Built into base install (librosa)", runs: "Local CPU", native: "Extracts MFCC + pYIN median pitch; pitch-matches default TTS output" },
   { backend: "Emotional (gTTS)", install: "Built into base install", runs: "Online (Google), opt-in only", native: "Shaped with local prosody DSP afterwards" },
   { backend: "Edge Neural", install: "Built into base install", runs: "Online (Microsoft), opt-in only", native: "speed, pitch; preset voices via engine_voice (default en-US-AriaNeural)" },
@@ -466,7 +466,7 @@ uv run python -m app.main`}
                 <p className="text-muted-foreground leading-relaxed">
                   <strong>Chatterbox, Chatterbox Turbo, Qwen3-TTS:</strong> Receive stored reference WAV paths for true zero-shot voice cloning (<code>params.cloned = true</code>).<br />
                   <strong>Voice Profile (MFCC):</strong> Speaks through the default TTS model and shifts output pitch to match the speaker&apos;s median pitch (<code>params.pitch_matched = true</code>).<br />
-                  <strong>Preset Voices:</strong> Built-in engine speakers (e.g. Kokoro or Edge <code>engine_voice</code>); nobody is cloned, so <code>consent_status = NotRequired</code>.
+                  <strong>Preset Voices:</strong> Built-in engine speakers (e.g. Kokoro, Qwen3-TTS or Edge <code>engine_voice</code>, or the Chatterbox models&apos; own voice); nobody is cloned, so <code>consent_status = NotRequired</code>.
                 </p>
               </div>
               <div className="rounded-xl border border-border/40 bg-card/50 p-5 space-y-2">

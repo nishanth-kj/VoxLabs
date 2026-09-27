@@ -93,6 +93,17 @@ def copy_file(src: str | Path, dst: str | Path) -> Path:
     return dst
 
 
+def link_file(src: str | Path, dst: str | Path) -> Path:
+    """A hard link to `src` (no extra disk space), or a copy where the file system has no hard links."""
+    dst = Path(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(src, dst)
+    except OSError:
+        shutil.copy2(src, dst)
+    return dst
+
+
 def save_upload(upload: UploadFile) -> Path:
     """Stream an uploaded file into data/cache/uploads. Callers remove it when done (services keep copies)."""
     suffix = Path(upload.filename or "").suffix.lower()

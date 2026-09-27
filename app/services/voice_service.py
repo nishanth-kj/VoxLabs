@@ -10,7 +10,7 @@ from app.constants.audio import STYLE_PRESETS
 from app.constants.consent_status import ConsentStatus
 from app.constants.models import DEFAULT_TTS_MODEL
 from app.constants.status import Status
-from app.constants.voices import EDGE_VOICES, KOKORO_VOICES, PIPER_VOICE
+from app.constants.voices import CLONE_MODEL_VOICES, EDGE_VOICES, KOKORO_VOICES, PIPER_VOICE, QWEN3_VOICES
 from app.exceptions import ConsentError, NotFoundError, VoiceError, service_error
 from app.models import Voice, VoiceSample
 from app.models.request import VoiceRequest
@@ -64,28 +64,33 @@ class VoiceService:
             voice.storage_dir = str(self.storage_dir(voice.voices_id))
         return voice
 
+    @staticmethod
+    def _builtin_packs() -> dict[str, list[dict]]:
+        def preset(voice: dict, model_key: str, engine_voice: str | None) -> dict:
+            return {"name": voice["name"], "language": voice["language"], "description": voice["description"],
+                    "model_key": model_key, "engine_voice": engine_voice}
+
+        return {
+            "piper": [preset(PIPER_VOICE, DEFAULT_TTS_MODEL, None)],
+            "kokoro": [preset(voice, "kokoro-82m", voice["id"]) for voice in KOKORO_VOICES],
+            "edge": [preset(voice, "edge-neural", voice["id"]) for voice in EDGE_VOICES],
+            "clone-models": [preset(voice, voice["model_key"], None) for voice in CLONE_MODEL_VOICES],
+            "qwen3": [preset(voice, "qwen3-tts-0.6b", voice["id"]) for voice in QWEN3_VOICES],
+        }
+
     def ensure_builtin_voices(self) -> int:
-        """Create the Piper, Kokoro and Edge preset voices once, and pick Piper Lessac as the default."""
+        """Create the preset voices of every pack not added yet, and pick Piper Lessac as the default.
+
+        Each pack is added once (the `builtin_voice_packs` setting): an update that brings a new pack adds it
+        to an existing database, and a preset voice the user deleted stays deleted."""
         try:
-            if system_service.get_setting("builtin_voices_seeded"):
+            packs = self._builtin_packs()
+            done = set(system_service.get_setting("builtin_voice_packs") or [])
+            if system_service.get_setting("builtin_voices_seeded"):  # databases from before packs were tracked
+                done |= {"piper", "kokoro", "edge"}
+            specs = [spec for name, pack in packs.items() if name not in done for spec in pack]
+            if not specs:
                 return 0
-            specs = [{
-                "name": PIPER_VOICE["name"],
-                "language": PIPER_VOICE["language"],
-                "description": PIPER_VOICE["description"],
-                "model_key": DEFAULT_TTS_MODEL,
-                "engine_voice": None,
-            }]
-            specs.extend(
-                {"name": voice["name"], "language": voice["language"], "description": voice["description"],
-                 "model_key": "kokoro-82m", "engine_voice": voice["id"]}
-                for voice in KOKORO_VOICES
-            )
-            specs.extend(
-                {"name": voice["name"], "language": voice["language"], "description": voice["description"],
-                 "model_key": "edge-neural", "engine_voice": voice["id"]}
-                for voice in EDGE_VOICES
-            )
             added = 0
             with transaction() as session:
                 existing = {
@@ -112,7 +117,7 @@ class VoiceService:
                     )
                 if piper is not None:
                     system_service.update_settings(default_voices_id=piper.voices_id)
-            system_service.update_settings(builtin_voices_seeded=True)
+            system_service.update_settings(builtin_voice_packs=sorted(done | set(packs)))
             logger.info(f"Added {added} built-in voices")
             return added
         except Exception as exc:

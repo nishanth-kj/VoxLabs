@@ -109,6 +109,36 @@ def test_builtin_voices_cover_kokoro_edge_and_piper():
     assert voice_service.ensure_builtin_voices() == 0
 
 
+def test_clone_models_have_built_in_voices():
+    voices = voice_service.list_voices()
+    qwen = {voice["engine_voice"] for voice in voices if voice["model_key"] == "qwen3-tts-0.6b"}
+    assert qwen == {"ryan", "aiden", "vivian", "serena", "uncle_fu", "dylan", "eric", "ono_anna", "sohee"}
+    for key in ("chatterbox", "chatterbox-turbo"):
+        own = [voice for voice in voices if voice["model_key"] == key]
+        assert len(own) == 1 and own[0]["engine_voice"] is None and own[0]["source"] == "preset"
+
+
+def test_new_voice_packs_reach_older_databases():
+    """A database from before packs were tracked gets only the new packs, once; deleted presets stay deleted."""
+    from app.constants.status import Status
+    from app.models import Voice
+    from app.utils.database import transaction
+
+    with transaction() as session:
+        for voice in session.query(Voice).filter(Voice.model_key.in_(("chatterbox", "chatterbox-turbo",
+                                                                     "qwen3-tts-0.6b"))):
+            session.delete(voice)
+    system_service.update_settings(builtin_voices_seeded=True, builtin_voice_packs=[])
+    assert voice_service.ensure_builtin_voices() == 11  # 2 Chatterbox + 9 Qwen3-TTS, no Kokoro/Edge repeats
+    ryan = next(v for v in voice_service.list_voices() if v["engine_voice"] == "ryan")
+    with transaction() as session:
+        row = session.get(Voice, ryan["voices_id"])
+        assert row is not None
+        row.status = Status.DELETED.code
+    assert voice_service.ensure_builtin_voices() == 0
+    assert "ryan" not in {voice["engine_voice"] for voice in voice_service.list_voices()}
+
+
 def test_voice_editor_delivery_is_saved(voice_wav, consent):
     voice = voice_service.create("Narrator", model_key="fake-tts")
     saved = voice_service.update(voice["voices_id"], delivery={

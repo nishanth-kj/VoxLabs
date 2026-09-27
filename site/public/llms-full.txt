@@ -29,7 +29,7 @@ uv run python -m app.api.app --stdio  # Launch REST API + stdio MCP server
 | `kokoro-82m` | Kokoro 82M | Local TTS | 330 MB | ~1000 MB | `tts`, `speed`, `voices` (`af_heart`, `af_bella`, `bm_george`), `local` |
 | `chatterbox` | Chatterbox TTS | Zero-Shot Clone | 3200 MB | ~4000 MB | `tts`, `clone`, `emotion`, `temperature`, `seed`, `local` |
 | `chatterbox-turbo` | Chatterbox Turbo | Zero-Shot Clone | 2990 MB | ~3000 MB | `tts`, `clone`, `temperature`, `seed`, `local` |
-| `qwen3-tts-0.6b` | Qwen3-TTS 0.6B (from source; own engine environment) | Zero-Shot Clone | 2400 MB | ~3000 MB | `tts`, `clone`, `temperature`, `seed`, `local` |
+| `qwen3-tts-0.6b` | Qwen3-TTS 0.6B (from source; own engine environment) | Zero-Shot Clone | 4150 MB | ~3000 MB | `tts`, `clone`, `voices` (`ryan`, `aiden`, `vivian`, `serena`, `uncle_fu`, `dylan`, `eric`, `ono_anna`, `sohee`), `temperature`, `seed`, `local` |
 | `voice-profile-mfcc` | VoxLabs Voice Profile (MFCC) | Profile Embed | 0 MB | 0 MB | `embed`, `clone`, `local` |
 | `dsp-enhance` | VoxLabs DSP Enhancement | Audio DSP | 0 MB | 0 MB | `denoise`, `eq`, `compress`, `limit`, `loudness`, `local` |
 | `gtts-emotional` | Emotional TTS (Google) | Online TTS (Opt-In) | 0 MB | 0 MB | `tts`, `emotion`, `speed`, `pitch`, `online` |

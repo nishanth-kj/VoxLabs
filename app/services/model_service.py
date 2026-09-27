@@ -30,7 +30,7 @@ from app.services.job_service import job_service
 from app.services.system_service import system_service
 from app.utils import device as device_utils
 from app.utils.database import read_session, serialize, transaction
-from app.utils.files import remove_tree, subdir
+from app.utils.files import link_file, remove_tree, subdir
 from app.utils.logger import logger
 from app.utils.model import (
     ModelBackend,
@@ -230,10 +230,18 @@ class ModelService:
             files = entry.get("files") or {}
             for index, (name, url) in enumerate(files.items()):
                 target = self.model_dir(key) / name
-                if not self._weight_file(target):
-                    logger.info(f"Downloading {name} for {key}")
-                    download(url, target, cancelled=cancelled,
-                             progress=(lambda v, i=index: progress((i + v) / len(files))) if progress else None)
+                if self._weight_file(target):
+                    continue
+                # The same file listed twice (e.g. a tokenizer two models share) is downloaded once.
+                twin = next((self.model_dir(key) / other for other, other_url in files.items()
+                             if other_url == url and other != name and self._weight_file(self.model_dir(key) / other)),
+                            None)
+                if twin is not None:
+                    link_file(twin, target)
+                    continue
+                logger.info(f"Downloading {name} for {key}")
+                download(url, target, cancelled=cancelled,
+                         progress=(lambda v, i=index: progress((i + v) / len(files))) if progress else None)
             environment = entry.get("environment")
             if environment and not environment_ready(environment):
                 create_environment(environment, cancelled=cancelled)

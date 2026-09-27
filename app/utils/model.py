@@ -35,8 +35,10 @@ from app.constants.models import (
     ENGINE_ENVIRONMENTS,
     ENGINE_INSTALL_COMMAND,
     KOKORO_DEFAULT_VOICE,
+    QWEN3_DEFAULT_VOICE,
     Backend,
 )
+from app.constants.voices import QWEN3_VOICES
 from app.exceptions import ModelError
 from app.utils import audio as audio_utils
 from app.utils.files import subdir
@@ -624,21 +626,27 @@ class WorkerBackend(ModelBackend):
 
 
 class Qwen3Backend(WorkerBackend):
-    """Qwen3-TTS 0.6B Base (Alibaba Qwen, Apache-2.0). Clones the voice's first sample from its speaker
-    embedding, so no transcript is needed. It has no built-in voice."""
+    """Qwen3-TTS 0.6B (Alibaba Qwen, Apache-2.0). A cloned voice goes to the Base model, which clones the
+    first sample from its speaker embedding (no transcript needed). Otherwise the CustomVoice model speaks
+    one of its built-in voices (`engine_voice`, default QWEN3_DEFAULT_VOICE)."""
 
     backend_id = Backend.QWEN3
     environment = "qwen3-tts"
     supports_cloning = True
     native_params = frozenset({"temperature"})
+    VOICES = frozenset(voice["id"] for voice in QWEN3_VOICES)
 
     def synthesize(self, request, voice):
-        if not voice or not voice.sample_paths:
-            raise ModelError("Qwen3-TTS only speaks in a cloned voice. Pick a cloned voice, or another model.",
-                             field="voices_id")
-        reply = self._call({"text": request.text, "language": voice.language or request.language,
-                            "ref_audio": str(Path(voice.sample_paths[0]).resolve()),
-                            "temperature": request.temperature, "seed": request.seed})
+        message: dict[str, Any] = {"text": request.text, "language": (voice.language if voice else None)
+                                   or request.language, "temperature": request.temperature, "seed": request.seed}
+        if voice and voice.sample_paths:
+            message["ref_audio"] = str(Path(voice.sample_paths[0]).resolve())
+        else:
+            speaker = (voice.engine_voice if voice else None) or QWEN3_DEFAULT_VOICE
+            if speaker not in self.VOICES:
+                raise ModelError(f"Qwen3-TTS has no voice '{speaker}'", field="engine_voice")
+            message["speaker"] = speaker
+        reply = self._call(message)
         audio = np.frombuffer(base64.b64decode(reply["audio"]), dtype="<f4").astype(np.float32)
         if not audio.size:
             raise ModelError("Qwen3-TTS returned no audio for this text")

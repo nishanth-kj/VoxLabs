@@ -20,6 +20,8 @@ ENGINE_INSTALL_COMMAND = "uv sync --inexact --extra {extra}"
 FALLBACK_TTS_MODELS = ("chatterbox", "chatterbox-turbo", "kokoro-82m", "piper-en-us-lessac-medium")
 
 KOKORO_DEFAULT_VOICE = "af_heart"
+# The Qwen3-TTS speaker used when neither a cloned voice nor one of its own voices is picked.
+QWEN3_DEFAULT_VOICE = "ryan"
 
 # Engines whose libraries cannot share VoxLabs' environment get their own under data/engines/<name>,
 # set up with uv when the model is installed, and run as a helper process (app/utils/engine_workers/).
@@ -125,26 +127,35 @@ MODEL_CATALOG = [
         },
     },
     {
-        # Qwen3-TTS (Alibaba Qwen, Apache-2.0). Clones any voice sample; it has no built-in voice.
+        # Qwen3-TTS (Alibaba Qwen, Apache-2.0): two 0.6B models. Base clones any voice sample; CustomVoice
+        # (in custom_voice/) speaks its 9 built-in voices (QWEN3_VOICES). Both use the same speech tokenizer,
+        # so its files share one URL and install links the second copy instead of downloading it again.
         # Its library needs another transformers version, so it runs in its own engine environment.
         "key": "qwen3-tts-0.6b",
         "name": "Qwen3-TTS 0.6B",
         "model_type": ModelType.CLONE,
         "backend": Backend.QWEN3,
-        "version": "12hz-0.6b-base",
-        "size_mb": 2400,
+        "version": "12hz-0.6b",
+        "size_mb": 4150,
         "vram_mb": 3000,
         "online": False,
         "package": None,
         "extra": None,
         "environment": "qwen3-tts",
-        "capabilities": ["tts", "clone", "temperature", "seed", "local"],
+        "capabilities": ["tts", "clone", "voices", "temperature", "seed", "local"],
         "files": {
-            name: _hf("Qwen/Qwen3-TTS-12Hz-0.6B-Base", name)
-            for name in ("config.json", "generation_config.json", "model.safetensors", "preprocessor_config.json",
-                         "tokenizer_config.json", "vocab.json", "merges.txt", "speech_tokenizer/config.json",
-                         "speech_tokenizer/configuration.json", "speech_tokenizer/model.safetensors",
-                         "speech_tokenizer/preprocessor_config.json")
+            **{
+                f"{folder}{name}": _hf(repo, name)
+                for folder, repo in (("", "Qwen/Qwen3-TTS-12Hz-0.6B-Base"),
+                                     ("custom_voice/", "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"))
+                for name in ("config.json", "generation_config.json", "model.safetensors", "preprocessor_config.json",
+                             "tokenizer_config.json", "vocab.json", "merges.txt")
+            },
+            **{
+                f"{folder}speech_tokenizer/{name}": _hf("Qwen/Qwen3-TTS-12Hz-0.6B-Base", f"speech_tokenizer/{name}")
+                for folder in ("", "custom_voice/")
+                for name in ("config.json", "configuration.json", "model.safetensors", "preprocessor_config.json")
+            },
         },
     },
     {

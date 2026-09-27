@@ -51,6 +51,8 @@ Heavy work and progress reporting happen before the transaction, so it stays sho
 
 `VoiceService.create()` makes a *preset* voice: an engine's built-in speaker, such as an Edge voice id in `engine_voice`. Nobody is cloned, so `consent_status = NotRequired`.
 
+`ensure_builtin_voices()` adds the built-in presets pack by pack: Piper, Kokoro, Edge, the clone models' own voices (Chatterbox and Chatterbox Turbo each have one; `engine_voice` is empty) and the 9 Qwen3-TTS voices. The `builtin_voice_packs` setting records which packs were added, so an update adds only new packs and a preset you deleted stays deleted.
+
 ## UI
 
 The Clone Voice page walks through: samples (import or record) → analysis table → consent form → voice settings → Clone (background job) → Preview → Save.

@@ -57,13 +57,13 @@ With `cache: true`, `generate` first hashes everything that changes the sound (t
 | Kokoro 82M | `--extra kokoro`, then install it on the Models page (weights download on first load) | local, fine on CPU | speed; built-in voices via `engine_voice` (default `af_heart`) |
 | Chatterbox | `--extra chatterbox` | local, GPU recommended | emotion, temperature, seed; cloning, or its built-in voice without a cloned voice |
 | Chatterbox Turbo | `--extra chatterbox` (same package) | local, GPU recommended, faster | temperature, seed; cloning from a sample longer than 5 s, or its built-in voice |
-| Qwen3-TTS 0.6B | install it on the Models page (from source; it sets up its own environment, see below) | local, helper process | temperature, seed; cloning only (no built-in voice), 10 languages |
+| Qwen3-TTS 0.6B | install it on the Models page (from source; it sets up its own environment, see below) | local, helper process | temperature, seed; cloning, or 9 built-in voices via `engine_voice` (default `ryan`); 10 languages |
 | Emotional (gTTS) | base | **online** (Google), opt-in | — |
 | Edge neural | base | **online** (Microsoft), opt-in | speed, pitch; preset voices via `engine_voice` |
 
 Online engines raise `ModelError` unless **Settings → Allow online engines** is on.
 
-Qwen3-TTS needs a different `transformers` than Chatterbox, so it cannot share VoxLabs' environment. Installing it downloads its weights and sets up `data/engines/qwen3-tts` with uv (`ENGINE_ENVIRONMENTS` in `app/constants/models.py`). Its backend runs `app/utils/engine_workers/qwen3_worker.py` with that environment's Python and exchanges one JSON message per line with it. A built app has no uv, so it lists the model but cannot set it up. Qwen3-TTS clones from the speaker embedding of the voice's first sample (no transcript needed).
+Qwen3-TTS needs a different `transformers` than Chatterbox, so it cannot share VoxLabs' environment. Installing it downloads its weights and sets up `data/engines/qwen3-tts` with uv (`ENGINE_ENVIRONMENTS` in `app/constants/models.py`). Its backend runs `app/utils/engine_workers/qwen3_worker.py` with that environment's Python and exchanges one JSON message per line with it. A built app has no uv, so it lists the model but cannot set it up. Qwen3-TTS is two 0.6B models: Base clones from the speaker embedding of the voice's first sample (no transcript needed), and CustomVoice (`custom_voice/`) speaks its built-in voices (`ryan`, `aiden`, `vivian`, `serena`, `uncle_fu`, `dylan`, `eric`, `ono_anna`, `sohee`). Each loads the first time it is needed. Both use the same speech tokenizer, which is downloaded once and hard-linked.
 
 ## Labelling
 

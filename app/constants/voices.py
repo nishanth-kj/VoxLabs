@@ -1,7 +1,8 @@
-"""Built-in speaking voices. Kokoro is the local pack; Edge is the Microsoft neural catalog.
+"""Built-in speaking voices: Piper, the Kokoro pack, the clone models' own voices (Chatterbox, Chatterbox Turbo,
+Qwen3-TTS) and the Microsoft Edge neural catalog.
 
-These are preset voices (no samples, no consent). The desktop app creates one row for each
-on first launch so they can be edited and used for speech.
+These are preset voices (no samples, no consent). The app creates one row for each, pack by pack
+(`voice_service.ensure_builtin_voices`), so they can be edited and used for speech.
 """
 
 KOKORO_VOICES = (
@@ -393,3 +394,25 @@ PIPER_VOICE = {
     "description": "Piper en_US Lessac medium, the default offline voice.",
 }
 
+
+# The clone models' own voices, for speaking without a cloned voice (no samples, no consent).
+# Chatterbox and Chatterbox Turbo each have one; engine_voice None means that voice.
+CLONE_MODEL_VOICES = (
+    {"model_key": "chatterbox", "name": "Chatterbox · Built-in voice", "language": "en",
+     "description": "Chatterbox's own voice, used when no cloned voice is picked."},
+    {"model_key": "chatterbox-turbo", "name": "Chatterbox Turbo · Built-in voice", "language": "en",
+     "description": "Chatterbox Turbo's own voice, used when no cloned voice is picked."},
+)
+
+# Qwen3-TTS speakers (its CustomVoice model). Each speaks all 10 of its languages; `language` is the native one.
+QWEN3_VOICES = (
+    {'id': 'ryan', 'name': 'Qwen3-TTS · Ryan (English)', 'language': 'en', 'description': 'Qwen3-TTS built-in voice Ryan, English, male.'},
+    {'id': 'aiden', 'name': 'Qwen3-TTS · Aiden (English)', 'language': 'en', 'description': 'Qwen3-TTS built-in voice Aiden, American English, male.'},
+    {'id': 'vivian', 'name': 'Qwen3-TTS · Vivian (Chinese)', 'language': 'zh', 'description': 'Qwen3-TTS built-in voice Vivian, Chinese, female.'},
+    {'id': 'serena', 'name': 'Qwen3-TTS · Serena (Chinese)', 'language': 'zh', 'description': 'Qwen3-TTS built-in voice Serena, Chinese, female.'},
+    {'id': 'uncle_fu', 'name': 'Qwen3-TTS · Uncle Fu (Chinese)', 'language': 'zh', 'description': 'Qwen3-TTS built-in voice Uncle Fu, Chinese, male.'},
+    {'id': 'dylan', 'name': 'Qwen3-TTS · Dylan (Beijing Chinese)', 'language': 'zh', 'description': 'Qwen3-TTS built-in voice Dylan, Beijing dialect, male.'},
+    {'id': 'eric', 'name': 'Qwen3-TTS · Eric (Sichuan Chinese)', 'language': 'zh', 'description': 'Qwen3-TTS built-in voice Eric, Sichuan dialect, male.'},
+    {'id': 'ono_anna', 'name': 'Qwen3-TTS · Ono Anna (Japanese)', 'language': 'ja', 'description': 'Qwen3-TTS built-in voice Ono Anna, Japanese, female.'},
+    {'id': 'sohee', 'name': 'Qwen3-TTS · Sohee (Korean)', 'language': 'ko', 'description': 'Qwen3-TTS built-in voice Sohee, Korean, female.'},
+)

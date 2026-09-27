@@ -32,14 +32,16 @@ def _write_worker(path: Path) -> Path:
             reply.flush()
 
         send({"ready": True, "device": "cpu"})
+        log = open(sys.argv[1] + "/requests.jsonl", "a", encoding="utf-8")
         for line in sys.stdin:
             request = json.loads(line)
+            log.write(line)
+            log.flush()
             if request["text"] == "fail":
                 send({"error": "the engine refused"})
                 continue
             audio = np.full(len(request["text"]) * 100, 0.25, dtype="<f4")
-            send({"audio": base64.b64encode(audio.tobytes()).decode("ascii"), "sr": 24000,
-                  "echo": request})
+            send({"audio": base64.b64encode(audio.tobytes()).decode("ascii"), "sr": 24000})
     '''), encoding="utf-8")
     return path
 
@@ -59,10 +61,14 @@ def fake_environment(monkeypatch, tmp_path):
 
 def test_qwen3_is_in_the_catalog_with_its_own_environment():
     entry = {e["key"]: e for e in MODEL_CATALOG}["qwen3-tts-0.6b"]
+    files = entry["files"]
     assert entry["environment"] in ENGINE_ENVIRONMENTS
     assert entry["package"] is None and entry["extra"] is None
-    assert all(url.startswith("https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base/") for url in entry["files"].values())
-    assert "speech_tokenizer/model.safetensors" in entry["files"]
+    assert files["model.safetensors"].startswith("https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base/")
+    assert files["custom_voice/model.safetensors"].startswith(
+        "https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice/")
+    # Both models load a speech_tokenizer/ next to them; it is the same file, listed under one URL.
+    assert files["custom_voice/speech_tokenizer/model.safetensors"] == files["speech_tokenizer/model.safetensors"]
 
 
 def test_the_worker_script_does_not_import_the_app():
@@ -85,7 +91,9 @@ def test_environment_is_ready_only_with_the_current_requirements(fake_environmen
 
 
 def test_worker_backend_speaks_through_its_helper_process(fake_environment, voice_wav, tmp_path):
-    backend = Qwen3Backend(tmp_path / "weights", "cuda:0")
+    weights = tmp_path / "weights"
+    weights.mkdir()
+    backend = Qwen3Backend(weights, "cuda:0")
     backend.load()
     try:
         assert backend.loaded and backend.device == "cpu"  # the worker reports the device it really used
@@ -97,11 +105,19 @@ def test_worker_backend_speaks_through_its_helper_process(fake_environment, voic
             backend.synthesize(SynthesisRequest(text="fail"), voice)
         audio, _ = backend.synthesize(SynthesisRequest(text="still alive"), voice)  # an error keeps it running
         assert audio.size == 1100
-        with pytest.raises(ModelError, match="only speaks in a cloned voice"):
-            backend.synthesize(SynthesisRequest(text="Hi"), None)
+        # Without a cloned voice it speaks a built-in voice: the one picked, else Ryan.
+        backend.synthesize(SynthesisRequest(text="Annyeong"), VoiceRef(engine_voice="sohee", language="ko"))
+        backend.synthesize(SynthesisRequest(text="Hi"), None)
+        with pytest.raises(ModelError, match="no voice 'nobody'"):
+            backend.synthesize(SynthesisRequest(text="Hi"), VoiceRef(engine_voice="nobody"))
     finally:
         backend.unload()
     assert not backend.loaded and backend._process is None
+    sent = [json.loads(line) for line in (weights / "requests.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert sent[0] == {"text": "Hallo", "language": "de", "temperature": 0.7, "seed": 3,
+                       "ref_audio": str(voice_wav.resolve())}
+    assert [(m.get("speaker"), m["language"], "ref_audio" in m) for m in sent[3:]] == [
+        ("sohee", "ko", False), ("ryan", "en", False)]
 
 
 def test_worker_backend_refuses_to_load_before_setup(tmp_path):
@@ -110,9 +126,10 @@ def test_worker_backend_refuses_to_load_before_setup(tmp_path):
 
 
 def test_install_downloads_weights_and_sets_up_the_environment(monkeypatch):
-    created = []
+    created, fetched = [], []
 
     def fake_download(url, dest, progress=None, cancelled=None):
+        fetched.append(url)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(b"weights")
         return dest
@@ -130,6 +147,10 @@ def test_install_downloads_weights_and_sets_up_the_environment(monkeypatch):
     monkeypatch.setattr(model_service_module, "create_environment", lambda name, cancelled=None: None)
     model = model_service.install("qwen3-tts-0.6b")  # weights saved, environment setup did nothing
     assert not model["installed"] and model["files_ready"]
+    files = {e["key"]: e for e in MODEL_CATALOG}["qwen3-tts-0.6b"]["files"]
+    assert sorted(fetched) == sorted(set(files.values()))  # the shared speech tokenizer came down once
+    shared = model_service.model_dir("qwen3-tts-0.6b") / "custom_voice" / "speech_tokenizer" / "model.safetensors"
+    assert shared.read_bytes() == b"weights"
     assert model["install_label"] == "Downloaded · engine not set up (Install sets it up)"
     with pytest.raises(ModelError, match="not set up yet"):
         model_service.resolve_speech_model("qwen3-tts-0.6b")
