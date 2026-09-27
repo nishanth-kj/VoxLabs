@@ -122,7 +122,6 @@ class GeneratePage(BasePage):
         # The page model is the filter, so the voice picker does not repeat a second model list.
         self.voice = VoiceSelector(voice_box, filters=False)
         self.voice.hide()
-        self.voice.search.show()
         self.voice.currentIndexChanged.connect(lambda _i: self._apply_voice())
         self.model = ModelSelector()
         self.model.currentIndexChanged.connect(self._on_model)
@@ -148,7 +147,6 @@ class GeneratePage(BasePage):
         self.pronunciations.setPlaceholderText("One per line: word = how to say it\nSQL = sequel")
         self.pronunciations.setFixedHeight(72)
         voice_layout.addWidget(self._labeled("Model", self.model))
-        voice_layout.addWidget(self._labeled("Search voices", self.voice.search))
         voice_layout.addWidget(self._labeled("Voice", self.voice.combo))
         grid = QGridLayout()
         grid.setHorizontalSpacing(12)
@@ -315,7 +313,6 @@ class GeneratePage(BasePage):
             "seed": None if self.seed.value() < 0 else self.seed.value(),
             "post": post,
             "preset": preset,
-            "projects_id": self.state.projects_id,
         }
 
     def generate(self):

@@ -18,7 +18,6 @@ from app.models.request import (
     AudioExportRequest,
     AudioProcessRequest,
     GenerateScriptRequest,
-    ProjectRequest,
     RegenerateRequest,
     ScriptRequest,
     SectionRequest,
@@ -30,7 +29,6 @@ from app.models.response import ApiResponse
 from app.services.audio_service import audio_service
 from app.services.job_service import job_service
 from app.services.model_service import model_service
-from app.services.project_service import project_service
 from app.services.script_service import script_service
 from app.services.system_service import system_service
 from app.services.tts_service import tts_service
@@ -113,9 +111,8 @@ def register_tools(mcp: MCPServer) -> None:
     # ------------------------------------------------------------ audio
 
     @mcp.tool(description="List audio files in the library (newest first).", annotations=READ_ONLY)
-    def list_audio(projects_id: int | None = None, limit: int = 100) -> dict:
-        return respond("list_audio", lambda: audio_service.list_audios(
-            Validation.optional_id(projects_id, "projects_id"), Validation.limit(limit)))
+    def list_audio(limit: int = 100) -> dict:
+        return respond("list_audio", lambda: audio_service.list_audios(Validation.limit(limit)))
 
     @mcp.tool(description="One audio record (path, duration, loudness, AI-generated flag).", annotations=READ_ONLY)
     def get_audio(audios_id: int) -> dict:
@@ -135,10 +132,9 @@ def register_tools(mcp: MCPServer) -> None:
 
     # ------------------------------------------------------------ scripts
 
-    @mcp.tool(description="List scripts, optionally for one project.", annotations=READ_ONLY)
-    def list_scripts(projects_id: int | None = None) -> dict:
-        return respond("list_scripts", lambda: script_service.list_scripts(
-            Validation.optional_id(projects_id, "projects_id")))
+    @mcp.tool(description="List scripts.", annotations=READ_ONLY)
+    def list_scripts() -> dict:
+        return respond("list_scripts", script_service.list_scripts)
 
     @mcp.tool(description="One script with its parsed sections, speakers and takes.", annotations=READ_ONLY)
     def get_script(scripts_id: int) -> dict:
@@ -162,23 +158,6 @@ def register_tools(mcp: MCPServer) -> None:
         if body.background:
             return respond("generate_script", lambda: {"job": script_service.generate_async(scripts_id, body)})
         return respond("generate_script", lambda: script_service.generate(scripts_id, body))
-
-    # ------------------------------------------------------------ projects
-
-    @mcp.tool(description="List projects.", annotations=READ_ONLY)
-    def list_projects(users_id: int | None = None) -> dict:
-        return respond("list_projects", lambda: project_service.list_projects(
-            users_id=Validation.optional_id(users_id, "users_id")))
-
-    @mcp.tool(description="One project with its scripts, audio and voices.", annotations=READ_ONLY)
-    def get_project(projects_id: int) -> dict:
-        return respond("get_project", lambda: project_service.open_project(
-            Validation.require_id(projects_id, "projects_id")))
-
-    @mcp.tool(description="Create (no projects_id), update (projects_id) or delete (projects_id + status 8) a project.",
-              annotations=SAVE)
-    def save_project(body: ProjectRequest) -> dict:
-        return respond("save_project", lambda: project_service.save(body))
 
     # ------------------------------------------------------------ models and jobs
 

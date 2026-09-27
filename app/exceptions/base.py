@@ -66,11 +66,6 @@ class JobError(AppError):
     error_message = ErrorMessage.CONFLICT
 
 
-class ProjectError(AppError):
-    error_code = ErrorCode.BAD_REQUEST
-    error_message = ErrorMessage.BAD_REQUEST
-
-
 class InternalError(AppError):
     error_code = ErrorCode.INTERNAL_SERVER_ERROR
     error_message = ErrorMessage.INTERNAL_SERVER_ERROR

@@ -40,5 +40,5 @@ Discover, install, load and select local AI models (TTS, cloning, enhancement, e
 ## Testing
 
 - Tests register fake backends with `register_backend()` and patch the catalog (see `tests/conftest.py`).
-- `tests/test_api.py::test_scripts_projects_users_models` covers load and unload.
+- `tests/test_api.py::test_scripts_and_models` covers load and unload.
 - `tests/test_tts_service.py::test_online_models_are_opt_in` covers the online gate.

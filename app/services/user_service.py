@@ -1,4 +1,4 @@
-"""UserService: local user profiles (who owns voices, projects and consent records)."""
+"""UserService: local user profiles (who owns voices and consent records)."""
 
 import re
 
@@ -101,15 +101,6 @@ class UserService:
             return voice_service.list_voices(users_id=users_id)
         except Exception as exc:
             raise service_error(exc, "user_service.get_user_voices")
-
-    def get_user_projects(self, users_id: int) -> list[dict]:
-        from app.services.project_service import project_service
-
-        try:
-            self.get_user(users_id)
-            return project_service.list_projects(users_id=users_id)
-        except Exception as exc:
-            raise service_error(exc, "user_service.get_user_projects")
 
     def get_user_jobs(self, users_id: int) -> list[dict]:
         try:

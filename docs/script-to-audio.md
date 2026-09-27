@@ -59,4 +59,4 @@ Every step has an `*_async` wrapper that runs as a background job.
 ## UI
 
 - **Script to Audio page:** a script list, the editor (autosaves after 0.8 s), and Structure / Speakers / Section / Script settings tabs. Actions: generate a take, generate all, render, and play.
-- **Studio page:** the project and script picker, a sections table, a voice panel, and a timeline with clips over the final waveform and transport.
+- **Studio page:** the script picker, a sections table, a voice panel, and a timeline with clips over the final waveform and transport.

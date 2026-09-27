@@ -65,10 +65,13 @@ def test_menus_reach_every_page_command(window):
 
     source = Path("app/ui/app_menu.py").read_text(encoding="utf-8")
     calls = set(re.findall(r'cmd\("(\w+)", "(\w+)"', source))
-    calls |= {("models", m) for m in re.findall(r'\("[^"]+", "(\w+)"\)', source.split("models = _submenu")[1].split("projects = _submenu")[0])}
+    calls |= {("models", m) for m in re.findall(r'\("[^"]+", "(\w+)"\)', source.split("models = _submenu")[1])}
     assert len(calls) > 40
     missing = [f"{page}.{method}" for page, method in calls if not callable(getattr(window.pages[page], method, None))]
     assert missing == []
+    from app.ui.widgets.command_palette import menu_commands
+
+    assert not [label for label, _action in menu_commands(window.menu_bar) if "project" in label.lower()]
     titles = [action.text().replace("&", "") for action in window.menu_bar.actions()]
     assert titles == ["File", "Edit", "View", "Voice", "Audio", "Script", "Tools", "Help"]
 
@@ -107,48 +110,8 @@ def test_native_title_bar_option(qtbot):
     assert win.title_bar is None and win.menuBar() is win.menu_bar
 
 
-def test_open_project_scopes_new_work(window, qtbot):
-    from PySide6.QtCore import Qt
-
-    from app.services.project_service import project_service
-    from app.services.script_service import script_service
-    from app.services.system_service import system_service
-
-    window.show()  # pages refresh live on a project switch only while visible
-    script_service.create("Loose script", "Hello.")
-    project = project_service.create_project("Course")
-    window.state.set_project(project)
-    assert window.project_button.text() == "Course" and "Course" in window.windowTitle()
-    assert window.pages["generate"].params()["projects_id"] == project["projects_id"]
-    qtbot.waitUntil(lambda: system_service.get_setting("current_projects_id") == project["projects_id"],
-                    timeout=5000)
-
-    lesson = script_service.create("Lesson", "Hi.", projects_id=project["projects_id"])
-    page = window.pages["script"]
-    window.go("script")
-    qtbot.waitUntil(lambda: page.script_list.count() == 1, timeout=5000)
-    assert page.script_list.item(0).data(Qt.ItemDataRole.UserRole) == lesson["scripts_id"]
-
-    window.close_project()
-    assert window.project_button.text() == "No project" and window.pages["generate"].params()["projects_id"] is None
-    qtbot.waitUntil(lambda: page.script_list.count() == 2, timeout=5000)
 
 
-def test_open_project_is_reopened_on_start(qtbot):
-    from app.services.project_service import project_service
-    from app.services.system_service import system_service
-    from app.ui.main_window import MainWindow
-
-    project = project_service.create_project("Podcast")
-    system_service.update_settings(current_projects_id=project["projects_id"])
-    win = MainWindow()
-    qtbot.addWidget(win)
-    assert win.state.projects_id == project["projects_id"] and win.project_button.text() == "Podcast"
-
-    project_service.delete_project(project["projects_id"])
-    win = MainWindow()
-    qtbot.addWidget(win)
-    assert win.state.project is None and win.project_button.text() == "No project"
 
 
 def test_log_panel_shows_source_and_filters(window, qtbot):

@@ -56,7 +56,6 @@ class HomePage(BasePage):
 
         JobBridge.instance().job_changed.connect(lambda _job: self._refresh_jobs() if self.isVisible() else None)
         state.data_changed.connect(lambda _what: self.refresh() if self.isVisible() else None)
-        state.project_changed.connect(lambda _project: self.refresh() if self.isVisible() else None)
 
     def refresh_icons(self):
         for button, name in self._tiles:
@@ -88,7 +87,7 @@ class HomePage(BasePage):
     def _load(self):
         return {
             "voices": voice_service.list_voices()[:8],
-            "audio": audio_service.list_audios(self.state.projects_id, limit=8),
+            "audio": audio_service.list_audios(limit=8),
             "models": model_service.list_models(speaking_only=True),
         }
 

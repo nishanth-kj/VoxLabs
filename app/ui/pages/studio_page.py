@@ -110,14 +110,12 @@ class StudioPage(BasePage):
         for button in (gen_missing, render, editor):
             controls.addWidget(button)
         self.root.addLayout(controls)
-        state.project_changed.connect(lambda _project: self.refresh() if self.isVisible() else None)
 
     # ------------------------------------------------------------ loading
 
     def refresh(self):
         self.voice.refresh()
-        projects_id = self.state.projects_id
-        self.run(lambda: script_service.list_scripts(projects_id), self._show_scripts, busy=False)
+        self.run(script_service.list_scripts, self._show_scripts, busy=False)
 
     def _show_scripts(self, scripts):
         current = self.script["scripts_id"] if self.script else None

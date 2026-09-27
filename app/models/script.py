@@ -12,7 +12,6 @@ class Script(Base):
     __tablename__ = "scripts"
 
     scripts_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    projects_id: Mapped[int | None] = mapped_column(ForeignKey("projects.projects_id", ondelete="CASCADE"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     body: Mapped[str] = mapped_column(Text, default="")
     # {"Teacher": voices_id, ...}; "*" is the default narrator voice.

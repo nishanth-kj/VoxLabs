@@ -14,7 +14,7 @@ VoxLabs is a native Python desktop application (PySide6). An optional REST API e
 - **Script and lesson to audio.** Chapters, sections and speakers (`Teacher: …`) mapped to voices, with per-section settings, multiple takes, intro/outro, and a final render with a clean-up preset.
 - **Audio editor.** Non-destructive waveform editing: select, cut, copy, paste, delete, split, trim, move, duplicate, join, fade, volume, normalize, undo/redo and loop playback.
 - **Enhancement.** Denoise, EQ, compression, de-esser, limiter and loudness, with the presets Voice Clean, Podcast, Narration, Lesson, Studio and Raw. Originals are always kept.
-- **Projects.** Group scripts, takes and audio. Duplicate projects or export them to a zip. Editor state is autosaved.
+- **Takes and autosave.** Every script section keeps its takes, and the audio editor autosaves its edit list on each audio.
 - **Local models.** Piper, Kokoro, XTTS v2, F5-TTS and Chatterbox run on this machine (CPU or CUDA, falling back to the CPU when the GPU is full). Online engines (Google, Microsoft Edge) are opt-in.
 - **Background jobs.** Long work never freezes the UI. You can see progress and cancel jobs.
 

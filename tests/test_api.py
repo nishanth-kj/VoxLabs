@@ -95,21 +95,16 @@ def test_clone_route_requires_consent_and_voice_save(client, voice_wav):
     assert preset["source"] == "preset"
 
 
-def test_scripts_projects_models(client):
-    project = ok(client.post("/api/projects", json={"name": "P", "project_type": "lesson"}))
-    script = ok(client.post("/api/scripts", json={"title": "S", "body": "Teacher: Hi.\n\nStudent: Hello.",
-                                                  "projects_id": project["projects_id"]}))
+def test_scripts_and_models(client):
+    script = ok(client.post("/api/scripts", json={"title": "S", "body": "Teacher: Hi.\n\nStudent: Hello."}))
     assert script["speakers"] == ["Teacher", "Student"]
     section_id = script["sections"][0]["script_sections_id"]
     assert ok(client.post("/api/scripts/sections", json={"script_sections_id": section_id, "speed": 1.1}))["speed"] == 1.1
     result = ok(client.post(f"/api/scripts/{script['scripts_id']}/generate", json={"background": False}))
     assert result["audio"]["source"] == "rendered"
-    assert ok(client.get(f"/api/projects/{project['projects_id']}"))["takes"] == 2
-    renamed = ok(client.post("/api/projects", json={"projects_id": project["projects_id"], "name": "P2"}))
-    assert renamed["name"] == "P2"
+    assert [s["scripts_id"] for s in ok(client.get("/api/scripts"))] == [script["scripts_id"]]
     ok(client.post("/api/scripts", json={"scripts_id": script["scripts_id"], "status": Status.DELETED.code}))
-    ok(client.post("/api/projects", json={"projects_id": project["projects_id"], "status": Status.DELETED.code}))
-    assert ok(client.get("/api/projects")) == []
+    assert ok(client.get("/api/scripts")) == []
 
     models = ok(client.get("/api/models"))
     assert any(m["key"] == "piper-en-us-lessac-medium" for m in models)

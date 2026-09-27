@@ -58,9 +58,8 @@ The `status` column uses `Status` only. When a table needs its own numbered stat
 | `voices` | Cloned or preset voices | users_id, name, language, model_key, source (`clone`/`preset`), engine_voice, delivery (JSON: speed, pitch, energy, emotion, style), consent_status, profile (JSON), storage_dir, sample_count |
 | `voice_samples` | Reference recordings | voices_id, path, duration, sample_rate, quality (JSON), sha256 |
 | `voice_consents` | Consent audit trail | voices_id, granted_by, speaker_name, statement, granted_at, revoked_at |
-| `audios` | Every audio file | projects_id, parent_audios_id, path, original_path, source, ai_generated, duration, sample_rate, channels, format, codec, file_size, loudness, params (JSON), edit_ops (JSON: the editor's pending edit list) |
-| `projects` | Optional grouping of scripts and audio: open one from the File menu in the desktop app, or pass `projects_id` over the API / MCP | users_id, name, project_type, settings, edit_state (JSON) |
-| `scripts` | Scripts and lessons | projects_id, title, body, speaker_map, settings, final_audios_id |
+| `audios` | Every audio file | parent_audios_id, path, original_path, source, ai_generated, duration, sample_rate, channels, format, codec, file_size, loudness, params (JSON), edit_ops (JSON: the editor's pending edit list) |
+| `scripts` | Scripts and lessons | title, body, speaker_map, settings, final_audios_id |
 | `script_sections` | Generatable units | scripts_id, position, chapter, heading, speaker, text, voice/speed/pitch/emotion/style overrides, pause_after_ms |
 | `takes` | Renditions of a section | script_sections_id, audios_id, take_number, selected |
 | `jobs` | Background work | users_id, job_type, title, progress, error, params, result, started_at, finished_at |
@@ -83,4 +82,4 @@ Helpers that accept a `session` argument (`audio_service.register`, `voice_servi
 
 ## Schema changes
 
-`init_db()` creates missing tables, then `_upgrade()` applies small, idempotent in-place steps for databases from earlier builds (`create_all` never alters an existing table). So far there is one: it adds `audios.edit_ops` and moves editor ops out of `projects.edit_state["editor"]`. When a column changes, add a step there and a test that runs it on the old shape.
+`init_db()` creates missing tables, then `_upgrade()` applies small, idempotent in-place steps for databases from earlier builds (`create_all` never alters an existing table). So far: add `audios.edit_ops` (moving editor ops out of the old `projects.edit_state["editor"]`), add `voices.delivery`, and drop projects (the `audios`/`scripts.projects_id` columns first, so the old `ON DELETE CASCADE` cannot delete scripts, then the `projects` table). When a column changes, add a step there and a test that runs it on the old shape.

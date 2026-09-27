@@ -40,7 +40,7 @@ uv run python -m app.api.app --stdio  # Launch REST API + stdio MCP server
 
 ## 3. Non-Destructive Audio Editor & 8-Stage DSP Pipeline
 
-All audio operations preserve `audios.original_path`. Pending waveform edits are stored in `audios.edit_ops` (JSON) so edits persist with or without an active project.
+All audio operations preserve `audios.original_path`. Pending waveform edits are stored in `audios.edit_ops` (JSON) so edits persist on each audio.
 
 ### Enhancement Order
 `trim_silence -> denoise -> eq -> compress -> deess -> normalize -> limit -> loudness`
@@ -68,5 +68,4 @@ Parses structured scripts with chapters (`Lesson 1`, `# Title`), headings (`Intr
   - Speech: `generate_speech`, `regenerate_speech`
   - Audio: `list_audio`, `get_audio`, `process_audio`, `export_audio`
   - Scripts: `list_scripts`, `get_script`, `save_script`, `update_section`, `generate_script`
-  - Projects: `list_projects`, `get_project`, `save_project`
   - Models & Jobs: `list_models`, `list_jobs`, `get_job`, `cancel_job`

@@ -59,9 +59,17 @@ packages = ["app", "scripts"]
 
 [tool.uv]
 package = true
+# Tested 2026-09: installed together, XTTS fails (its code needs transformers < 5, Chatterbox pins
+# transformers==5.2.0) and F5-TTS falls back to a release that breaks on current pyarrow.
+# One of the three per environment, and so per built app.
 conflicts = [
     [{ extra = "xtts" }, { extra = "f5" }, { extra = "chatterbox" }],
 ]
+
+[tool.voxlabs]
+# Engines (extras above) bundled into the desktop app by `uv run build`, at the exact versions in
+# uv.lock. At most one of xtts, f5 and chatterbox (see the conflicts in [tool.uv]).
+build-engines = ["piper", "kokoro", "chatterbox"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

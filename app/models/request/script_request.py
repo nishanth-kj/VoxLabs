@@ -8,6 +8,5 @@ class ScriptRequest(BaseModel):
     status: int | None = None
     title: str | None = None
     body: str | None = None
-    projects_id: int | None = None
     speaker_map: dict[str, int | None] | None = None
     settings: dict | None = None

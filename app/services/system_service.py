@@ -39,7 +39,6 @@ DEFAULT_SETTINGS = {
     "theme": "system",
     "native_title_bar": False,
     "sidebar_collapsed": False,
-    "current_projects_id": None,  # the project open in the desktop app, reopened on start
 }
 
 

@@ -56,18 +56,24 @@ The UI picks it up automatically through `ModelService.list_models()`.
 Build the desktop app for the operating system you are on:
 
 ```bash
-uv sync                      # add --extra piper --extra kokoro to bundle those engines
-uv run build                 # --no-package: stop at the bundle; --skip-self-test: do not launch it
+uv sync --inexact            # add --extra piper --extra kokoro to bundle those engines
+uv run build                 # bundle, self-test, portable package and installers
 ```
 
-It bundles the app with PyInstaller, starts the bundle once with `--self-test` (offscreen, throwaway data folder) to prove it runs, and packages it:
+It bundles the app with PyInstaller, starts the bundle once with `--self-test` (offscreen, throwaway data folder; a crash prints the app's crash report), then makes the portable package and the installers:
 
-| Built on | Output in `dist/` | Install |
+| Built on | Output in `dist/` | Installer tool |
 | --- | --- | --- |
-| Windows | `VoxLabs-Windows-x64.zip` | unzip, run `VoxLabs\VoxLabs.exe` |
-| macOS | `VoxLabs-macOS-arm64.dmg` | open, drag VoxLabs to Applications |
-| Linux | `VoxLabs-Linux-x86_64.tar.gz` | extract, run `VoxLabs/VoxLabs` |
+| Windows | `VoxLabs-Windows-x64.zip` (portable), `-Setup.exe`, `.msi` | Inno Setup 6 (`winget install JRSoftware.InnoSetup`), WiX 5 (`dotnet tool install --global wix --version 5.0.2`) |
+| macOS | `VoxLabs-macOS-arm64.dmg`, `.pkg` | `pkgbuild` (Xcode command line tools) |
+| Linux | `VoxLabs-Linux-x86_64.tar.gz` (portable), `.deb`, `.rpm` | `dpkg-deb`, `rpmbuild` (`apt install rpm`) |
 
-PyInstaller cannot cross-compile, so each package is built on its own OS. `.github/workflows/desktop.yml` runs the same command on Windows, macOS and Linux, and a `v*` tag publishes the three packages as a GitHub release. The builds are not code-signed yet, so SmartScreen and Gatekeeper ask for confirmation on first launch.
+- **Setup.exe** installs per user without an admin prompt (all users is offered), adds a Start menu entry, an optional desktop icon and an uninstaller.
+- **.msi** installs for all users into Program Files (admin), for IT deployment; newer versions upgrade in place.
+- **.pkg** installs `VoxLabs.app` into /Applications; **.deb / .rpm** install to `/opt/voxlabs` with a `voxlabs` command, an app-menu entry and an icon.
+
+Options: `--no-installer` (portable package only), `--no-package` (stop at the bundle), `--skip-self-test`, `--package-only` (reuse the bundle already in `dist/`, e.g. to rebuild just the installers), `--require-installers` (fail instead of skipping an installer whose tool is missing; CI uses it). Only one build runs at a time: a second `uv run build` stops with a message instead of breaking the first.
+
+PyInstaller cannot cross-compile, so each OS's files are built on that OS. `.github/workflows/desktop.yml` runs `uv run build --require-installers` on Windows, macOS and Linux, and a `v*` tag publishes every file as a GitHub release. The builds are not code-signed yet, so SmartScreen and Gatekeeper ask for confirmation on first launch.
 
 A built app keeps its data in the user's app-data folder (`%LOCALAPPDATA%\VoxLabs`, `~/Library/Application Support/VoxLabs`, `~/.local/share/VoxLabs`); from source it stays in `./data`. `VOXLABS_DATA_DIR` overrides both. `uv run build` is the `build` command from `[project.scripts]` (it runs `scripts/build.py`); uv installs the project in editable mode so the command exists. Use `uv sync --inexact` when adding extras, so a sync never removes engines you installed.

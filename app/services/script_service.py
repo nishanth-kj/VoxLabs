@@ -173,11 +173,11 @@ class ScriptService:
 
     # ------------------------------------------------------------ CRUD
 
-    def create(self, title: str | None, body: str = "", projects_id: int | None = None,
-               speaker_map: dict | None = None, settings: dict | None = None) -> dict:
+    def create(self, title: str | None, body: str = "", speaker_map: dict | None = None,
+               settings: dict | None = None) -> dict:
         try:
             with transaction() as session:
-                script = Script(title=Validation.require_name(title, "title", 200), body=body, projects_id=projects_id,
+                script = Script(title=Validation.require_name(title, "title", 200), body=body,
                                 speaker_map=speaker_map or {}, settings=settings or {})
                 session.add(script)
                 session.flush()
@@ -194,12 +194,10 @@ class ScriptService:
         except Exception as exc:
             raise service_error(exc, "script_service.get")
 
-    def list_scripts(self, projects_id: int | None = None) -> list[dict]:
+    def list_scripts(self) -> list[dict]:
         try:
             with read_session() as session:
                 query = select(Script)
-                if projects_id is not None:
-                    query = query.where(Script.projects_id == projects_id)
                 return [self.to_dict(s, with_sections=False) for s in session.scalars(query.order_by(Script.updated_at.desc()))]
         except Exception as exc:
             raise service_error(exc, "script_service.list_scripts")
@@ -223,13 +221,10 @@ class ScriptService:
             raise service_error(exc, "script_service.update")
 
     def save(self, body: ScriptRequest) -> dict:
-        """One entry point: create (no id), delete (status = Deleted) or update.
-
-        On update `projects_id` is ignored: a script stays in its project.
-        """
+        """One entry point: create (no id), delete (status = Deleted) or update."""
         try:
             if body.scripts_id is None:
-                return self.create(body.title, body.body or "", body.projects_id, body.speaker_map, body.settings)
+                return self.create(body.title, body.body or "", body.speaker_map, body.settings)
             if body.status == Status.DELETED.code:
                 self.delete(body.scripts_id)
                 return deleted_result("scripts_id", body.scripts_id)
@@ -366,7 +361,6 @@ class ScriptService:
                 text=section_data["text"],
                 voices_id=voices_id,
                 model_key=(voice or {}).get("model_key") or defaults.get("model_key"),
-                projects_id=script.get("projects_id"),
                 name=f"{script['title']} · {section_data['heading'] or 'section'} {section_data['position'] + 1}",
                 seed=seed,
                 **{k: v for k, v in params.items() if v is not None},
@@ -443,7 +437,7 @@ class ScriptService:
                 if (settings.get(key) or "").strip():
                     extra = tts_service.generate(TTSRequest(
                         text=settings[key], voices_id=narrator, model_key=settings.get("model_key"),
-                        projects_id=script["projects_id"], name=key.split("_")[0].title()))
+                        name=key.split("_")[0].title()))
                     clip = (extra["audios_id"], PAUSE_SECTION_MS)
                     clips.insert(0, clip) if where == 0 else clips.append(clip)
 
@@ -466,7 +460,7 @@ class ScriptService:
                 audio = audio_service.register(
                     session, path, AudioSource.RENDERED, name=f"{script['title']} (final)", ai_generated=True,
                     params={"scripts_id": scripts_id, "takes": [c[0] for c in clips], "preset": settings.get("preset")},
-                    projects_id=script["projects_id"], y=y, sr=sr,
+                    y=y, sr=sr,
                 )
                 old_final = self._get(session, scripts_id).final_audios_id
                 self._get(session, scripts_id).final_audios_id = audio.audios_id
@@ -552,7 +546,7 @@ class ScriptService:
 
     def render_async(self, scripts_id: int) -> dict:
         try:
-            return job_service.submit(JobType.PROJECT_RENDER,
+            return job_service.submit(JobType.SCRIPT_RENDER,
                                       lambda ctx: {"audio": self.render(scripts_id, progress=ctx.progress)},
                                       title=f"Render script {scripts_id}", params={"scripts_id": scripts_id})
         except Exception as exc:

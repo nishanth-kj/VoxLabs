@@ -180,7 +180,7 @@ class TTSService:
         try:
             voice = voice_service.get(body.voices_id, with_samples=False) if body.voices_id else None
             model = model_service.resolve_speech_model(body.model_key, voice)
-            settings = body.model_dump(exclude={"projects_id", "name", "background", "cache"})
+            settings = body.model_dump(exclude={"name", "background", "cache"})
             blob = json.dumps({**settings, "model_key": model["key"], "voice_version": (voice or {}).get("updated_at")},
                               sort_keys=True, default=str)
             return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
@@ -215,7 +215,7 @@ class TTSService:
                 audio = audio_service.register(
                     session, path, AudioSource.GENERATED, name=label, ai_generated=True, original_path=original,
                     params={**info, "steps": steps, "preset": body.preset, "cache_key": cache_key},
-                    projects_id=body.projects_id, y=out, sr=sr,
+                    y=out, sr=sr,
                 )
                 result = audio_service.to_dict(audio)
             logger.info(f"Saved generated speech as audio {result['audios_id']}")
@@ -251,7 +251,7 @@ class TTSService:
                     "temperature")
             request = TTSRequest(
                 text=params["text"], voices_id=params.get("voices_id"), model_key=params.get("model_key"),
-                post=params.get("steps"), projects_id=source["projects_id"], name=source["name"], seed=body.seed,
+                post=params.get("steps"), name=source["name"], seed=body.seed,
                 **{k: params[k] for k in keep if params.get(k) is not None},
             )
             logger.info(f"Regenerating audio {body.audios_id} (seed={body.seed})")
@@ -273,7 +273,7 @@ class TTSService:
                 audios.append(self.generate(request))
                 if progress:
                     progress((index + 1) / (len(sentences) + 1))
-            combined = self.combine([a["audios_id"] for a in audios], gap_ms, projects_id=body.projects_id)
+            combined = self.combine([a["audios_id"] for a in audios], gap_ms)
             return {"sentences": audios, "combined": combined}
         except Exception as exc:
             raise service_error(exc, "tts_service.generate_sentences")
@@ -290,7 +290,7 @@ class TTSService:
             raise service_error(exc, "tts_service.generate_sentences_async")
 
     def regenerate_sentence(self, audios_ids: list[int], index: int, gap_ms: int = PAUSE_SENTENCE_MS,
-                            projects_id: int | None = None, progress=None) -> dict:
+                            progress=None) -> dict:
         """Regenerate one sentence of a per-sentence generation and rebuild the joined audio."""
         try:
             if not 0 <= index < len(audios_ids):
@@ -298,26 +298,25 @@ class TTSService:
             fresh = self.regenerate(RegenerateRequest(audios_id=audios_ids[index]), progress=progress)
             ids = list(audios_ids)
             ids[index] = fresh["audios_id"]
-            return {"sentence": fresh, "combined": self.combine(ids, gap_ms, projects_id)}
+            return {"sentence": fresh, "combined": self.combine(ids, gap_ms)}
         except Exception as exc:
             raise service_error(exc, "tts_service.regenerate_sentence")
 
-    def regenerate_sentence_async(self, audios_ids: list[int], index: int, gap_ms: int = PAUSE_SENTENCE_MS,
-                                  projects_id: int | None = None) -> dict:
+    def regenerate_sentence_async(self, audios_ids: list[int], index: int, gap_ms: int = PAUSE_SENTENCE_MS) -> dict:
         try:
             return job_service.submit(
                 JobType.TTS,
-                lambda ctx: self.regenerate_sentence(audios_ids, index, gap_ms, projects_id, progress=ctx.progress),
+                lambda ctx: self.regenerate_sentence(audios_ids, index, gap_ms, progress=ctx.progress),
                 title=f"Regenerate sentence {index + 1}",
             )
         except Exception as exc:
             raise service_error(exc, "tts_service.regenerate_sentence_async")
 
-    def combine(self, audios_ids: list[int], gap_ms: int = PAUSE_SENTENCE_MS, projects_id: int | None = None) -> dict:
+    def combine(self, audios_ids: list[int], gap_ms: int = PAUSE_SENTENCE_MS) -> dict:
         try:
             if len(audios_ids) == 1:
                 return audio_service.get(audios_ids[0])
-            return audio_service.join(audios_ids, gap_ms, name="Generated speech", projects_id=projects_id)
+            return audio_service.join(audios_ids, gap_ms, name="Generated speech")
         except Exception as exc:
             raise service_error(exc, "tts_service.combine")
 

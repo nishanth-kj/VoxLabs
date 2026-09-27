@@ -23,7 +23,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.mcp import create_mcp_server, http_routes, run_stdio
-from app.api.routes import audio, clone, health, jobs, models, projects, scripts, tts, users, voices
+from app.api.routes import audio, clone, health, jobs, models, scripts, tts, users, voices
 from app.exceptions import AppError, AuthError, InternalError, NotFoundError, ValidationError
 from app.models.response import ApiResponse
 from app.services.system_service import VERSION, system_service
@@ -93,7 +93,7 @@ def create_app(initialize: bool = True, host: str | None = None) -> FastAPI:
         return ApiResponse(error=InternalError()).error()
 
     # clone before voices so /api/voices/clone isn't matched as /api/voices/{voice_id}
-    for module in (health, users, clone, voices, tts, scripts, audio, projects, models, jobs):
+    for module in (health, users, clone, voices, tts, scripts, audio, models, jobs):
         api.include_router(module.router)
     api.router.routes.extend(http_routes(mcp, host or system_service.get_setting("api_host") or "127.0.0.1"))
     return api

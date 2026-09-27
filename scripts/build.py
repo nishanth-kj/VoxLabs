@@ -132,8 +132,11 @@ def self_test() -> int:
         report = Path(data) / "crash.txt"
         env = {**os.environ, "QT_QPA_PLATFORM": "offscreen", "VOXLABS_DATA_DIR": data,
                "VOXLABS_CRASH_REPORT": str(report)}
+        # On Windows, start it detached like a double-click: no console, so sys.stdout/stderr are None
+        # inside, which is how users run it (and what breaks libraries that print).
+        flags = subprocess.DETACHED_PROCESS if sys.platform == "win32" else 0
         try:
-            result = subprocess.run([str(executable()), "--self-test"], env=env, timeout=180)
+            result = subprocess.run([str(executable()), "--self-test"], env=env, timeout=300, creationflags=flags)
         except subprocess.TimeoutExpired:
             print("Self-test timed out: the built app did not quit.", file=sys.stderr)
             return 1
@@ -146,9 +149,35 @@ def self_test() -> int:
         return result.returncode or 1
 
 
-def version() -> str:
+def _pyproject() -> dict:
     with open(ROOT / "pyproject.toml", "rb") as file:
-        return tomllib.load(file)["project"]["version"]
+        return tomllib.load(file)
+
+
+def version() -> str:
+    return _pyproject()["project"]["version"]
+
+
+def build_engines() -> list[str]:
+    return list(_pyproject().get("tool", {}).get("voxlabs", {}).get("build-engines", []))
+
+
+def sync_engines(engines: list[str]) -> int:
+    """Put the bundled engines into the environment at their uv.lock versions.
+
+    `uv run` first syncs the environment without extras, which also moves libraries the engines
+    share with the app (numpy, librosa, ...) to the no-extras versions; Chatterbox needs other ones.
+    Syncing the engines again (keeping everything else) makes the bundle match the lock.
+    """
+    if not engines:
+        return 0
+    uv = shutil.which("uv")
+    if not uv:
+        print("uv not found: bundling whatever engines are installed.", file=sys.stderr)
+        return 0
+    command = [uv, "sync", "--frozen", "--inexact"] + [arg for engine in engines for arg in ("--extra", engine)]
+    print(" ".join(command), flush=True)
+    return subprocess.call(command, cwd=ROOT)
 
 
 def artifact_names(system: str = sys.platform, machine: str | None = None) -> list[str]:
@@ -417,6 +446,17 @@ def _pid_alive(pid: int) -> bool:
     return True
 
 
+def bundle_in_use() -> bool:
+    """Windows cannot replace an app that is running; building then fails halfway through."""
+    if sys.platform != "win32" or not executable().exists():
+        return False
+    try:
+        with open(executable(), "r+b"):
+            return False
+    except PermissionError:
+        return True
+
+
 def take_lock() -> bool:
     """One build at a time: two builds write the same build/ and dist/ folders and break each other."""
     BUILD.mkdir(parents=True, exist_ok=True)
@@ -471,6 +511,8 @@ def main() -> int:
     parser.add_argument("--no-package", action="store_true", help="stop after the bundle in dist/ (no .zip/.dmg/.tar.gz)")
     parser.add_argument("--skip-self-test", action="store_true", help="do not start the built app to check it")
     parser.add_argument("--no-installer", action="store_true", help="make only the portable package")
+    parser.add_argument("--engines", help="comma-separated engines to bundle (default: [tool.voxlabs] "
+                        "build-engines in pyproject.toml); 'none' bundles only the base engines")
     parser.add_argument("--package-only", action="store_true",
                         help="reuse the bundle already in dist/: skip PyInstaller and the self-test")
     parser.add_argument("--require-installers", action="store_true",
@@ -478,6 +520,11 @@ def main() -> int:
     args = parser.parse_args()
 
     if not take_lock():
+        return 1
+    if bundle_in_use():
+        print(f"VoxLabs is running from {executable().parent}: close it first, the build replaces that folder.",
+              file=sys.stderr)
+        LOCK.unlink(missing_ok=True)
         return 1
     try:
         if args.package_only:
@@ -487,7 +534,9 @@ def main() -> int:
                 return 1
             app_icon_file()  # the installers use the icon files
         else:
-            code = bundle()
+            engines = build_engines() if args.engines is None else \
+                [e.strip() for e in args.engines.split(",") if e.strip() and e.strip() != "none"]
+            code = sync_engines(engines) or bundle()
             if code:
                 return code
             if not args.skip_self_test:

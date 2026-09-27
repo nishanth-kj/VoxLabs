@@ -137,7 +137,6 @@ class ScriptPage(BasePage):
         self._save_timer.timeout.connect(self.save)
 
         state.open_script.connect(self.open_script)
-        state.project_changed.connect(lambda _project: self._project_changed())
         state.data_changed.connect(lambda what: self._voices_changed() if what in ("voices", "settings") else None)
 
     # ------------------------------------------------------------ tabs
@@ -287,18 +286,12 @@ class ScriptPage(BasePage):
     def refresh(self):
         self.default_model.refresh()
         self.section_voice.refresh()
-        projects_id = self.state.projects_id
-        self.run(lambda: script_service.list_scripts(projects_id), self._show_list, busy=False)
-
-    def _project_changed(self):
-        self.save()
-        if self.isVisible():
-            self.refresh()
+        self.run(script_service.list_scripts, self._show_list, busy=False)
 
     def _show_list(self, scripts):
         current = self.script["scripts_id"] if self.script else None
         if current not in {s["scripts_id"] for s in scripts}:
-            # The open script belongs to another project: show this project's first script, or none.
+            # The open script is gone (deleted): show the first script, or none.
             current = None
             if not scripts:
                 self.script = None
@@ -427,8 +420,7 @@ class ScriptPage(BasePage):
     def new_script(self):
         title, ok = QInputDialog.getText(self, "New script", "Title:", text="Untitled script")
         if ok and title.strip():
-            projects_id = self.state.projects_id
-            self.run(lambda: script_service.create(title, EXAMPLE, projects_id=projects_id),
+            self.run(lambda: script_service.create(title, EXAMPLE),
                      lambda s: (self._show_script(s), self.refresh()))
 
     def delete_script(self):

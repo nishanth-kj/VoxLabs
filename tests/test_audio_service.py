@@ -74,9 +74,9 @@ def test_edit_ops():
         audio_service.apply_edit_ops(y, sr, [{"op": "explode"}])
 
 
-def test_edit_ops_persist_on_audio_without_a_project(voice_wav):
+def test_edit_ops_persist_on_the_audio(voice_wav):
     audio = audio_service.import_file(voice_wav)
-    assert audio["projects_id"] is None and audio["edit_ops"] == []
+    assert "projects_id" not in audio and audio["edit_ops"] == []
     ops = [{"op": "delete", "start": 0, "end": 1}, {"op": "gain", "start": 0, "end": 1, "db": -3}]
     audio_service.save_edit_ops(audio["audios_id"], ops)
     assert audio_service.get(audio["audios_id"])["edit_ops"] == ops

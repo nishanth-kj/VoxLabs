@@ -9,14 +9,17 @@ never commit on their own.
 
 import json
 import os
+import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+from typing import cast
 
-from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy import MetaData, create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.schema import CreateIndex, CreateTable
 
 from app.constants.status import Status
 from app.utils.files import subdir
@@ -81,7 +84,9 @@ def _upgrade(engine: Engine) -> None:
             conn.execute(text("ALTER TABLE audios ADD COLUMN edit_ops JSON NOT NULL DEFAULT '[]'"))
             # Editor ops used to live in projects.edit_state["editor"][<audios_id>], so audio
             # without a project never kept its edits. Move them onto the audio.
-            for projects_id, raw in conn.execute(text("SELECT projects_id, edit_state FROM projects")).all():
+            has_projects = "projects" in inspect(conn).get_table_names()
+            rows = conn.execute(text("SELECT projects_id, edit_state FROM projects")).all() if has_projects else []
+            for projects_id, raw in rows:
                 state = json.loads(raw) if raw else {}
                 editor = state.pop("editor", None) if isinstance(state, dict) else None
                 if not editor:
@@ -96,6 +101,71 @@ def _upgrade(engine: Engine) -> None:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE voices ADD COLUMN delivery JSON NOT NULL DEFAULT '{}'"))
         logger.info("Database upgraded: voices.delivery")
+    _drop_projects(engine)
+
+
+def _drop_projects(engine: Engine) -> None:
+    """Projects were removed: rebuild audios and scripts without projects_id, then drop projects.
+
+    SQLite cannot drop a column that a table-level FOREIGN KEY uses (which is how SQLAlchemy wrote
+    them), so both tables are rebuilt the way sqlite.org documents ("making other kinds of table schema
+    changes"): with foreign keys off, create the new table, copy every row, drop the old one, rename.
+    Foreign keys stay off until the end, so nothing cascades (scripts.projects_id was ON DELETE CASCADE,
+    script_sections cascade from scripts); a foreign key check runs before the commit. A backup of the
+    database is written first.
+    """
+    names = inspect(engine).get_table_names()
+    if "projects" not in names:
+        return
+    rebuild = [name for name in ("audios", "scripts")
+               if name in names and "projects_id" in {c["name"] for c in inspect(engine).get_columns(name)}]
+    raw = engine.raw_connection()
+    try:
+        db = cast(sqlite3.Connection, raw.driver_connection)
+        backup = database_path().with_name(f"{database_path().stem}-before-projects-removal.db")
+        if not backup.exists():
+            with sqlite3.connect(backup) as target:
+                db.backup(target)
+            target.close()
+        previous = db.isolation_level
+        db.isolation_level = None  # explicit BEGIN/COMMIT; PRAGMA foreign_keys only changes outside a transaction
+        cursor = db.cursor()
+        cursor.execute("PRAGMA foreign_keys = OFF")
+        try:
+            cursor.execute("BEGIN")
+            for name in rebuild:
+                _rebuild_table(cursor, engine, name)
+            cursor.execute("DROP TABLE projects")
+            problems = cursor.execute("PRAGMA foreign_key_check").fetchall()
+            if problems:
+                raise RuntimeError(f"Foreign key check failed after removing projects: {problems[:5]}")
+            cursor.execute("COMMIT")
+        except Exception:
+            cursor.execute("ROLLBACK")
+            raise
+        finally:
+            cursor.execute("PRAGMA foreign_keys = ON")
+            db.isolation_level = previous
+    finally:
+        raw.close()
+    logger.info(f"Database upgraded: projects removed (backup: {backup.name})")
+
+
+def _rebuild_table(cursor, engine: Engine, name: str) -> None:
+    """Recreate `name` from its current model (which has no projects_id) and copy the rows across."""
+    model = Base.metadata.tables[name]
+    copies = MetaData()
+    for table in Base.metadata.sorted_tables:  # so the new table's foreign keys can name their targets
+        table.to_metadata(copies)
+    fresh = model.to_metadata(copies, name=f"{name}__rebuild")
+    existing = {row[1] for row in cursor.execute(f'PRAGMA table_info("{name}")')}
+    columns = ", ".join(f'"{column.name}"' for column in model.columns if column.name in existing)
+    cursor.execute(str(CreateTable(fresh).compile(dialect=engine.dialect)))
+    cursor.execute(f'INSERT INTO "{fresh.name}" ({columns}) SELECT {columns} FROM "{name}"')
+    cursor.execute(f'DROP TABLE "{name}"')
+    cursor.execute(f'ALTER TABLE "{fresh.name}" RENAME TO "{name}"')
+    for index in model.indexes:
+        cursor.execute(str(CreateIndex(index).compile(dialect=engine.dialect)))
 
 
 def new_session() -> Session:

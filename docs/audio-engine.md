@@ -60,7 +60,7 @@ The Audio Editor page keeps `ops` and a cached state per step for instant undo a
 
 - **Render** calls `render_edits(audios_id, ops)`, which creates a new audio.
 - **Split** renders the edits, then calls `split(audios_id, at)`, which creates two audios.
-- **Autosave** stores the op list on the audio with `audio_service.save_edit_ops(audios_id, ops)` (`audios.edit_ops`), so it works for every audio, with or without a project. Opening the audio replays it.
+- **Autosave** stores the op list on the audio with `audio_service.save_edit_ops(audios_id, ops)` (`audios.edit_ops`), so it works for every audio. Opening the audio replays it.
 
 ## Export and labelling
 

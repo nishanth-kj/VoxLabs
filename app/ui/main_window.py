@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QHeaderView,
-    QInputDialog,
     QLineEdit,
     QMainWindow,
     QMessageBox,
@@ -29,8 +28,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.exceptions import AppError
-from app.services.project_service import project_service
 from app.services.system_service import VERSION, system_service
 from app.ui import icons, theme
 from app.ui.app_menu import build_menu_bar, refresh_menu_icons
@@ -53,7 +50,6 @@ from app.ui.widgets.nav_bar import NavBar
 from app.ui.widgets.title_bar import TitleBar
 from app.utils.files import data_dir
 from app.utils.logger import logger
-from app.ui.widgets.select import choose_item
 
 RESIZE_MARGIN = 6
 WEBSITE_URL = "https://nishanth-kj.github.io/VoxLabs/"
@@ -63,31 +59,14 @@ GITHUB_URL = "https://github.com/nishanth-kj/VoxLabs"
 
 
 class AppState(QObject):
-    """Small shared state: the open project, "something changed" notifications and navigation requests.
-
-    A project is optional. While one is open, new speech, scripts and imports go into it and the
-    script and audio lists show only its work; with none open, everything is shown.
-    """
+    """Small shared state: "something changed" notifications and navigation requests."""
 
     data_changed = Signal(str)  # "voices" | "audio" | "models" | "scripts" | "settings"
-    project_changed = Signal(object)  # the open project dict, or None
     open_audio = Signal(int)  # audios_id to open in the editor
     open_voice = Signal(int)  # voices_id to open in the voice editor
     use_voice = Signal(int)  # voices_id to speak with on the Generate page
     open_script = Signal(int)  # scripts_id to open on the Script page
     navigate = Signal(str)
-
-    def __init__(self):
-        super().__init__()
-        self.project: dict | None = None
-
-    @property
-    def projects_id(self) -> int | None:
-        return self.project["projects_id"] if self.project else None
-
-    def set_project(self, project: dict | None):
-        self.project = project
-        self.project_changed.emit(project)
 
     def notify(self, what: str):
         self.data_changed.emit(what)
@@ -125,7 +104,6 @@ class MainWindow(QMainWindow):
         self.resize(1360, 860)
         self.setMinimumSize(QSize(980, 640))
         self.state = AppState()
-        self.state.project = self._saved_project()
         self._resize_filter_installed = False
         self._edge_cursor = False
 
@@ -180,13 +158,9 @@ class MainWindow(QMainWindow):
         layout.addLayout(body, 1)
         self.setCentralWidget(central)
 
-        # Status bar: open project, API and background jobs
+        # Status bar: API and background jobs
         status = self.statusBar()
         status.setSizeGripEnabled(False)
-        self.project_button = QPushButton()
-        self.project_button.setToolTip("Open, switch or close a project")
-        self.project_button.clicked.connect(self.open_project)
-        status.addWidget(self.project_button)
         self.api_button = QPushButton()
         self.api_button.setToolTip("Start or stop the REST API and MCP server")
         self.api_button.clicked.connect(lambda: self.toggle_api(not system_service.api_running()))
@@ -204,7 +178,6 @@ class MainWindow(QMainWindow):
         self.state.use_voice.connect(self._use_voice)
         self.state.open_script.connect(lambda _id: self.go("script"))
         self.state.data_changed.connect(lambda what: self._settings_changed() if what == "settings" else None)
-        self.state.project_changed.connect(lambda _project: self._project_changed())
         # Deferred: apply_theme itself changes the scheme, and must finish before we compare.
         QGuiApplication.styleHints().colorSchemeChanged.connect(
             lambda _scheme: QTimer.singleShot(0, self._follow_system_theme))
@@ -214,7 +187,6 @@ class MainWindow(QMainWindow):
         theme.polish_views(self)
         self._check_theme_action()
         self._update_api_status()
-        self._update_project_status()
         self._update_logs_status()
         self.go("home")
         # Autosave the editor state periodically when enabled.
@@ -271,44 +243,6 @@ class MainWindow(QMainWindow):
             ops[name]()
         elif name in EDIT_COMMANDS:
             self.command("editor", name)
-
-    # ------------------------------------------------------------ projects
-
-    def _saved_project(self) -> dict | None:
-        """Reopen the project from the last session, if it still exists."""
-        projects_id = system_service.get_setting("current_projects_id")
-        if projects_id is None:
-            return None
-        try:
-            return project_service.get(projects_id)
-        except AppError:
-            return None
-
-    def new_project(self) -> None:
-        name, ok = QInputDialog.getText(self, "New project", "Project name:")
-        if ok and name.strip():
-            self.pages["home"].run(lambda: project_service.create_project(name), self.state.set_project)
-
-    def open_project(self) -> None:
-        self.pages["home"].run(project_service.list_projects, self._choose_project, busy=False)
-
-    def _choose_project(self, projects: list[dict]) -> None:
-        options: list[dict | None] = [None, *projects]
-        labels = ["No project (show all work)"] + [f"{p['name']}  · {p['project_type']}" for p in projects]
-        current = next((i for i, p in enumerate(options) if p and p["projects_id"] == self.state.projects_id), 0)
-        label = choose_item(self, "Open project", "Project:", labels, current)
-        if label is not None:
-            self.state.set_project(options[labels.index(label)])
-
-    def close_project(self) -> None:
-        self.state.set_project(None)
-
-    def _project_changed(self) -> None:
-        projects_id = self.state.projects_id
-        self.pages["settings"].run(lambda: system_service.update_settings(current_projects_id=projects_id),
-                                   busy=False)
-        self._update_titles()
-        self._update_project_status()
 
     # ------------------------------------------------------------ logs panel
 
@@ -444,7 +378,6 @@ class MainWindow(QMainWindow):
         self.log_panel.refresh_icons()
         self._update_titles()
         self._update_api_status()
-        self._update_project_status()
         self._update_logs_status()
 
     # ------------------------------------------------------------ status
@@ -460,11 +393,6 @@ class MainWindow(QMainWindow):
         self.pages["settings"].run(apply, lambda _r: (self._update_api_status(), self.state.notify("settings")),
                                    on_error=self._update_api_status)
 
-    def _update_project_status(self) -> None:
-        project = self.state.project
-        self.project_button.setText(project["name"] if project else "No project")
-        self.project_button.setIcon(icons.icon("projects", theme.current().statusbar_text, size=14))
-
     def _update_api_status(self) -> None:
         running = system_service.api_running()
         if running:
@@ -479,8 +407,7 @@ class MainWindow(QMainWindow):
     def _update_titles(self) -> None:
         page = self.stack.currentWidget()
         page_title = page.title if isinstance(page, BasePage) else ""
-        parts = [p for p in (page_title, self.state.project and self.state.project["name"]) if p]
-        self.setWindowTitle(" — ".join(["VoxLabs", *parts]))
+        self.setWindowTitle(f"VoxLabs — {page_title}" if page_title else "VoxLabs")
         if self.title_bar is not None:
             self.title_bar.set_title(f"{page_title}  ·  Search commands")
 

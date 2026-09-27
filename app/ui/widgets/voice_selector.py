@@ -1,5 +1,5 @@
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QLineEdit, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
 from app.services.model_service import model_service
 from app.services.system_service import system_service
@@ -25,11 +25,11 @@ def voice_matches(voice: dict, query: str, model_key: str | None, *, allow_edge:
 
 
 class VoiceSelector(QWidget):
-    """Voice picker with a text search and a model filter.
+    """Voice picker with a model filter.
 
-    `filters=False` keeps only the combo, for tight rows such as a speaker table.
-    The open list starts with a search box (typing filters it), and Microsoft Edge stays hidden
-    while its setting is off.
+    `filters=False` keeps only the combo, for tight rows such as a speaker table. To search, open the
+    list and type: it starts with a search box (every select does). Microsoft Edge stays hidden while
+    its setting is off.
     """
 
     currentIndexChanged = Signal(int)
@@ -43,19 +43,12 @@ class VoiceSelector(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        self.search = QLineEdit()
-        self.search.setPlaceholderText("Search voices")
-        self.search.setClearButtonEnabled(True)
-        self.search.textChanged.connect(lambda _text: self._fill())
         self.model_filter = Select()
         self.model_filter.currentIndexChanged.connect(lambda _i: self._fill())
-        self.search.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.model_filter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         if filters:
-            layout.addWidget(self.search)
             layout.addWidget(self.model_filter)
         else:
-            self.search.hide()
             self.model_filter.hide()
 
         self.combo = Select()
@@ -89,13 +82,12 @@ class VoiceSelector(QWidget):
     def _fill(self, keep: int | None = None):
         if keep is None:
             keep = self.voices_id()
-        query = self.search.text()
         model_key = self.model_filter.currentData()
         self.combo.blockSignals(True)
         self.combo.clear()
         self.combo.addItem(self.none_label, None)
         for voice in self._voices:
-            if not voice_matches(voice, query, model_key):
+            if not voice_matches(voice, "", model_key):
                 continue
             kind = "cloned" if voice["source"] == "clone" else "preset"
             self.combo.addItem(f"{voice['name']}  ({kind})", voice["voices_id"])

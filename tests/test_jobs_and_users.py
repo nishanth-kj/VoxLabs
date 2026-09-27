@@ -1,50 +1,15 @@
 import threading
-import zipfile
-from pathlib import Path
 
 import pytest
 
 from app.constants.status import Status
-from app.exceptions import JobError, NotFoundError, ValidationError
+from app.exceptions import JobError, ValidationError
 from app.models.request import TTSRequest
-from app.services.audio_service import audio_service
 from app.services.job_service import job_service
-from app.services.project_service import project_service
-from app.services.script_service import script_service
 from app.services.tts_service import tts_service
 from app.services.user_service import user_service
 
 
-def test_project_lifecycle(tmp_path):
-    project = project_service.create_project("Course", "lesson")
-    script = script_service.create("Lesson 1", "Intro text here.", projects_id=project["projects_id"])
-    script_service.generate(script["scripts_id"])
-    opened = project_service.open_project(project["projects_id"])
-    assert len(opened["scripts"]) == 1 and opened["takes"] == 1 and opened["audios"]
-
-    project_service.save_project(project["projects_id"], edit_state={"zoom": 2})
-    assert project_service.get(project["projects_id"])["edit_state"] == {"zoom": 2}
-    assert project_service.rename_project(project["projects_id"], "Course v2")["name"] == "Course v2"
-
-    ops = [{"op": "delete", "start": 0, "end": 0.1}]
-    audio_service.save_edit_ops(opened["audios"][0]["audios_id"], ops)
-    copy = project_service.duplicate_project(project["projects_id"])
-    copied = project_service.open_project(copy["projects_id"])
-    assert copied["takes"] == 1 and len(copied["audios"]) == len(opened["audios"])
-    assert ops in [a["edit_ops"] for a in copied["audios"]]
-    assert {a["path"] for a in copied["audios"]}.isdisjoint({a["path"] for a in opened["audios"]})
-
-    archive = project_service.export_project(project["projects_id"], tmp_path / "course.zip")
-    with zipfile.ZipFile(archive) as zf:
-        assert "project.json" in zf.namelist() and any(n.startswith("audio/") for n in zf.namelist())
-
-    paths = [a["path"] for a in opened["audios"]]
-    project_service.delete_project(project["projects_id"])
-    assert not any(Path(p).exists() for p in paths)
-    with pytest.raises(NotFoundError):
-        project_service.get(project["projects_id"])
-    with pytest.raises(ValidationError):
-        project_service.create_project("Bad", "movie")
 
 
 def test_job_lifecycle_and_failure():
@@ -94,7 +59,5 @@ def test_users():
         user_service.create_user("Dup", "ada@example.com")
     with pytest.raises(ValidationError):
         user_service.create_user("Bad", "not-an-email")
-    project_service.create_project("Mine", users_id=user["users_id"])
-    assert len(user_service.get_user_projects(user["users_id"])) == 1
     user_service.delete_user(user["users_id"])
     assert user_service.list_users() == []

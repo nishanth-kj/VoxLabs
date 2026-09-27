@@ -14,7 +14,6 @@ class Audio(Base):
     __tablename__ = "audios"
 
     audios_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    projects_id: Mapped[int | None] = mapped_column(ForeignKey("projects.projects_id", ondelete="SET NULL"), index=True)
     parent_audios_id: Mapped[int | None] = mapped_column(ForeignKey("audios.audios_id", ondelete="SET NULL"))
     name: Mapped[str] = mapped_column(String(255), default="")
     path: Mapped[str] = mapped_column(String(500))

@@ -51,7 +51,7 @@ Compose publishes the port on the host's loopback only. Engines from `pyproject.
 
   | error_code | Raised as |
   | --- | --- |
-  | 400 | `AppError`, `AudioError`, `ProjectError` |
+  | 400 | `AppError`, `AudioError` |
   | 401 | `AuthError` (missing or wrong API token) |
   | 403 | `ConsentError` |
   | 404 | `NotFoundError`, unknown route |
@@ -64,10 +64,9 @@ Compose publishes the port on the host's loopback only. Engines from `pyproject.
 
   ```python
   @router.get("")
-  def list_audio(projects_id: int | None = None, limit: int = 100) -> ApiResponse:
-      projects_id = Validation.optional_id(projects_id, "projects_id")
+  def list_audio(limit: int = 100) -> ApiResponse:
       limit = Validation.limit(limit)
-      data = audio_service.list_audios(projects_id, limit)
+      data = audio_service.list_audios(limit)
       return ApiResponse(data).success()
 
 
@@ -111,12 +110,9 @@ Compose publishes the port on the host's loopback only. Engines from `pyproject.
 | `POST /api/scripts/sections` | `SectionRequest` | `script_service.update_section(body)` |
 | `POST /api/scripts/sections/{id}/generate`, `POST /api/scripts/takes/{id}/select` | — | section and take operations |
 | `GET /api/audio`, `GET /api/audio/{id}`, `GET /api/audio/{id}/file` | — | `audio_service.list_audios()` / `get()` / file download |
-| `POST /api/audio/import` | `AudioImportRequest` (multipart `file`, `projects_id`) | `audio_service.import_upload(body)` |
+| `POST /api/audio/import` | `AudioImportRequest` (multipart `file`) | `audio_service.import_upload(body)` |
 | `POST /api/audio/process` | `AudioProcessRequest` | `audio_service.process(body)`: steps/preset, or an `ops` edit list |
 | `POST /api/audio/export` | `AudioExportRequest` | `audio_service.export(body)`, returns the file |
-| `GET /api/projects`, `GET /api/projects/{id}` | — | `project_service.list_projects()` / `open_project()` |
-| `POST /api/projects` | `ProjectRequest` | `project_service.save(body)` |
-| `POST /api/projects/{id}/duplicate` | — | `project_service.duplicate_project()` |
 | `GET /api/models`, `GET /api/models/{id}`, `POST …/load`, `…/unload`, `…/install`, `GET …/health` | — | `model_service` (id is the numeric `models_id` or the key) |
 | `POST /api/models/install-all` | query `accept_license` | `model_service.install_all_async()` — download every local model that still needs weights |
 | `GET /api/jobs`, `GET /api/jobs/{id}`, `POST /api/jobs/{id}/cancel` | — | `job_service` |
@@ -146,7 +142,6 @@ Tools take the same request classes as the REST routes (for example `generate_sp
 | Speech | `generate_speech`, `regenerate_speech` |
 | Audio | `list_audio`, `get_audio`, `process_audio`, `export_audio` |
 | Scripts | `list_scripts`, `get_script`, `save_script`, `update_section`, `generate_script` |
-| Projects | `list_projects`, `get_project`, `save_project` |
 | Models and jobs | `list_models`, `list_jobs`, `get_job`, `cancel_job` |
 
 Voice cloning is **not** an MCP tool. Consent has to come from the speaker (the desktop app or the REST form), not from an agent.

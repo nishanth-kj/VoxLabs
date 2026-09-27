@@ -64,10 +64,6 @@ def build_menu_bar(window: "MainWindow") -> QMenuBar:
 
     # ------------------------------------------------------------ File
     file = bar.addMenu("&File")
-    _add(file, "New Project…", window.new_project, shortcut="Ctrl+Shift+N", icon="projects")
-    _add(file, "Open Project…", window.open_project, icon="open")
-    _add(file, "Close Project", window.close_project)
-    file.addSeparator()
     _add(file, "New Script…", lambda: cmd("script", "new_script"), shortcut="Ctrl+N", icon="plus")
     _add(file, "Open Audio…", lambda: cmd("editor", "choose_audio"), hint="Ctrl+O", icon="open")
     _add(file, "Import Audio File…", lambda: cmd("editor", "import_file"), hint="Ctrl+I", icon="import")

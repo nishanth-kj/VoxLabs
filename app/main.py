@@ -1,7 +1,8 @@
 """VoxLabs desktop entry point: `uv run python -m app.main`.
 
-`--self-test` starts the app, builds every page and quits with exit code 0. The build script runs
-the finished bundle with it, so a bundle that is missing a module fails the build.
+`--self-test` starts the app, builds every page, imports every engine in the build and quits with
+exit code 0. The build script runs the finished bundle with it, so a bundle that is missing a module,
+or an engine that breaks without a console, fails the build.
 
 A built (windowed) app has no console, so a crash at startup is written to a crash report:
 VOXLABS_CRASH_REPORT, or VoxLabs-crash.txt in the temp folder.
@@ -9,6 +10,28 @@ VOXLABS_CRASH_REPORT, or VoxLabs-crash.txt in the temp folder.
 
 import os
 import sys
+
+
+def _ensure_std_streams() -> None:
+    """A windowed build has no console, so sys.stdout/stderr are None. Libraries that print or add a log
+    sink crash then (Kokoro logs to sys.stderr as soon as it is imported, download progress bars write
+    to it): give them a sink that discards the output. Our own logs still go to the file and the panel."""
+    for name in ("stdout", "stderr"):
+        if getattr(sys, name) is None:
+            setattr(sys, name, open(os.devnull, "w", encoding="utf-8"))
+
+
+def _import_bundled_engines() -> None:
+    """Self-test: import every engine library this build contains, which runs its setup code."""
+    import importlib
+
+    from app.constants.models import MODEL_CATALOG
+    from app.utils.model import package_installed
+
+    for entry in MODEL_CATALOG:
+        package = entry.get("package")
+        if package and package_installed(package):
+            importlib.import_module(package)
 
 
 def _use_own_taskbar_icon() -> None:
@@ -22,6 +45,7 @@ def _use_own_taskbar_icon() -> None:
 
 
 def main() -> int:
+    _ensure_std_streams()
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication
 
@@ -57,6 +81,7 @@ def main() -> int:
 
     self_test = "--self-test" in sys.argv
     if self_test:
+        _import_bundled_engines()  # raises (and fails the self-test) if an engine cannot load here
         QTimer.singleShot(0, app.quit)  # every page is built: the bundle works
     elif system_service.get_setting("api_enabled"):
         try:

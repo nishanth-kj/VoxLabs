@@ -9,9 +9,8 @@ router = APIRouter(prefix="/api/scripts", tags=["Scripts"])
 
 
 @router.get("")
-def list_scripts(projects_id: int | None = None) -> ApiResponse:
-    projects_id = Validation.optional_id(projects_id, "projects_id")
-    data = script_service.list_scripts(projects_id)
+def list_scripts() -> ApiResponse:
+    data = script_service.list_scripts()
     return ApiResponse(data).success()
 
 

@@ -16,7 +16,7 @@ Edit audio without ever touching the source file. Edits are an operation list th
 3. Clipboard selections are saved with `audio_service.save_clip()`, and `paste`/`insert` ops reference that file.
 4. **Render** runs `audio_service.render_edits(audios_id, ops)` as a background job and creates a new `audios` row with `parent_audios_id`.
 5. **Split and export** use `audio_service.materialize(audios_id, ops)` first.
-6. Autosave: `audio_service.save_edit_ops(audios_id, ops)` every 30 s (when enabled) and on close. It needs no project.
+6. Autosave: `audio_service.save_edit_ops(audios_id, ops)` every 30 s (when enabled) and on close.
 
 ## Important rules
 

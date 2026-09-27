@@ -12,7 +12,7 @@ from app.utils.validation import Validation
 
 def test_input_validation():
     assert Validation.require_id("7", "voices_id") == 7
-    assert Validation.optional_id(None, "projects_id") is None
+    assert Validation.optional_id(None, "users_id") is None
     assert Validation.require_ref("12", "model_id") == 12 and Validation.require_ref("piper", "model_id") == "piper"
     assert Validation.limit(None) == 100 and Validation.limit(5) == 5
     for bad in (0, -3, "x", True):

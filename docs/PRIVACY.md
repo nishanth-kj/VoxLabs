@@ -20,5 +20,5 @@ All of the following is kept locally under `data/` (or `VOXLABS_DATA_DIR`):
 ## Your control
 
 - Revoke a voice to delete its samples and profile immediately. Delete it to remove every record.
-- Delete projects or audio to remove their files.
+- Delete scripts or audio to remove their files.
 - Delete the `data/` folder to erase everything.

@@ -20,4 +20,3 @@ class JobType:
     AUDIO_PROCESS = "audio_process"
     MODEL_LOAD = "model_load"
     MODEL_INSTALL = "model_install"
-    PROJECT_RENDER = "project_render"

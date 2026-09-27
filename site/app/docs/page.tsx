@@ -64,7 +64,6 @@ const SHORTCUTS = [
   { key: "Ctrl+B", action: "Collapse or expand the navigation sidebar" },
   { key: "Ctrl+`", action: "Toggle the bottom live Logs panel (with source filter & warning/error badges)" },
   { key: "Ctrl+J", action: "Open the Background Jobs monitor dialog" },
-  { key: "Ctrl+Shift+N", action: "Create a new workspace project (File → New Project…)" },
   { key: "Ctrl+N", action: "Create a new script on the Script to Audio page" },
   { key: "Ctrl+O / Ctrl+I", action: "Open an existing audio or import an audio file into the Audio Editor" },
   { key: "Space", action: "Play / Pause transport in the Audio Editor" },
@@ -77,11 +76,11 @@ const SHORTCUTS = [
 
 const PACKAGES = [
   { pkg: "app/main.py", contents: "Desktop entry point: initialize services, create QApplication and MainWindow, optionally start the embedded REST API + MCP server." },
-  { pkg: "app/services/", contents: "One service per domain: user, voice, clone, consent, tts, script, audio, project, model, job, system. Each exposes a module singleton (tts_service, …)." },
+  { pkg: "app/services/", contents: "One service per domain: user, voice, clone, consent, tts, script, audio, model, job, system. Each exposes a module singleton (tts_service, …)." },
   { pkg: "app/models/", contents: "SQLAlchemy 2.0 tables (one file per table, no commits or workflow logic). models/request/ and models/response/ hold Pydantic request classes and ApiResponse." },
   { pkg: "app/utils/", contents: "Technical infrastructure: database (engine, transaction(), serialize()), audio (I/O and DSP), ffmpeg, files, device, validation (Validation), model (AI backends), hashing, time, logger." },
-  { pkg: "app/constants/", contents: "Fixed values and BaseEnum classes: base_enum, status, consent_status, response_status, error_code, error_message, project_type, audio_source, model_type, model_backend, audio, jobs, models." },
-  { pkg: "app/exceptions/", contents: "AppError and subclasses (ValidationError, NotFoundError, ConsentError, VoiceError, AudioError, ModelError, JobError, ProjectError, AuthError, InternalError) + service_error()." },
+  { pkg: "app/constants/", contents: "Fixed values and BaseEnum classes: base_enum, status, consent_status, response_status, error_code, error_message, audio_source, model_type, model_backend, audio, jobs, models." },
+  { pkg: "app/exceptions/", contents: "AppError and subclasses (ValidationError, NotFoundError, ConsentError, VoiceError, AudioError, ModelError, JobError, AuthError, InternalError) + service_error()." },
   { pkg: "app/api/", contents: "FastAPI app (app.py), thin routers in routes/, and MCP server in mcp/ (tools.py, served over streamable HTTP at /mcp and over stdio with --stdio)." },
   { pkg: "app/ui/", contents: "main_window.py, 10 pages, shared widgets (title_bar, nav_bar, command_palette, player, waveform, timeline, log_panel, job_status), app_menu.py, theme.py, and icons.py." },
 ] as const
@@ -152,9 +151,8 @@ const DB_TABLES = [
   { table: "voices", purpose: "Cloned or preset voices", columns: "voices_id, users_id, name, language, model_key, source (clone/preset), engine_voice, consent_status, profile (JSON), storage_dir, sample_count" },
   { table: "voice_samples", purpose: "Reference recordings", columns: "voice_samples_id, voices_id, path, duration, sample_rate, quality (JSON), sha256" },
   { table: "voice_consents", purpose: "Consent audit trail", columns: "voice_consents_id, voices_id, granted_by, speaker_name, statement, granted_at, revoked_at" },
-  { table: "audios", purpose: "Every audio file", columns: "audios_id, projects_id, parent_audios_id, path, original_path, source, ai_generated, duration, sample_rate, channels, format, codec, file_size, loudness, params (JSON), edit_ops (JSON)" },
-  { table: "projects", purpose: "Optional workspace grouping", columns: "projects_id, users_id, name, project_type, settings, edit_state (JSON)" },
-  { table: "scripts", purpose: "Scripts and lessons", columns: "scripts_id, projects_id, title, body, speaker_map, settings, final_audios_id" },
+  { table: "audios", purpose: "Every audio file", columns: "audios_id, parent_audios_id, path, original_path, source, ai_generated, duration, sample_rate, channels, format, codec, file_size, loudness, params (JSON), edit_ops (JSON)" },
+  { table: "scripts", purpose: "Scripts and lessons", columns: "scripts_id, title, body, speaker_map, settings, final_audios_id" },
   { table: "script_sections", purpose: "Generatable script units", columns: "script_sections_id, scripts_id, position, chapter, heading, speaker, text, voice/speed/pitch/emotion/style overrides, pause_after_ms" },
   { table: "takes", purpose: "Renditions of a section", columns: "takes_id, script_sections_id, audios_id, take_number, selected" },
   { table: "jobs", purpose: "Background work records", columns: "jobs_id, users_id, job_type, title, progress, error, params, result, started_at, finished_at" },
@@ -162,7 +160,7 @@ const DB_TABLES = [
 ] as const
 
 const ERROR_CODES = [
-  { code: "400", exc: "AppError, AudioError, ProjectError", meaning: "Bad request or invalid domain operation" },
+  { code: "400", exc: "AppError, AudioError", meaning: "Bad request or invalid domain operation" },
   { code: "401", exc: "AuthError", meaning: "Missing or invalid bearer API token" },
   { code: "403", exc: "ConsentError", meaning: "Missing, invalid, or revoked speaker consent" },
   { code: "404", exc: "NotFoundError", meaning: "Requested record or route was not found" },
@@ -193,8 +191,6 @@ const API_ENDPOINTS = [
   { route: "POST /api/audio/import", request: "AudioImportRequest (multipart)", service: "audio_service.import_upload(body)" },
   { route: "POST /api/audio/process", request: "AudioProcessRequest", service: "audio_service.process(body) (steps/preset or editor ops list)" },
   { route: "POST /api/audio/export", request: "AudioExportRequest", service: "audio_service.export(body), returns the exported file" },
-  { route: "GET /api/projects, GET /api/projects/{id}", request: "—", service: "project_service.list_projects() / open_project()" },
-  { route: "POST /api/projects, POST /api/projects/{id}/duplicate", request: "ProjectRequest", service: "project_service.save(body) / duplicate_project()" },
   { route: "GET /api/models, GET /api/models/{id}, GET .../health", request: "—", service: "model_service.list_models() / get() / health()" },
   { route: "POST /api/models/install-all", request: "accept_license", service: "model_service.install_all_async(accept_license)" },
   { route: "POST /api/models/{id}/install | load | unload", request: "accept_license", service: "model_service.install_async() / load_async() / unload()" },
@@ -343,8 +339,7 @@ uv run python -m app.main`}
             <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground leading-relaxed">
               <li><strong>Title Bar &amp; Command Center:</strong> Displays the VoxLabs logo, the full application menu bar (<strong>File, Edit, View, Voice, Audio, Script, Tools, Help</strong>), a central search button that opens the Command Palette, and native-snapping window controls. Enable <strong>Settings → Appearance → Use the system title bar</strong> if you prefer your OS&apos;s native window frame.</li>
               <li><strong>Every Command in the Menu &amp; Palette:</strong> Every action on every page is reachable from the top menu bar and searchable in the Command Palette (<code>Ctrl+Shift+P</code> or <code>F1</code>). Selecting a page command automatically navigates to that page and invokes its action.</li>
-              <li><strong>Workspace Project Scoping:</strong> Use <strong>File → New Project… / Open Project… / Close Project</strong> (or click the project button in the bottom status bar) to scope work to a project. While a project is open, new speech generations, scripts, and audio imports belong to that project, and lists filter to it; when closed, all work is shown. The active project is remembered across restarts.</li>
-              <li><strong>Status Bar &amp; Live Logs Panel:</strong> The bottom status bar shows the open project, the REST API / MCP server state (click to start or stop), active background jobs, and the <strong>Logs</strong> toggle (<code>Ctrl+`</code>) with live warning/error counts and source filters (<code>ui</code>, <code>api</code>, <code>mcp</code>, <code>system</code>).</li>
+              <li><strong>Status Bar &amp; Live Logs Panel:</strong> The bottom status bar shows the REST API / MCP server state (click to start or stop), active background jobs, and the <strong>Logs</strong> toggle (<code>Ctrl+`</code>) with live warning/error counts and source filters (<code>ui</code>, <code>api</code>, <code>mcp</code>, <code>system</code>).</li>
             </ul>
 
             <h3 className="text-xl font-semibold pt-2">Pages Reference</h3>
@@ -595,7 +590,7 @@ It sounds hard.                ← continues the Student line
             <ul className="list-disc list-inside space-y-1.5 text-sm text-muted-foreground leading-relaxed">
               <li><strong>Import:</strong> Copies the source file to <code>audios.original_path</code> and writes a WAV working copy to <code>audios.path</code>.</li>
               <li><strong>Processing &amp; Rendered Edits:</strong> Create a new <code>audios</code> row with <code>parent_audios_id</code> pointing to the source audio.</li>
-              <li><strong>Editor Autosave:</strong> Stores the pending non-destructive operation list directly on the audio row (<code>audios.edit_ops</code> via <code>audio_service.save_edit_ops</code>), so edits persist for every audio file with or without a project.</li>
+              <li><strong>Editor Autosave:</strong> Stores the pending non-destructive operation list directly on the audio row (<code>audios.edit_ops</code> via <code>audio_service.save_edit_ops</code>), so edits persist for every audio file.</li>
               <li><strong>Export &amp; AI Labelling:</strong> <code>export(audios_id, dest, fmt, sample_rate)</code> writes WAV, FLAC, OGG, or MP3 via <code>libsndfile</code> and M4A via FFmpeg. AI-generated audio is tagged with <code>comment=&quot;AI-generated by VoxLabs&quot;</code> and <code>software=&quot;VoxLabs&quot;</code>.</li>
             </ul>
 
@@ -677,7 +672,7 @@ It sounds hard.                ← continues the Student line
               VoxLabs uses SQLite through SQLAlchemy 2.0 (<code>data/database/voxlabs.db</code>) with WAL journaling and foreign keys enabled. Every table uses a plural name, an explicit <code>&lt;table&gt;_id</code> integer primary key, an integer <code>status</code> column backed by <code>BaseEnum</code> (<code>Status.ACTIVE.code == 1</code>, <code>INACTIVE == 2</code>, <code>PENDING == 3</code>, <code>IN_PROGRESS == 4</code>, <code>COMPLETED == 5</code>, <code>FAILED == 6</code>, <code>CANCELLED == 7</code>, <code>DELETED == 8</code>), plus timezone-aware UTC <code>created_at</code> and <code>updated_at</code> timestamps.
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              <strong>In-place upgrades:</strong> <code>init_db()</code> runs <code>create_all()</code> followed by idempotent steps in <code>_upgrade(engine)</code> (such as adding <code>audios.edit_ops</code> and migrating legacy project editor state onto each audio row).
+              <strong>In-place upgrades:</strong> <code>init_db()</code> runs <code>create_all()</code> followed by idempotent steps in <code>_upgrade(engine)</code> (such as adding <code>audios.edit_ops</code> and removing the old <code>projects</code> table and columns).
             </p>
             <div className="rounded-xl border border-border/50 bg-card/50 p-2 sm:p-4">
               <Table>
@@ -800,8 +795,8 @@ uv run uvicorn app.api.app:app --reload        # Development server on 127.0.0.1
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-normal">list_audio, get_audio, process_audio, export_audio</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-semibold text-xs">Scripts &amp; Projects</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground whitespace-normal">list_scripts, get_script, save_script, update_section, generate_script, list_projects, get_project, save_project</TableCell>
+                    <TableCell className="font-semibold text-xs">Scripts</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground whitespace-normal">list_scripts, get_script, save_script, update_section, generate_script</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-semibold text-xs">Models &amp; Jobs</TableCell>

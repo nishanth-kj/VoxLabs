@@ -4,9 +4,8 @@
 message and the offending field) and converts output data to JSON-correct
 types before it is sent in an ApiResponse.
 
-    projects_id = Validation.optional_id(projects_id, "projects_id")
-    limit = Validation.limit(limit)
-    data = audio_service.list_audios(projects_id, limit)
+    audio_id = Validation.require_id(audio_id, "audios_id")
+    data = audio_service.get(audio_id)
     return ApiResponse(data).success()
 """
 

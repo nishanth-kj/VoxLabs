@@ -46,7 +46,6 @@ class AudioService:
         ai_generated: bool = False,
         original_path: str | Path | None = None,
         params: dict | None = None,
-        projects_id: int | None = None,
         parent_audios_id: int | None = None,
         y: np.ndarray | None = None,
         sr: int | None = None,
@@ -74,7 +73,6 @@ class AudioService:
             file_size=meta.get("file_size", 0),
             loudness=loudness,
             params=params or {},
-            projects_id=projects_id,
             parent_audios_id=parent_audios_id,
         )
         session.add(audio)
@@ -115,12 +113,10 @@ class AudioService:
         except Exception as exc:
             raise service_error(exc, "audio_service.find_generated")
 
-    def list_audios(self, projects_id: int | None = None, limit: int = 100) -> list[dict]:
+    def list_audios(self, limit: int = 100) -> list[dict]:
         try:
             with read_session() as session:
                 query = select(Audio).where(Audio.status != Status.DELETED.code)
-                if projects_id is not None:
-                    query = query.where(Audio.projects_id == projects_id)
                 rows = session.scalars(query.order_by(Audio.created_at.desc()).limit(limit))
                 return [self.to_dict(a) for a in rows]
         except Exception as exc:
@@ -211,7 +207,7 @@ class AudioService:
 
     # ------------------------------------------------------------ import / export
 
-    def import_file(self, path: str | Path, projects_id: int | None = None, name: str | None = None) -> dict:
+    def import_file(self, path: str | Path, name: str | None = None) -> dict:
         """Copy an external file into the library (original kept) and add a WAV working copy."""
         try:
             src = Validation.require_audio_file(path)
@@ -221,7 +217,7 @@ class AudioService:
             with transaction() as session:
                 audio = self.register(
                     session, working, AudioSource.IMPORTED, name=name or src.stem, original_path=original,
-                    projects_id=projects_id, y=y, sr=sr,
+                    y=y, sr=sr,
                 )
                 logger.info(f"Imported audio {audio.audios_id} ({audio.duration:.1f}s)")
                 return self.to_dict(audio)
@@ -233,7 +229,7 @@ class AudioService:
         path = None
         try:
             path = save_upload(body.file)
-            return self.import_file(path, body.projects_id, Path(body.file.filename or "audio").stem)
+            return self.import_file(path, Path(body.file.filename or "audio").stem)
         except Exception as exc:
             raise service_error(exc, "audio_service.import_upload")
         finally:
@@ -304,7 +300,7 @@ class AudioService:
                 audio = self.register(
                     session, path, AudioSource.PROCESSED, name=f"{source['name']} (processed)",
                     ai_generated=source["ai_generated"], original_path=source["original_path"] or source["path"],
-                    params={"steps": resolved, "preset": preset}, projects_id=source["projects_id"],
+                    params={"steps": resolved, "preset": preset},
                     parent_audios_id=audios_id, y=out, sr=sr,
                 )
                 logger.info(f"Processed audio {audios_id} -> {audio.audios_id} steps={list(resolved)}")
@@ -461,7 +457,7 @@ class AudioService:
                 audio = self.register(
                     session, path, AudioSource.RENDERED, name=name or f"{source['name']} (edited)",
                     ai_generated=source["ai_generated"], original_path=source["original_path"] or source["path"],
-                    params={"ops": ops}, projects_id=source["projects_id"], parent_audios_id=audios_id, y=out, sr=sr,
+                    params={"ops": ops}, parent_audios_id=audios_id, y=out, sr=sr,
                 )
                 return self.to_dict(audio)
         except Exception as exc:
@@ -474,8 +470,7 @@ class AudioService:
         except Exception as exc:
             raise service_error(exc, "audio_service.materialize")
 
-    def join(self, audios_ids: list[int], gap_ms: int = 0, name: str = "Joined audio",
-             projects_id: int | None = None) -> dict:
+    def join(self, audios_ids: list[int], gap_ms: int = 0, name: str = "Joined audio") -> dict:
         try:
             if len(audios_ids) < 2:
                 raise ValidationError("Select at least two audio files to join", field="audios_ids")
@@ -492,8 +487,7 @@ class AudioService:
             path = au.save(unique_path(subdir("audio"), name, "wav"), out, sr, ai_generated=ai)
             with transaction() as session:
                 audio = self.register(session, path, AudioSource.RENDERED, name=name, ai_generated=ai,
-                                      params={"joined": audios_ids, "gap_ms": gap_ms}, projects_id=projects_id,
-                                      y=out, sr=sr)
+                                      params={"joined": audios_ids, "gap_ms": gap_ms}, y=out, sr=sr)
                 return self.to_dict(audio)
         except Exception as exc:
             raise service_error(exc, "audio_service.join")
@@ -512,7 +506,7 @@ class AudioService:
                                    ai_generated=source["ai_generated"])
                     audio = self.register(session, path, AudioSource.RENDERED, name=f"{source['name']} ({suffix})",
                                           ai_generated=source["ai_generated"], parent_audios_id=audios_id,
-                                          projects_id=source["projects_id"], y=part, sr=sr)
+                                          y=part, sr=sr)
                     results.append(self.to_dict(audio))
             return results
         except Exception as exc:
@@ -528,7 +522,7 @@ class AudioService:
             with transaction() as session:
                 audio = self.register(session, path, AudioSource.PROCESSED, name=f"{source['name']} ({sample_rate} Hz)",
                                       ai_generated=source["ai_generated"], parent_audios_id=audios_id,
-                                      projects_id=source["projects_id"], y=y, sr=sr)
+                                      y=y, sr=sr)
                 return self.to_dict(audio)
         except Exception as exc:
             raise service_error(exc, "audio_service.convert")

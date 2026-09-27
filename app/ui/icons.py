@@ -27,7 +27,6 @@ ICONS: dict[str, str] = {
               '<path d="M18.5 14.5a6.5 6.5 0 0 1 3 5.5"/>',
     "voice_editor": '<circle cx="8" cy="8" r="3"/><path d="M3 19a5 5 0 0 1 10 0"/>'
                     '<path d="M16 4v4M14 6h4M16 14l1.2 1.2M19 11v2M17.5 16.5L19 18"/>',
-    "projects": '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     "models": '<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/>'
               '<path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
     "settings": '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/>'

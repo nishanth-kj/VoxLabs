@@ -14,7 +14,7 @@ Guidance for AI coding agents working in the VoxLabs repository.
 - uv manages the Python project.
 - There is no web application. `site/` is only the static Next.js **landing page** that links to the desktop download; it is not a product UI and must not grow app features.
 
-Its features are voice cloning (with recorded consent), TTS, script/lesson-to-audio, a non-destructive audio editor, enhancement, projects and takes, local model management, and background jobs.
+Its features are voice cloning (with recorded consent), TTS, script/lesson-to-audio, a non-destructive audio editor, enhancement, script takes, local model management, and background jobs.
 
 ## Layers
 

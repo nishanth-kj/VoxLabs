@@ -24,7 +24,6 @@ class TTSRequest(BaseModel):
     seed: int | None = None
     post: dict | None = None
     preset: str | None = None
-    projects_id: int | None = None
     name: str | None = None
     background: bool = False
     cache: bool = False

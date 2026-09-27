@@ -51,7 +51,8 @@ _NON_TTS = (Backend.MFCC, Backend.DSP)
 def engine_hint(extra: str | None) -> str:
     """How to add a missing engine: a uv command when run from source; a built app cannot add one."""
     if getattr(sys, "frozen", False):
-        return "this build of VoxLabs does not include it"
+        return ("this copy of VoxLabs was built without it (rebuild with the engine installed: "
+                + ENGINE_INSTALL_COMMAND.format(extra=extra) + ", then uv run build)")
     return "close VoxLabs and run: " + ENGINE_INSTALL_COMMAND.format(extra=extra)
 
 
@@ -168,7 +169,7 @@ class ModelService:
             return "Not downloaded"
         if not package_installed(entry.get("package")):
             if getattr(sys, "frozen", False):
-                return "Downloaded · engine not in this build"
+                return f"Downloaded · this app does not include the {entry.get('extra')} engine"
             return f"Downloaded · needs the {entry.get('extra')} engine"
         return "Not installed"
 

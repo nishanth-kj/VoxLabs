@@ -3,7 +3,6 @@
 from app.models.audio import Audio
 from app.models.job import Job
 from app.models.model import Model
-from app.models.project import Project
 from app.models.script import Script
 from app.models.script_section import ScriptSection
 from app.models.take import Take
@@ -16,7 +15,6 @@ __all__ = [
     "Audio",
     "Job",
     "Model",
-    "Project",
     "Script",
     "ScriptSection",
     "Take",

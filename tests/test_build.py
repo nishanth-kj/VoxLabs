@@ -41,3 +41,20 @@ def test_built_app_keeps_data_in_the_user_folder(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     expected = Path.home() / "Library" / "Application Support" if sys.platform == "darwin" else tmp_path
     assert files.default_data_dir() == expected / "VoxLabs"
+
+
+def test_windowed_app_gets_std_streams(monkeypatch):
+    """A windowed build starts with sys.stdout/stderr = None; libraries that print (Kokoro) then crash."""
+    import app.main as entry
+
+    monkeypatch.setattr(sys, "stdout", None)
+    monkeypatch.setattr(sys, "stderr", None)
+    entry._ensure_std_streams()
+    out, err = sys.stdout, sys.stderr
+    assert out is not None and err is not None
+    try:
+        print("discarded")
+        err.write("discarded\n")
+    finally:
+        out.close()
+        err.close()

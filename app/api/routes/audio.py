@@ -13,10 +13,9 @@ router = APIRouter(prefix="/api/audio", tags=["Audio"])
 
 
 @router.get("")
-def list_audio(projects_id: int | None = None, limit: int = 100) -> ApiResponse:
-    projects_id = Validation.optional_id(projects_id, "projects_id")
+def list_audio(limit: int = 100) -> ApiResponse:
     limit = Validation.limit(limit)
-    data = audio_service.list_audios(projects_id, limit)
+    data = audio_service.list_audios(limit)
     return ApiResponse(data).success()
 
 
