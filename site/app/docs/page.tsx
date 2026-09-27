@@ -594,7 +594,7 @@ It sounds hard.                ← continues the Student line
 
             <h3 className="text-xl font-semibold pt-2">8-Stage Enhancement Pipeline</h3>
             <p className="text-sm text-muted-foreground">
-              Steps always execute in this fixed order: <code>trim_silence → denoise → eq → compress → deess → normalize → limit → loudness</code>. Passing <code>{`{"step": null}`}</code> disables a step from a preset.
+              Steps always execute in this fixed order: <code>trim_silence → denoise → eq → compress → deess → normalize → limit → loudness</code>. Passing <code>&#123;&quot;step&quot;: null&#125;</code> disables a step from a preset.
             </p>
             <div className="rounded-xl border border-border/50 bg-card/50 p-2 sm:p-4">
               <Table>
