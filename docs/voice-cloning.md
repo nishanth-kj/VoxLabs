@@ -29,7 +29,7 @@ Heavy work and progress reporting happen before the transaction, so it stays sho
 ## How the voice is used for speech
 
 | Cloning model | At generation time |
-|---|---|
+| --- | --- |
 | Chatterbox, Chatterbox Turbo, Qwen3-TTS | The backend receives the stored sample paths as reference audio (zero-shot cloning). `params.cloned = true`. |
 | Voice profile (MFCC) | The voice speaks through the default TTS model. Its output pitch is shifted to match the speaker's median pitch (`params.pitch_matched = true`). This is an approximation, not a clone. |
 
