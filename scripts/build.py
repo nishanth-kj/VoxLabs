@@ -19,6 +19,7 @@ on Windows and .icns on macOS; Linux reads the window icon at runtime.
 """
 
 import argparse
+import importlib.util
 import os
 import platform
 import shutil
@@ -103,8 +104,16 @@ def bundle() -> int:
         "--workpath", str(BUILD / "pyinstaller"),
         "--distpath", str(DIST),
         "--collect-data", "librosa",
+        # Kokoro -> phonemizer -> language_tags reads its JSON registry during import.
+        "--collect-data", "language_tags",
+        "--collect-data", "misaki",
+        "--collect-all", "espeakng_loader",
+        "--collect-all", "en_core_web_sm",
         "--collect-submodules", "app",
     ]
+    if importlib.util.find_spec("chatterbox") is not None:
+        # Diffusers/Transformers check distribution versions at runtime, including transitive dependencies.
+        command += ["--recursive-copy-metadata", "chatterbox-tts"]
     icon = app_icon_file()
     if icon:
         command += ["--icon", str(icon)]

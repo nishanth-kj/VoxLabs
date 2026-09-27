@@ -1,8 +1,11 @@
 """The desktop build: package names and where a built app keeps its data."""
 
 import importlib.util
+import runpy
 import sys
 from pathlib import Path
+
+import pytest
 
 from app.utils import files
 
@@ -58,3 +61,19 @@ def test_windowed_app_gets_std_streams(monkeypatch):
     finally:
         out.close()
         err.close()
+
+
+def test_self_test_crash_reports_and_exits_without_a_windowed_error_dialog(monkeypatch, tmp_path):
+    from app.services.system_service import system_service
+
+    def fail():
+        raise RuntimeError("bundled dependency missing")
+
+    report = tmp_path / "crash.txt"
+    monkeypatch.setenv("VOXLABS_CRASH_REPORT", str(report))
+    monkeypatch.setattr(sys, "argv", ["VoxLabs", "--self-test"])
+    monkeypatch.setattr(system_service, "initialize", fail)
+    with pytest.raises(SystemExit) as exc:
+        runpy.run_path(str(ROOT / "app" / "main.py"), run_name="__main__")
+    assert exc.value.code == 1
+    assert "RuntimeError: bundled dependency missing" in report.read_text(encoding="utf-8")

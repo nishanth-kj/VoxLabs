@@ -116,4 +116,6 @@ if __name__ == "__main__":
         sys.exit(main())
     except Exception as exc:
         _report_crash(exc)
+        if "--self-test" in sys.argv:
+            sys.exit(1)  # A windowed PyInstaller error dialog would block unattended builds.
         raise
