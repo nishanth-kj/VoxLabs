@@ -36,7 +36,11 @@ from app.utils.model import (
     ModelBackend,
     backend_class,
     create_backend,
+    create_environment,
     download,
+    environment_dir,
+    environment_ready,
+    environment_supported,
     free_cuda_memory,
     is_cuda_oom,
     package_installed,
@@ -83,9 +87,15 @@ class ModelService:
             if entry is None:  # user-added Piper voice
                 return backend == Backend.PIPER and (self.model_dir(key) / "model.onnx").exists() \
                     and package_installed("piper")
-            return package_installed(entry.get("package")) and self._files_present(key, entry)
+            return self._engine_ready(entry) and self._files_present(key, entry)
         except Exception as exc:
             raise service_error(exc, "model_service.is_installed")
+
+    @staticmethod
+    def _engine_ready(entry: dict | None) -> bool:
+        """The engine's Python packages: a VoxLabs extra, or the model's own engine environment."""
+        entry = entry or {}
+        return package_installed(entry.get("package")) and environment_ready(entry.get("environment"))
 
     def sync_catalog(self) -> None:
         """Upsert catalog entries and scan data/models for user-added Piper voices."""
@@ -155,8 +165,9 @@ class ModelService:
             loaded=loaded is not None,
             loaded_device=loaded.device if loaded else None,
             package=entry.get("package"),
-            package_installed=package_installed(entry.get("package")),
+            package_installed=self._engine_ready(entry),
             extra=entry.get("extra"),
+            environment=entry.get("environment"),
             needs_download=bool(entry.get("files")),
             files_ready=self._files_present(row.key, entry) if entry.get("files") else False,
             supports_cloning=row.backend in CLONING_BACKENDS,
@@ -172,6 +183,10 @@ class ModelService:
             return "Installed"
         if not self._files_present(row.key, entry):
             return "Not downloaded"
+        if not environment_ready(entry.get("environment")):
+            if not environment_supported():
+                return "Downloaded · this app cannot set up its engine"
+            return "Downloaded · engine not set up (Install sets it up)"
         if not package_installed(entry.get("package")):
             if getattr(sys, "frozen", False):
                 return f"Downloaded · this app does not include the {entry.get('extra')} engine"
@@ -219,6 +234,9 @@ class ModelService:
                     logger.info(f"Downloading {name} for {key}")
                     download(url, target, cancelled=cancelled,
                              progress=(lambda v, i=index: progress((i + v) / len(files))) if progress else None)
+            environment = entry.get("environment")
+            if environment and not environment_ready(environment):
+                create_environment(environment, cancelled=cancelled)
             if not package_installed(entry.get("package")):
                 extra = entry.get("extra")
                 if files:
@@ -268,7 +286,11 @@ class ModelService:
                 files_missing = bool(files) and not self._files_present(model["key"], entry)
                 package_ok = package_installed(entry.get("package"))
                 needs_library = model["backend"] in FETCH_ON_LOAD_BACKENDS and package_ok and not model["installed"]
-                if files_missing or needs_library:
+                needs_environment = not environment_ready(entry.get("environment"))
+                if needs_environment and not environment_supported():
+                    skipped.append({"key": model["key"], "name": model["name"],
+                                    "reason": "this copy of VoxLabs cannot set up its engine environment"})
+                elif files_missing or needs_library or needs_environment:
                     targets.append(model)
                 elif not package_ok and entry.get("extra") and not files:
                     # Weights that have a URL are downloaded above. This is only for engines
@@ -320,6 +342,8 @@ class ModelService:
             self.unload(model["key"])
             if model["size_mb"] or model["needs_download"]:
                 remove_tree(self.model_dir(model["key"]))
+            if model["environment"]:
+                remove_tree(environment_dir(model["environment"]))
             with transaction() as session:
                 row = self._row(session, model["key"])
                 self._refresh_row(row)
@@ -416,7 +440,8 @@ class ModelService:
             model = self.get(model_ref)
             problems = []
             if not model["package_installed"]:
-                problems.append(f"Engine missing: {engine_hint(model['extra'])}")
+                problems.append("Engine not set up: install the model on the Models page" if model["environment"]
+                                else f"Engine missing: {engine_hint(model['extra'])}")
             if model["needs_download"] and not self._files_present(model["key"], _CATALOG.get(model["key"])):
                 problems.append("Model files not downloaded")
             if not model["allowed"]:
@@ -466,6 +491,8 @@ class ModelService:
             if not model["speaks"]:
                 raise ModelError(f"{model['name']} cannot generate speech")
             if not model["installed"]:
+                if not model["package_installed"] and model["environment"]:
+                    raise ModelError(f"{model['name']} is not set up yet. Install it on the Models page.")
                 if not model["package_installed"]:
                     raise ModelError(f"{model['name']} needs its {model['extra']} engine: "
                                      f"{engine_hint(model['extra'])}.")

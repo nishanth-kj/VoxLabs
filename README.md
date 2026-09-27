@@ -15,7 +15,7 @@ VoxLabs is a native Python desktop application (PySide6). An optional REST API e
 - **Audio editor.** Non-destructive waveform editing: select, cut, copy, paste, delete, split, trim, move, duplicate, join, fade, volume, normalize, undo/redo and loop playback.
 - **Enhancement.** Denoise, EQ, compression, de-esser, limiter and loudness, with the presets Voice Clean, Podcast, Narration, Lesson, Studio and Raw. Originals are always kept.
 - **Takes and autosave.** Every script section keeps its takes, and the audio editor autosaves its edit list on each audio.
-- **Local models.** Piper, Kokoro, Chatterbox and Chatterbox Turbo run on this machine (CPU or CUDA, falling back to the CPU when the GPU is full). Online engines (Google, Microsoft Edge) are opt-in.
+- **Local models.** Piper, Kokoro, Chatterbox, Chatterbox Turbo and Qwen3-TTS run on this machine (CPU or CUDA, falling back to the CPU when the GPU is full). Online engines (Google, Microsoft Edge) are opt-in.
 - **Background jobs.** Long work never freezes the UI. You can see progress and cancel jobs.
 
 All generated audio is flagged as AI-generated in the library and tagged in the file metadata.
@@ -43,6 +43,8 @@ uv sync --extra chatterbox       # Chatterbox (also speaks without a cloned voic
 ```
 
 These pull in PyTorch. A CUDA GPU is strongly recommended.
+
+Qwen3-TTS needs other library versions than Chatterbox, so it gets its own environment: install it on the Models page and VoxLabs sets up `data/engines/qwen3-tts` with uv (from a source checkout; built apps cannot).
 
 On a slow connection, large wheels (onnxruntime, PyTorch) can hit uv's download timeout. Raise it and retry, e.g. in PowerShell: `$env:UV_HTTP_TIMEOUT = "900"; uv sync --extra piper`.
 

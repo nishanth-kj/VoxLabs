@@ -6,7 +6,7 @@ from app.constants.voices import KOKORO_VOICES
 
 
 # Backends that can synthesize speech in a cloned voice from reference samples.
-CLONING_BACKENDS = (Backend.CHATTERBOX, Backend.CHATTERBOX_TURBO)
+CLONING_BACKENDS = (Backend.CHATTERBOX, Backend.CHATTERBOX_TURBO, Backend.QWEN3)
 # Backends whose library downloads its own weights on first load, so installing means loading once.
 FETCH_ON_LOAD_BACKENDS = (Backend.KOKORO, Backend.CHATTERBOX, Backend.CHATTERBOX_TURBO)
 
@@ -20,6 +20,17 @@ ENGINE_INSTALL_COMMAND = "uv sync --inexact --extra {extra}"
 FALLBACK_TTS_MODELS = ("chatterbox", "chatterbox-turbo", "kokoro-82m", "piper-en-us-lessac-medium")
 
 KOKORO_DEFAULT_VOICE = "af_heart"
+
+# Engines whose libraries cannot share VoxLabs' environment get their own under data/engines/<name>,
+# set up with uv when the model is installed, and run as a helper process (app/utils/engine_workers/).
+# qwen-tts 0.1.1 pins transformers 4.57.3, and Chatterbox pins 5.2.0.
+ENGINE_ENVIRONMENTS = {
+    "qwen3-tts": {
+        "requirements": ("qwen-tts==0.1.1", "torch==2.6.0", "torchaudio==2.6.0", "soundfile>=0.12.1"),
+        "module": "qwen_tts",
+        "worker": "qwen3_worker.py",
+    },
+}
 
 
 def _hf(repo: str, path: str) -> str:
@@ -111,6 +122,29 @@ MODEL_CATALOG = [
             "tokenizer_config.json": _hf("ResembleAI/chatterbox-turbo", "tokenizer_config.json"),
             "special_tokens_map.json": _hf("ResembleAI/chatterbox-turbo", "special_tokens_map.json"),
             "added_tokens.json": _hf("ResembleAI/chatterbox-turbo", "added_tokens.json"),
+        },
+    },
+    {
+        # Qwen3-TTS (Alibaba Qwen, Apache-2.0). Clones any voice sample; it has no built-in voice.
+        # Its library needs another transformers version, so it runs in its own engine environment.
+        "key": "qwen3-tts-0.6b",
+        "name": "Qwen3-TTS 0.6B",
+        "model_type": ModelType.CLONE,
+        "backend": Backend.QWEN3,
+        "version": "12hz-0.6b-base",
+        "size_mb": 2400,
+        "vram_mb": 3000,
+        "online": False,
+        "package": None,
+        "extra": None,
+        "environment": "qwen3-tts",
+        "capabilities": ["tts", "clone", "temperature", "seed", "local"],
+        "files": {
+            name: _hf("Qwen/Qwen3-TTS-12Hz-0.6B-Base", name)
+            for name in ("config.json", "generation_config.json", "model.safetensors", "preprocessor_config.json",
+                         "tokenizer_config.json", "vocab.json", "merges.txt", "speech_tokenizer/config.json",
+                         "speech_tokenizer/configuration.json", "speech_tokenizer/model.safetensors",
+                         "speech_tokenizer/preprocessor_config.json")
         },
     },
     {

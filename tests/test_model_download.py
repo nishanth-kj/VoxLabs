@@ -14,7 +14,7 @@ from app.utils.model import download
 
 def test_every_local_engine_has_weight_urls():
     by_key = {entry["key"]: entry for entry in MODEL_CATALOG}
-    for key in ("piper-en-us-lessac-medium", "kokoro-82m", "chatterbox", "chatterbox-turbo"):
+    for key in ("piper-en-us-lessac-medium", "kokoro-82m", "chatterbox", "chatterbox-turbo", "qwen3-tts-0.6b"):
         files = by_key[key].get("files") or {}
         assert files, key
         assert all(url.startswith("https://huggingface.co/") for url in files.values())

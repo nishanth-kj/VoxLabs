@@ -38,8 +38,8 @@ With `cache: true`, `generate` first hashes everything that changes the sound (t
 | `style` | default, narration, conversational, lecture, news, storytelling | Adjusts speed and the pause between sentences. |
 | `pause_ms` | ≥ 0 | Gap between chunks. You can also write `[pause 800ms]` or `[pause 2s]` in the text. |
 | `pronunciations` | `{word: spoken}` | Whole-word replacement before synthesis. |
-| `temperature` | 0.1–1.5 | Chatterbox and Chatterbox Turbo only. |
-| `seed` | int | Chatterbox and Chatterbox Turbo only. |
+| `temperature` | 0.1–1.5 | Chatterbox, Chatterbox Turbo and Qwen3-TTS only. |
+| `seed` | int | Chatterbox, Chatterbox Turbo and Qwen3-TTS only. |
 | `post` / `preset` | — | Clean-up steps. The default is trim silence + normalize. `{}` means raw output. See [audio-engine.md](audio-engine.md). |
 | `cache` | bool | Return an identical earlier generation instead of generating again (see above). |
 
@@ -57,10 +57,13 @@ With `cache: true`, `generate` first hashes everything that changes the sound (t
 | Kokoro 82M | `--extra kokoro`, then install it on the Models page (weights download on first load) | local, fine on CPU | speed; built-in voices via `engine_voice` (default `af_heart`) |
 | Chatterbox | `--extra chatterbox` | local, GPU recommended | emotion, temperature, seed; cloning, or its built-in voice without a cloned voice |
 | Chatterbox Turbo | `--extra chatterbox` (same package) | local, GPU recommended, faster | temperature, seed; cloning from a sample longer than 5 s, or its built-in voice |
+| Qwen3-TTS 0.6B | install it on the Models page (from source; it sets up its own environment, see below) | local, helper process | temperature, seed; cloning only (no built-in voice), 10 languages |
 | Emotional (gTTS) | base | **online** (Google), opt-in | — |
 | Edge neural | base | **online** (Microsoft), opt-in | speed, pitch; preset voices via `engine_voice` |
 
 Online engines raise `ModelError` unless **Settings → Allow online engines** is on.
+
+Qwen3-TTS needs a different `transformers` than Chatterbox, so it cannot share VoxLabs' environment. Installing it downloads its weights and sets up `data/engines/qwen3-tts` with uv (`ENGINE_ENVIRONMENTS` in `app/constants/models.py`). Its backend runs `app/utils/engine_workers/qwen3_worker.py` with that environment's Python and exchanges one JSON message per line with it. A built app has no uv, so it lists the model but cannot set it up. Qwen3-TTS clones from the speaker embedding of the voice's first sample (no transcript needed).
 
 ## Labelling
 

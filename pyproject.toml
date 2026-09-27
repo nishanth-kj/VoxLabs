@@ -60,8 +60,10 @@ packages = ["app", "scripts"]
 [tool.uv]
 package = true
 # Every extra installs together (one resolution, so `uv run` never swaps library versions).
-# Checked 2026-09 and left out: XTTS v2 (needs transformers < 5), Qwen3-TTS (pins transformers==4.57.3)
-# and F5-TTS all clash with Chatterbox, which pins transformers==5.2.0.
+# Checked 2026-09 and left out, because Chatterbox pins transformers==5.2.0: XTTS v2 (needs transformers < 5) and
+# F5-TTS. Qwen3-TTS pins 4.57.3 (forced onto 5.2.0 it fails to import `check_model_inputs` and builds its RoPE
+# with the "default" type, both removed in transformers 5), so it runs in its own environment instead:
+# ENGINE_ENVIRONMENTS in app/constants/models.py.
 
 [tool.voxlabs]
 # Engines (extras above) bundled into the desktop app by `uv run build`, at the exact versions in uv.lock.
@@ -72,7 +74,12 @@ testpaths = ["tests"]
 pythonpath = ["."]
 qt_api = "pyside6"
 # Keep the suite warning-free: a new deprecation fails the run instead of scrolling past.
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # starlette's TestClient (0.52.1) uses anyio's old BlockingPortal alias. Chatterbox pulls in gradio, which
+    # keeps starlette below 1.0, so this cannot be fixed from here.
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]
 
 [tool.pyright]
 include = ["app", "tests"]

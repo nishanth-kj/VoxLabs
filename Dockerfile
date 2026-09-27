@@ -16,7 +16,7 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never
 WORKDIR /voxlabs
 
-# Optional engine extras from pyproject.toml, space separated (xtts, f5 and chatterbox exclude each other).
+# Optional engine extras from pyproject.toml, space separated: piper, kokoro, chatterbox.
 ARG EXTRAS=""
 COPY pyproject.toml uv.lock ./
 # PySide6 is only needed by the desktop UI; the API never imports Qt.

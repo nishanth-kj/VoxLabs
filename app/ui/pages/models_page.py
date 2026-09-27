@@ -41,7 +41,7 @@ class ModelsPage(BasePage):
         self.root.addLayout(actions)
         hint = QLabel("Online engines (Google, Microsoft Edge) send text to a third party and are disabled unless "
                       "enabled in Settings. Heavy engines need their Python extra, e.g. `uv sync --inexact --extra chatterbox` "
-                      "(Chatterbox and Chatterbox Turbo).")
+                      "(Chatterbox and Chatterbox Turbo). Qwen3-TTS sets up its own engine environment when you install it.")
         hint.setObjectName("Hint")
         hint.setWordWrap(True)
         self.root.addWidget(hint)

@@ -111,7 +111,7 @@ class ClonePage(BasePage):
         s4.addRow("Description", self.description)
         s4.addRow("Cloning model", self.model)
         self.model_hint = QLabel(
-            "Real cloning needs Chatterbox or Chatterbox Turbo (Models page). The built-in voice profile works "
+            "Real cloning needs Chatterbox, Chatterbox Turbo or Qwen3-TTS (Models page). The built-in voice profile works "
             "offline with any speech model and matches the speaker's pitch."
         )
         self.model_hint.setObjectName("Hint")

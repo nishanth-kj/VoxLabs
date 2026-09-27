@@ -12,7 +12,7 @@ from fastapi import UploadFile
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-DATA_SUBDIRS = ("database", "voices", "audio", "models", "jobs", "cache", "exports", "logs")
+DATA_SUBDIRS = ("database", "voices", "audio", "models", "engines", "jobs", "cache", "exports", "logs")
 
 
 def default_data_dir() -> Path:

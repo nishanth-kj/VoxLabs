@@ -4,7 +4,7 @@
 
 ```bash
 uv sync                      # Python 3.12–3.13, base + dev dependencies
-uv sync --extra piper        # optional engines: piper, kokoro, chatterbox (Chatterbox and Chatterbox Turbo)
+uv sync --extra piper        # optional engines: piper, kokoro, chatterbox (Chatterbox and Chatterbox Turbo); Qwen3-TTS installs from the Models page
 uv run python -m app.main    # desktop
 uv run uvicorn app.api.app:app --reload
 ```
@@ -48,6 +48,8 @@ uv run pytest tests/test_script_service.py -k render
    - declare `native_params` and `supports_cloning`
 3. Register it in `_BACKENDS`.
 4. Add an optional dependency group in `pyproject.toml` and run `uv lock`.
+
+If the engine's libraries cannot share VoxLabs' versions, do not add a conflicting extra (`uv run` would swap libraries between the forks). Give it its own environment instead, like Qwen3-TTS: an `ENGINE_ENVIRONMENTS` entry (pinned requirements, the module to import as a check, the worker script), `environment` on the catalog entry, a `WorkerBackend` subclass, and a standalone worker in `app/utils/engine_workers/` that never imports `app`. Installing the model sets the environment up in `data/engines/<name>` with uv.
 
 The UI picks it up automatically through `ModelService.list_models()`.
 

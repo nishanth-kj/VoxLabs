@@ -12,7 +12,7 @@ Discover, install, load and select local AI models (TTS, cloning, enhancement, e
 ## Workflow
 
 - The catalog is `MODEL_CATALOG` in `app/constants/models.py`. `model_service.sync_catalog()` upserts it into `models` at startup, and it also picks up user-added Piper voices in `data/models/<key>/model.onnx`.
-- `install()` checks that the Python package is present and tells the user the `uv sync --inexact --extra …` command if it isn't. It then downloads `files` (direct Hugging Face URLs for every local engine) and loads fetch-on-load engines once (Kokoro, Chatterbox, Chatterbox Turbo) so the download is visible.
+- `install()` checks that the Python package is present and tells the user the `uv sync --inexact --extra …` command if it isn't. It then downloads `files` (direct Hugging Face URLs for every local engine) and loads fetch-on-load engines once (Kokoro, Chatterbox, Chatterbox Turbo) so the download is visible. A model with an `environment` (Qwen3-TTS) gets its own Python environment under `data/engines/<name>`, set up with uv by `create_environment()`.
 - `load()` checks the model is allowed (online opt-in), picks a device with `pick_device()` (explicit → settings → CUDA if free VRAM ≥ `vram_mb` → CPU), creates the backend and calls `backend.load()`. Loaded backends live in `ModelService._loaded`.
 - `unload()`, `reload()`, `remove()`, `health()`, `select(model_type, key)`, `resolve_speech_model()` and `backend_for()` cover the rest.
 
@@ -21,6 +21,7 @@ Discover, install, load and select local AI models (TTS, cloning, enhancement, e
 1. Add a catalog entry (key, type, backend, size, VRAM, `package`, `extra`, capabilities, and optional `files`).
 2. Add a `ModelBackend` subclass in `app/utils/model.py`. Import heavy libraries inside `load()`. Implement `synthesize()` returning `(float32 mono, sr)`. Set `native_params` and `supports_cloning`. If it clones, call `_require_reference(voice)`.
 3. Register it in `_BACKENDS`. Add the optional dependency in `pyproject.toml`, then run `uv lock`.
+4. If its libraries cannot share VoxLabs' versions (check with `uv lock` and by running it), do not add conflicting extras: `uv run` would swap libraries between them. Add an `ENGINE_ENVIRONMENTS` entry instead (pinned requirements, import check, worker script), set the catalog entry's `environment`, subclass `WorkerBackend`, and write a standalone worker in `app/utils/engine_workers/` that never imports `app`.
 
 ## Important rules
 

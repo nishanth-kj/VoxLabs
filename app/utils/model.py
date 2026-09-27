@@ -9,10 +9,17 @@ only knows *how* to talk to each engine.
 """
 
 import asyncio
+import base64
+import collections
 import importlib.util
 import io
+import json
 import os
+import shutil
+import subprocess
+import sys
 import threading
+import time
 import urllib.request
 import wave
 from collections.abc import Callable
@@ -23,9 +30,16 @@ from typing import Any
 import numpy as np
 import soundfile as sf
 
-from app.constants.models import EDGE_DEFAULT_VOICE, ENGINE_INSTALL_COMMAND, KOKORO_DEFAULT_VOICE, Backend
+from app.constants.models import (
+    EDGE_DEFAULT_VOICE,
+    ENGINE_ENVIRONMENTS,
+    ENGINE_INSTALL_COMMAND,
+    KOKORO_DEFAULT_VOICE,
+    Backend,
+)
 from app.exceptions import ModelError
 from app.utils import audio as audio_utils
+from app.utils.files import subdir
 from app.utils.logger import logger
 
 
@@ -92,6 +106,80 @@ def package_installed(package: str | None) -> bool:
         return importlib.util.find_spec(package) is not None
     except (ImportError, ValueError):
         return False
+
+
+# ---------------------------------------------------------------- engine environments
+
+_ENV_MARKER = "voxlabs-environment.json"
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window from the desktop app on Windows
+
+
+def environment_dir(name: str) -> Path:
+    return subdir("engines") / name
+
+
+def environment_python(name: str) -> Path:
+    folder = environment_dir(name)
+    return folder / "Scripts" / "python.exe" if os.name == "nt" else folder / "bin" / "python"
+
+
+def environment_ready(name: str | None) -> bool:
+    """True when the engine environment exists and was set up with the current requirements."""
+    if not name:
+        return True
+    try:
+        marker = json.loads((environment_dir(name) / _ENV_MARKER).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return environment_python(name).is_file() and marker.get("requirements") == list(ENGINE_ENVIRONMENTS[name]["requirements"])
+
+
+def environment_supported() -> bool:
+    """Engine environments are set up with uv, from a source checkout. A built app has neither."""
+    return not getattr(sys, "frozen", False) and _uv() is not None
+
+
+def _uv() -> str | None:
+    return os.environ.get("UV") or shutil.which("uv")
+
+
+def create_environment(name: str, cancelled: Callable[[], bool] | None = None) -> None:
+    """Set up data/engines/<name> with uv and check that its engine imports. Packages come from uv's cache
+    when VoxLabs already uses the same versions, so only the engine's own libraries are downloaded."""
+    spec = ENGINE_ENVIRONMENTS[name]
+    uv = _uv()
+    if getattr(sys, "frozen", False) or uv is None:
+        raise ModelError(f"The {name} engine runs in its own Python environment, which is set up with uv "
+                         "from a source checkout of VoxLabs. This copy cannot set it up.")
+    folder, python = environment_dir(name), environment_python(name)
+    (folder / _ENV_MARKER).unlink(missing_ok=True)
+    logger.info(f"Setting up the {name} engine environment in {folder}")
+    steps = (
+        [uv, "venv", str(folder), "--python", sys.executable, "--allow-existing", "--quiet"],
+        [uv, "pip", "install", "--python", str(python), "--quiet", *spec["requirements"]],
+        [str(python), "-c", f"import {spec['module']}"],
+    )
+    for command in steps:
+        _run_step(command, name, cancelled)
+    (folder / _ENV_MARKER).write_text(json.dumps({"requirements": list(spec["requirements"])}), encoding="utf-8")
+    logger.info(f"The {name} engine environment is ready")
+
+
+def _run_step(command: list[str], name: str, cancelled: Callable[[], bool] | None) -> None:
+    output: collections.deque[str] = collections.deque(maxlen=12)
+    with subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                          text=True, encoding="utf-8", errors="replace", creationflags=_NO_WINDOW) as process:
+        reader = threading.Thread(target=lambda: output.extend(process.stdout or ()), daemon=True)
+        reader.start()
+        while process.poll() is None:
+            if cancelled and cancelled():
+                process.kill()
+                raise ModelError("Engine setup cancelled")
+            time.sleep(0.25)
+        reader.join(timeout=5)
+    if process.returncode != 0:
+        detail = " | ".join(line.strip() for line in output if line.strip())
+        raise ModelError(f"Setting up the {name} engine failed: {detail or f'exit code {process.returncode}'}")
 
 
 _download_guard = threading.Lock()
@@ -461,6 +549,102 @@ class ChatterboxTurboBackend(ChatterboxBackend):
         return super()._conds(voice, exaggeration)
 
 
+class WorkerBackend(ModelBackend):
+    """An engine that runs in its own environment (ENGINE_ENVIRONMENTS) as a helper process, spoken to
+    with one JSON message per line (see app/utils/engine_workers/)."""
+
+    environment = ""
+    _process: subprocess.Popen | None = None
+
+    def load(self):
+        spec = ENGINE_ENVIRONMENTS[self.environment]
+        if not environment_ready(self.environment):
+            raise ModelError(f"The {self.environment} engine is not set up yet. Install the model on the Models page.")
+        worker = Path(__file__).parent / "engine_workers" / spec["worker"]
+        self._errors: collections.deque[str] = collections.deque(maxlen=8)
+        self._process = subprocess.Popen(
+            [str(environment_python(self.environment)), str(worker), str(self.model_dir), self.device],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+            errors="replace", creationflags=_NO_WINDOW,
+        )
+        self._stderr_reader = threading.Thread(target=self._drain_stderr, args=(self._process,), daemon=True)
+        self._stderr_reader.start()
+        ready = self._receive()
+        self.device = ready.get("device", self.device)
+        self.loaded = True
+
+    def unload(self):
+        process, self._process = self._process, None
+        if process is not None:
+            try:
+                if process.stdin:
+                    process.stdin.close()
+                process.wait(timeout=10)
+            except (OSError, subprocess.TimeoutExpired):
+                process.kill()
+                process.wait()
+            self._stderr_reader.join(timeout=5)
+            for stream in (process.stdout, process.stderr):
+                if stream:
+                    stream.close()
+        self.loaded = False
+
+    def _call(self, request: dict) -> dict:
+        process = self._process
+        if process is None or process.stdin is None:
+            raise ModelError(f"The {self.environment} engine is not loaded")
+        try:
+            process.stdin.write(json.dumps(request) + "\n")
+            process.stdin.flush()
+        except OSError as exc:
+            raise ModelError(f"The {self.environment} engine stopped: {self._last_error()}") from exc
+        return self._receive()
+
+    def _receive(self) -> dict:
+        process = self._process
+        line = process.stdout.readline() if process and process.stdout else ""
+        if not line:
+            self.unload()
+            raise ModelError(f"The {self.environment} engine stopped: {self._last_error()}")
+        message = json.loads(line)
+        if "error" in message:
+            if not self.loaded:
+                self.unload()
+            raise ModelError(message["error"])
+        return message
+
+    def _drain_stderr(self, process: subprocess.Popen) -> None:
+        for line in process.stderr or ():
+            if line.strip():
+                self._errors.append(line.strip())
+                logger.debug(f"{self.environment}: {line.strip()}")
+
+    def _last_error(self) -> str:
+        return self._errors[-1] if self._errors else "no details"
+
+
+class Qwen3Backend(WorkerBackend):
+    """Qwen3-TTS 0.6B Base (Alibaba Qwen, Apache-2.0). Clones the voice's first sample from its speaker
+    embedding, so no transcript is needed. It has no built-in voice."""
+
+    backend_id = Backend.QWEN3
+    environment = "qwen3-tts"
+    supports_cloning = True
+    native_params = frozenset({"temperature"})
+
+    def synthesize(self, request, voice):
+        if not voice or not voice.sample_paths:
+            raise ModelError("Qwen3-TTS only speaks in a cloned voice. Pick a cloned voice, or another model.",
+                             field="voices_id")
+        reply = self._call({"text": request.text, "language": voice.language or request.language,
+                            "ref_audio": str(Path(voice.sample_paths[0]).resolve()),
+                            "temperature": request.temperature, "seed": request.seed})
+        audio = np.frombuffer(base64.b64decode(reply["audio"]), dtype="<f4").astype(np.float32)
+        if not audio.size:
+            raise ModelError("Qwen3-TTS returned no audio for this text")
+        return audio, int(reply["sr"])
+
+
 _BACKENDS: dict[str, type[ModelBackend]] = {
     Backend.EMOTIONAL: EmotionalBackend,
     Backend.EDGE: EdgeBackend,
@@ -468,6 +652,7 @@ _BACKENDS: dict[str, type[ModelBackend]] = {
     Backend.KOKORO: KokoroBackend,
     Backend.CHATTERBOX: ChatterboxBackend,
     Backend.CHATTERBOX_TURBO: ChatterboxTurboBackend,
+    Backend.QWEN3: Qwen3Backend,
 }
 
 

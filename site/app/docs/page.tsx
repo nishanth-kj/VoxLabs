@@ -95,8 +95,8 @@ const TTS_PARAMETERS = [
   { param: "style", range: "6 presets", notes: "default, narration, conversational, lecture, news, storytelling. Adjusts speed and inter-sentence pause." },
   { param: "pause_ms", range: "≥ 0 ms", notes: "Gap between chunks. You can also write [pause 800ms] or [pause 2s] inline in the text." },
   { param: "pronunciations", range: "{word: spoken}", notes: "Whole-word case-insensitive replacement applied before synthesis." },
-  { param: "temperature", range: "0.1 – 1.5", notes: "Sampling temperature (Chatterbox and Chatterbox Turbo only)." },
-  { param: "seed", range: "int", notes: "Deterministic generation seed (Chatterbox and Chatterbox Turbo only)." },
+  { param: "temperature", range: "0.1 – 1.5", notes: "Sampling temperature (Chatterbox, Chatterbox Turbo and Qwen3-TTS only)." },
+  { param: "seed", range: "int", notes: "Deterministic generation seed (Chatterbox, Chatterbox Turbo and Qwen3-TTS only)." },
   { param: "post / preset", range: "steps | name", notes: "Clean-up DSP steps or preset name. Default is trim_silence + normalize; {} means raw output." },
   { param: "cache", range: "bool", notes: "When true, returns an identical earlier generation matching text + settings + model + voice hash without re-synthesizing." },
 ] as const
@@ -106,6 +106,7 @@ const ENGINE_DETAILS = [
   { backend: "Kokoro 82M", install: "uv sync --extra kokoro + install on Models page", runs: "Local CPU / GPU (330 MB)", native: "speed; built-in voices via engine_voice (default af_heart)" },
   { backend: "Chatterbox", install: "uv sync --extra chatterbox (MIT)", runs: "Local GPU rec. / CPU fallback (3.20 GB)", native: "emotion, temperature, seed; zero-shot cloning or built-in voice" },
   { backend: "Chatterbox Turbo", install: "uv sync --extra chatterbox (MIT, same package)", runs: "Local GPU rec. / CPU fallback (2.99 GB)", native: "temperature, seed; faster zero-shot cloning (sample over 5 s) or built-in voice" },
+  { backend: "Qwen3-TTS 0.6B", install: "Install on Models page, from source (Apache-2.0; sets up its own engine environment with uv)", runs: "Local helper process (2.4 GB)", native: "temperature, seed; zero-shot cloning only, 10 languages" },
   { backend: "Voice Profile (MFCC)", install: "Built into base install (librosa)", runs: "Local CPU", native: "Extracts MFCC + pYIN median pitch; pitch-matches default TTS output" },
   { backend: "Emotional (gTTS)", install: "Built into base install", runs: "Online (Google), opt-in only", native: "Shaped with local prosody DSP afterwards" },
   { backend: "Edge Neural", install: "Built into base install", runs: "Online (Microsoft), opt-in only", native: "speed, pitch; preset voices via engine_voice (default en-US-AriaNeural)" },
@@ -191,8 +192,8 @@ const API_ENDPOINTS = [
   { route: "POST /api/audio/process", request: "AudioProcessRequest", service: "audio_service.process(body) (steps/preset or editor ops list)" },
   { route: "POST /api/audio/export", request: "AudioExportRequest", service: "audio_service.export(body), returns the exported file" },
   { route: "GET /api/models, GET /api/models/{id}, GET .../health", request: "—", service: "model_service.list_models() / get() / health()" },
-  { route: "POST /api/models/install-all", request: "accept_license", service: "model_service.install_all_async(accept_license)" },
-  { route: "POST /api/models/{id}/install | load | unload", request: "accept_license", service: "model_service.install_async() / load_async() / unload()" },
+  { route: "POST /api/models/install-all", request: "—", service: "model_service.install_all_async()" },
+  { route: "POST /api/models/{id}/install | load | unload", request: "—", service: "model_service.install_async() / load_async() / unload()" },
   { route: "GET /api/jobs, GET /api/jobs/{id}, POST /api/jobs/{id}/cancel", request: "—", service: "job_service.list_jobs() / get_job() / cancel()" },
 ] as const
 
@@ -463,7 +464,7 @@ uv run python -m app.main`}
               <div className="rounded-xl border border-border/40 bg-card/50 p-5 space-y-2">
                 <h3 className="font-semibold text-base">Zero-Shot vs. Profile vs. Preset</h3>
                 <p className="text-muted-foreground leading-relaxed">
-                  <strong>Chatterbox, Chatterbox Turbo:</strong> Receive stored reference WAV paths for true zero-shot voice cloning (<code>params.cloned = true</code>).<br />
+                  <strong>Chatterbox, Chatterbox Turbo, Qwen3-TTS:</strong> Receive stored reference WAV paths for true zero-shot voice cloning (<code>params.cloned = true</code>).<br />
                   <strong>Voice Profile (MFCC):</strong> Speaks through the default TTS model and shifts output pitch to match the speaker&apos;s median pitch (<code>params.pitch_matched = true</code>).<br />
                   <strong>Preset Voices:</strong> Built-in engine speakers (e.g. Kokoro or Edge <code>engine_voice</code>); nobody is cloned, so <code>consent_status = NotRequired</code>.
                 </p>

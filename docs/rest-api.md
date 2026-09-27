@@ -114,7 +114,7 @@ Compose publishes the port on the host's loopback only. Engines from `pyproject.
 | `POST /api/audio/process` | `AudioProcessRequest` | `audio_service.process(body)`: steps/preset, or an `ops` edit list |
 | `POST /api/audio/export` | `AudioExportRequest` | `audio_service.export(body)`, returns the file |
 | `GET /api/models`, `GET /api/models/{id}`, `POST …/load`, `…/unload`, `…/install`, `GET …/health` | — | `model_service` (id is the numeric `models_id` or the key) |
-| `POST /api/models/install-all` | query `accept_license` | `model_service.install_all_async()` — download every local model that still needs weights |
+| `POST /api/models/install-all` | — | `model_service.install_all_async()` — download every local model that still needs weights |
 | `GET /api/jobs`, `GET /api/jobs/{id}`, `POST /api/jobs/{id}/cancel` | — | `job_service` |
 
 ## MCP server

@@ -12,6 +12,7 @@
   - **Kokoro 82M (`kokoro-82m`)**: 330 MB, CPU/CUDA (~1 GB VRAM), expressive built-in voices (`af_heart`, `af_bella`, `bm_george`).
   - **Chatterbox (`chatterbox`)**: 3.20 GB, zero-shot voice cloning + native emotion exaggeration, temperature, and seed control.
   - **Chatterbox Turbo (`chatterbox-turbo`)**: 2.99 GB, faster zero-shot voice cloning (reference sample over 5 s) + temperature and seed control.
+  - **Qwen3-TTS 0.6B (`qwen3-tts-0.6b`)**: 2.4 GB, zero-shot voice cloning in 10 languages; from a source checkout it installs into its own engine environment.
   - **VoxLabs MFCC Voice Profile**: Pitch-matched profile approximation on CPU.
   - **Online Engines (Opt-In Only)**: Microsoft Edge Neural (`edge-tts`) and Google TTS (`gTTS`), disabled unless `allow_online_models` is enabled in Settings.
 - **DSP & Audio Editor**: Non-destructive edit list (`audios.edit_ops`) with cut, copy, paste, trim, split, move, duplicate, join, silence insertion, fade in/out, gain, normalize, and 8-stage enhancement (`trim_silence -> denoise -> eq -> compress -> deess -> normalize -> limit -> loudness` targeting BS.1770 LUFS).

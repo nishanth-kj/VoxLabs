@@ -20,6 +20,7 @@ from app.models import Audio, Script, ScriptSection, Take
 from app.models.request import GenerateScriptRequest, ScriptRequest, SectionRequest, TTSRequest
 from app.services.audio_service import audio_service
 from app.services.job_service import job_service
+from app.services.model_service import model_service
 from app.services.system_service import system_service
 from app.services.tts_service import split_sentences, tts_service
 from app.services.voice_service import voice_service
@@ -333,12 +334,30 @@ class ScriptService:
             raise service_error(exc, "script_service.reorder")
 
     def resolve_voice(self, section: dict, script: dict) -> int | None:
+        """The section's voice, else its speaker's, else the narrator's, else the default voice from Settings.
+
+        A voice picked for the script fails loudly when its model is missing. The Settings default is only
+        a fallback (it starts as the built-in Piper voice), so it is skipped while its model is not installed
+        and the default speech model speaks instead."""
         try:
             mapping = script.get("speaker_map") or {}
-            return (section.get("voices_id") or mapping.get(section.get("speaker") or "")
-                    or mapping.get(DEFAULT_SPEAKER) or system_service.get_setting("default_voices_id"))
+            chosen = (section.get("voices_id") or mapping.get(section.get("speaker") or "")
+                      or mapping.get(DEFAULT_SPEAKER))
+            return chosen or self._default_voice()
         except Exception as exc:
             raise service_error(exc, "script_service.resolve_voice")
+
+    def _default_voice(self) -> int | None:
+        voices_id = system_service.get_setting("default_voices_id")
+        if not voices_id:
+            return None
+        try:
+            model_key = voice_service.get(voices_id, with_samples=False).get("model_key")
+            if model_key and not model_service.get(model_key)["installed"]:
+                return None
+        except NotFoundError:
+            return None
+        return voices_id
 
     # ------------------------------------------------------------ generation
 

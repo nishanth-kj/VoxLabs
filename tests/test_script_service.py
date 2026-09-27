@@ -68,6 +68,28 @@ def test_voice_mapping_and_overrides():
     assert script_service.resolve_voice(section, script) == b["voices_id"]
 
 
+def test_default_voice_is_skipped_while_its_model_is_missing(monkeypatch):
+    """The Settings default voice starts as the built-in Piper voice. Without Piper installed, scripts speak with
+    the default model instead of failing; a voice picked for the script still fails loudly."""
+    from app.services import script_service as script_module
+    from app.services.system_service import system_service
+
+    default = system_service.get_setting("default_voices_id")
+    assert isinstance(default, int)
+    assert voice_service.get(default)["model_key"] == "piper-en-us-lessac-medium"
+    script = script_service.create("Lesson", LESSON)
+    section = script["sections"][0]
+    assert script_service.resolve_voice(section, script) is None  # Piper is not downloaded in tests
+
+    installed = dict(script_module.model_service.get("piper-en-us-lessac-medium"), installed=True)
+    monkeypatch.setattr(script_module.model_service, "get", lambda _key: installed)
+    assert script_service.resolve_voice(section, script) == default
+
+    chosen = voice_service.create("Narrator")
+    script = script_service.map_speakers(script["scripts_id"], {"*": chosen["voices_id"]})  # the narrator
+    assert script_service.resolve_voice(script["sections"][0], script) == chosen["voices_id"]
+
+
 def test_generate_takes_and_render():
     script = script_service.create("Lesson", LESSON, settings={"intro_text": "Welcome to the course."})
     first = script["sections"][0]
