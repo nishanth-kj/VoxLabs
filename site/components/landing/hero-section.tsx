@@ -18,7 +18,7 @@ export function HeroSection() {
             </h1>
 
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Clone a voice with consent, synthesize emotional speech with Piper, Kokoro 82M, Chatterbox, and Chatterbox Turbo, and edit non-destructively on your desktop — nothing is uploaded to the cloud.
+                Clone a voice with consent, synthesize emotional speech with Piper, Kokoro 82M, Chatterbox, Chatterbox Turbo, and Qwen3-TTS, and edit non-destructively on your desktop — nothing is uploaded to the cloud.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 w-full sm:w-auto px-6 sm:px-0">

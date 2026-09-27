@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { AudioWaveform, Github, Menu, X, Download } from 'lucide-react'
+import { Github, Menu, X, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/mode-toggle'
 import { GITHUB_URL, RELEASES_URL } from '@/lib/links'
@@ -14,10 +14,21 @@ export function Navbar() {
         <nav className="border-b border-white/5 bg-background/50 backdrop-blur-xl sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
                 <div className="flex items-center gap-8">
-                    <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
-                            <AudioWaveform className="h-5 w-5 text-white" />
-                        </div>
+                    <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#6352f0"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="h-8 w-8 shrink-0 shadow-lg shadow-indigo-500/20 rounded-lg"
+                            aria-hidden="true"
+                        >
+                            <rect x="1" y="1" width="22" height="22" rx="6" fill="#6352f0" stroke="none" />
+                            <path d="M7 10v4M10 7v10M13 9v6M16 11v2" stroke="#ffffff" strokeWidth="2.2" />
+                        </svg>
                         <span className="font-bold text-lg tracking-tight text-foreground">
                             VoxLabs
                         </span>

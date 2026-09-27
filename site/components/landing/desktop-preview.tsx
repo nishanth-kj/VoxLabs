@@ -9,7 +9,21 @@ export function DesktopPreview() {
           <span className="h-2.5 w-2.5 rounded-full bg-red-400/80" />
           <span className="h-2.5 w-2.5 rounded-full bg-yellow-400/80" />
           <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
-          <span className="ml-3 text-xs font-medium text-muted-foreground">VoxLabs Studio</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#6352f0"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="ml-2 h-4 w-4 shrink-0"
+            aria-hidden="true"
+          >
+            <rect x="1" y="1" width="22" height="22" rx="6" fill="#6352f0" stroke="none" />
+            <path d="M7 10v4M10 7v10M13 9v6M16 11v2" stroke="#ffffff" strokeWidth="2.2" />
+          </svg>
+          <span className="text-xs font-medium text-muted-foreground">VoxLabs Studio</span>
           <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground/70">
             Desktop · Local
           </span>

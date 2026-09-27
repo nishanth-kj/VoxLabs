@@ -1,4 +1,3 @@
-import { AudioWaveform } from 'lucide-react'
 import Link from 'next/link'
 import { GITHUB_URL } from '@/lib/links'
 
@@ -9,9 +8,20 @@ export function Footer() {
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-12">
                     <div className="md:col-span-2 space-y-4">
                         <Link href="/" className="flex items-center gap-2">
-                            <div className="h-6 w-6 rounded bg-indigo-500/20 flex items-center justify-center">
-                                <AudioWaveform className="h-3 w-3 text-indigo-400" />
-                            </div>
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="#6352f0"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="h-6 w-6 shrink-0 rounded"
+                                aria-hidden="true"
+                            >
+                                <rect x="1" y="1" width="22" height="22" rx="6" fill="#6352f0" stroke="none" />
+                                <path d="M7 10v4M10 7v10M13 9v6M16 11v2" stroke="#ffffff" strokeWidth="2.2" />
+                            </svg>
                             <span className="font-bold text-base">VoxLabs</span>
                         </Link>
                         <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
@@ -51,10 +61,10 @@ export function Footer() {
                                 <Link href={GITHUB_URL} target="_blank">GitHub</Link>
                             </li>
                             <li className="hover:text-primary cursor-pointer transition-colors">
-                                <a href="/llms.txt">llms.txt</a>
+                                <Link href="/llms.txt">llms.txt</Link>
                             </li>
                             <li className="hover:text-primary cursor-pointer transition-colors">
-                                <a href="/llms-full.txt">llms-full.txt</a>
+                                <Link href="/llms-full.txt">llms-full.txt</Link>
                             </li>
                         </ul>
                     </div>

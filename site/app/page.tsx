@@ -56,7 +56,7 @@ export default function LandingPage() {
             <FeatureCard
               icon={<Lock className="w-6 h-6 text-emerald-400" />}
               title="Local & Private by Default"
-              description="Run Piper, Kokoro 82M, Chatterbox, and Chatterbox Turbo on your CPU or CUDA GPU (with automatic CPU fallback when VRAM is full)."
+              description="Run Piper, Kokoro 82M, Chatterbox, Chatterbox Turbo, and Qwen3-TTS 0.6B on your CPU or CUDA GPU (with automatic CPU fallback when VRAM is full)."
             />
             <FeatureCard
               icon={<Terminal className="w-6 h-6 text-cyan-400" />}

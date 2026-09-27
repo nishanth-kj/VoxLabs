@@ -13,6 +13,7 @@ import {
   SITE_KEYWORDS,
   SITE_NAME,
   SITE_TAGLINE,
+  getBasePath,
   getSiteUrl,
   pageMetadata,
 } from "@/lib/site"
@@ -28,6 +29,7 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl = getSiteUrl()
+const basePath = getBasePath()
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -55,11 +57,13 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: `${basePath}/favicon.ico`, sizes: "any" },
+      { url: `${basePath}/icon.svg`, type: "image/svg+xml" },
+      { url: `${basePath}/icon-192.png`, sizes: "192x192", type: "image/png" },
+      { url: `${basePath}/icon-512.png`, sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/apple-icon.png", sizes: "180x180" }],
+    shortcut: [`${basePath}/favicon.ico`],
+    apple: [{ url: `${basePath}/apple-icon.png`, sizes: "180x180", type: "image/png" }],
   },
 };
 

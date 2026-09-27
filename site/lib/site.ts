@@ -14,7 +14,7 @@ export const SITE_DESCRIPTION =
   "Free, open-source desktop app for consent-based AI voice cloning, offline text-to-speech, script-to-audio and audio editing on Windows, macOS and Linux."
 // The full summary, for structured data and AI assistants.
 export const SITE_SUMMARY =
-  "Ethical AI voice cloning, emotional text-to-speech, script-to-audio, and non-destructive waveform editing in a local desktop app for Windows, macOS, and Linux. Powered by Piper, Kokoro 82M, Chatterbox, and Chatterbox Turbo with built-in REST API and MCP server."
+  "Ethical AI voice cloning, emotional text-to-speech, script-to-audio, and non-destructive waveform editing in a local desktop app for Windows, macOS, and Linux. Powered by Piper, Kokoro 82M, Chatterbox, Chatterbox Turbo, and Qwen3-TTS 0.6B with built-in REST API and MCP server."
 export const SITE_KEYWORDS = [
   "VoxLabs",
   "voice cloning",
@@ -25,6 +25,7 @@ export const SITE_KEYWORDS = [
   "Piper TTS",
   "Chatterbox Turbo",
   "Chatterbox TTS",
+  "Qwen3-TTS",
   "script to audio",
   "non-destructive audio editor",
   "MCP server TTS",
@@ -96,6 +97,13 @@ export const ENGINE_SPECS = [
     highlights: "Faster Chatterbox for long narration; zero-shot cloning from a sample over 5 seconds",
   },
   {
+    name: "Qwen3-TTS 0.6B",
+    type: "Zero-Shot Clone & TTS",
+    size: "4.15 GB",
+    compute: "CUDA (~3 GB VRAM) / CPU fallback",
+    highlights: "Zero-shot cloning and 9 built-in voices across 10 languages in an isolated engine environment",
+  },
+  {
     name: "VoxLabs DSP & MFCC",
     type: "Audio Enhance & Profile",
     size: "Built-in",
@@ -108,12 +116,12 @@ export const SITE_FAQS = [
   {
     question: "Does VoxLabs run completely offline?",
     answer:
-      "Yes. VoxLabs is a native desktop application (PySide6) that runs locally. Local engines—including Piper, Kokoro 82M, Chatterbox, and Chatterbox Turbo—synthesize speech and clone voices entirely on your computer without uploading audio to the cloud. Online engines (Microsoft Edge Neural and Google TTS) are disabled by default unless explicitly enabled in Settings.",
+      "Yes. VoxLabs is a native desktop application (PySide6) that runs locally. Local engines—including Piper, Kokoro 82M, Chatterbox, Chatterbox Turbo, and Qwen3-TTS 0.6B—synthesize speech and clone voices entirely on your computer without uploading audio to the cloud. Online engines (Microsoft Edge Neural and Google TTS) are disabled by default unless explicitly enabled in Settings.",
   },
   {
     question: "Which TTS and voice cloning models does VoxLabs support?",
     answer:
-      "VoxLabs supports Piper (63 MB fast CPU TTS), Kokoro 82M (330 MB natural CPU/GPU TTS), Chatterbox TTS (emotional zero-shot cloning), Chatterbox Turbo (faster zero-shot cloning for long narration), MFCC pitch-matched voice profiles, and an 8-stage DSP audio enhancement engine.",
+      "VoxLabs supports Piper (63 MB fast CPU TTS), Kokoro 82M (330 MB natural CPU/GPU TTS), Chatterbox TTS (emotional zero-shot cloning), Chatterbox Turbo (faster zero-shot cloning for long narration), Qwen3-TTS 0.6B (multilingual zero-shot cloning and 9 built-in voices), MFCC pitch-matched voice profiles, and an 8-stage DSP audio enhancement engine.",
   },
   {
     question: "How does VoxLabs enforce ethical voice cloning and speaker consent?",
@@ -128,7 +136,7 @@ export const SITE_FAQS = [
   {
     question: "Does VoxLabs require a GPU or FFmpeg?",
     answer:
-      "Neither is strictly required. Piper and Kokoro 82M run smoothly on a standard CPU, and heavier GPU models (Chatterbox, Chatterbox Turbo) automatically fall back to CPU if CUDA memory is full. WAV, FLAC, OGG, and MP3 work out of the box via libsndfile; FFmpeg on your PATH is only needed for M4A/AAC import and export.",
+      "Neither is strictly required. Piper and Kokoro 82M run smoothly on a standard CPU, and heavier GPU models (Chatterbox, Chatterbox Turbo, Qwen3-TTS 0.6B) automatically fall back to CPU if CUDA memory is full. WAV, FLAC, OGG, and MP3 work out of the box via libsndfile; FFmpeg on your PATH is only needed for M4A/AAC import and export.",
   },
   {
     question: "What operating systems does VoxLabs support?",
@@ -226,8 +234,8 @@ export const HOME_JSON_LD = {
       isAccessibleForFree: true,
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       featureList: [
-        "Consent-enforced local AI voice cloning (Chatterbox, Chatterbox Turbo)",
-        "Offline neural text-to-speech (Piper, Kokoro 82M) with automatic CPU fallback",
+        "Consent-enforced local AI voice cloning (Chatterbox, Chatterbox Turbo, Qwen3-TTS 0.6B)",
+        "Offline neural text-to-speech (Piper, Kokoro 82M, Qwen3-TTS 0.6B) with automatic CPU fallback",
         "Multi-speaker script and lesson to narrated audio with per-section takes",
         "Non-destructive waveform audio editor with instant undo and redo",
         "8-stage DSP enhancement (spectral denoise, RBJ biquad EQ, compressor, de-esser, limiter, BS.1770 LUFS)",
@@ -277,7 +285,7 @@ export const HOME_JSON_LD = {
           "@type": "HowToStep",
           position: 3,
           name: "Synthesize speech or render multi-speaker scripts",
-          text: "Choose Piper, Kokoro 82M, Chatterbox, or Chatterbox Turbo and adjust emotion, speed, pitch, and pauses.",
+          text: "Choose Piper, Kokoro 82M, Chatterbox, Chatterbox Turbo, or Qwen3-TTS 0.6B and adjust emotion, speed, pitch, and pauses.",
         },
         {
           "@type": "HowToStep",

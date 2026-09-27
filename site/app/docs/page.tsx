@@ -52,7 +52,7 @@ const DESKTOP_PAGES = [
   { page: "Script to Audio (Ctrl+5)", desc: "Plain-text script & lesson editor (autosaves after 0.8 s) with Structure, Speakers, Section overrides, and Script settings tabs." },
   { page: "Audio Editor (Ctrl+6)", desc: "Non-destructive waveform editor with selection, cut/copy/paste/delete, trim, split, move, duplicate, join, silence, fade, gain, normalize, 8-stage DSP enhance, undo/redo, and loop playback." },
   { page: "Voice Editor (Ctrl+9)", desc: "Edit a voice’s name, model, engine voice, and delivery (speed, pitch, energy, emotion, style). Preview it, then use that saved voice in Generate and script-to-audio." },
-  { page: "Voices (Ctrl+7)", desc: "Cloned voices plus every built-in preset: Piper Lessac (the default voice), all 54 Kokoro voices, and the Edge neural catalog. Preview, edit, export metadata, revoke, or delete." },
+  { page: "Voices (Ctrl+7)", desc: "Cloned voices plus every built-in preset: Piper Lessac (the default voice), all 54 Kokoro voices, all 9 Qwen3-TTS voices, and the Edge neural catalog. Preview, edit, export metadata, revoke, or delete." },
   { page: "Models (Ctrl+8)", desc: "Download weights directly from Hugging Face (single model or Download All), load/unload into CPU or CUDA memory, run health checks, set defaults, and rescan data/models/." },
   { page: "Settings (Ctrl+,)", desc: "Configure default TTS/cloning models, compute device (auto/cpu/cuda), online engine opt-in, editor autosave, appearance/theme, native title bar, and embedded REST API + MCP server." },
 ] as const
@@ -87,7 +87,7 @@ const PACKAGES = [
 
 const TTS_PARAMETERS = [
   { param: "voices_id", range: "int | null", notes: "Cloned or preset voice ID. Omit it to use the engine's default voice." },
-  { param: "engine_voice", range: "short id", notes: "One of the engine's built-in voices, e.g. Kokoro af_heart / af_bella / bm_george or an Edge short name. Overrides the voice's own engine_voice." },
+  { param: "engine_voice", range: "short id", notes: "One of the engine's built-in voices, e.g. Kokoro af_heart / af_bella / bm_george, Qwen3-TTS ryan / aiden / vivian / serena, or an Edge short name. Overrides the voice's own engine_voice." },
   { param: "model_key", range: "string | null", notes: "Resolved in order: explicit key → voice's own cloning model (if installed) → default_tts_model → first installed fallback model." },
   { param: "speed, pitch", range: "0.5 – 2.0", notes: "Passed to the engine when supported natively; otherwise applied with float64 phase-vocoder DSP." },
   { param: "energy", range: "0.1 – 2.0", notes: "Output gain multiplier with automatic peak protection." },
@@ -106,7 +106,7 @@ const ENGINE_DETAILS = [
   { backend: "Kokoro 82M", install: "uv sync --extra kokoro + install on Models page", runs: "Local CPU / GPU (330 MB)", native: "speed; built-in voices via engine_voice (default af_heart)" },
   { backend: "Chatterbox", install: "uv sync --extra chatterbox (MIT)", runs: "Local GPU rec. / CPU fallback (3.20 GB)", native: "emotion, temperature, seed; zero-shot cloning or built-in voice" },
   { backend: "Chatterbox Turbo", install: "uv sync --extra chatterbox (MIT, same package)", runs: "Local GPU rec. / CPU fallback (2.99 GB)", native: "temperature, seed; faster zero-shot cloning (sample over 5 s) or built-in voice" },
-  { backend: "Qwen3-TTS 0.6B", install: "Install on Models page, from source (Apache-2.0; sets up its own engine environment with uv)", runs: "Local helper process (4.15 GB: Base + CustomVoice)", native: "temperature, seed; zero-shot cloning or 9 built-in voices via engine_voice (default ryan), 10 languages" },
+  { backend: "Qwen3-TTS 0.6B", install: "Install on Models page (Apache-2.0; sets up its own engine environment with uv)", runs: "Local helper process (4.15 GB: Base + CustomVoice)", native: "temperature, seed; zero-shot cloning or 9 built-in voices via engine_voice (default ryan), 10 languages" },
   { backend: "Voice Profile (MFCC)", install: "Built into base install (librosa)", runs: "Local CPU", native: "Extracts MFCC + pYIN median pitch; pitch-matches default TTS output" },
   { backend: "Emotional (gTTS)", install: "Built into base install", runs: "Online (Google), opt-in only", native: "Shaped with local prosody DSP afterwards" },
   { backend: "Edge Neural", install: "Built into base install", runs: "Online (Microsoft), opt-in only", native: "speed, pitch; preset voices via engine_voice (default en-US-AriaNeural)" },
@@ -495,7 +495,7 @@ uv run python -m app.main`}
             <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground leading-relaxed">
               <li><strong>Deterministic Cache (<code>cache: true</code>):</strong> Hashes text, speech parameters, resolved model, and voice update timestamp; returns the newest matching generated audio whose file still exists on disk with <code>cached: true</code>.</li>
               <li><strong>GPU OOM → CPU Fallback:</strong> When a model runs out of CUDA memory while loading (e.g. when a local LLM is running), VoxLabs frees CUDA cache and reloads the model on CPU automatically.</li>
-              <li><strong>Fallback Models:</strong> When no model is explicitly requested and <code>default_tts_model</code> is not installed, VoxLabs uses the first installed model in <code>FALLBACK_TTS_MODELS</code> (<code>chatterbox</code> → <code>kokoro-82m</code> → <code>piper-en-us-lessac-medium</code>).</li>
+              <li><strong>Fallback Models:</strong> When no model is explicitly requested and <code>default_tts_model</code> is not installed, VoxLabs uses the first installed model in <code>FALLBACK_TTS_MODELS</code> (<code>chatterbox</code> → <code>chatterbox-turbo</code> → <code>qwen3-tts-0.6b</code> → <code>kokoro-82m</code> → <code>piper-en-us-lessac-medium</code>).</li>
               <li><strong>Sentence-Level Regeneration:</strong> <code>generate_sentences(text)</code> creates one audio per sentence plus a joined result; <code>regenerate_sentence(audios_ids, index)</code> re-synthesizes a single sentence and rebuilds the joined audio.</li>
             </ul>
 
