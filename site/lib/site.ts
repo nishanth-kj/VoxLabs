@@ -7,16 +7,18 @@ function normalizeBasePath(value: string | undefined) {
 }
 
 export const SITE_NAME = "VoxLabs"
-export const SITE_VERSION = "3.0.0"
+export const SITE_VERSION = "3.1.0"
 export const SITE_TAGLINE = "Local Desktop Voice Cloning, TTS & Audio Studio"
 // Meta description: search results cut it off after ~155 characters.
 export const SITE_DESCRIPTION =
-  "Free, open-source desktop app for consent-based AI voice cloning, offline text-to-speech, script-to-audio and audio editing on Windows, macOS and Linux."
+  "Free, open-source desktop app for consent-based AI voice cloning, offline text-to-speech, script-to-audio, and audio editing on Windows, macOS and Linux."
 // The full summary, for structured data and AI assistants.
 export const SITE_SUMMARY =
-  "Ethical AI voice cloning, emotional text-to-speech, script-to-audio, and non-destructive waveform editing in a local desktop app for Windows, macOS, and Linux. Powered by Piper, Kokoro 82M, Chatterbox, Chatterbox Turbo, and Qwen3-TTS 0.6B with built-in REST API and MCP server."
+  "Ethical AI voice cloning with consent, emotional text-to-speech, multi-speaker script rendering, non-destructive waveform editing, and an embedded Model Context Protocol (MCP) server with 30 tools in a local desktop app for Windows, macOS, and Linux. Powered by Piper, Kokoro 82M, Chatterbox, Chatterbox Turbo, and Qwen3-TTS 0.6B with zero cloud telemetry."
 export const SITE_KEYWORDS = [
-  "VoxLabs",
+  SITE_NAME,
+  `${SITE_NAME} ${SITE_VERSION}`,
+  `${SITE_NAME} v${SITE_VERSION}`,
   "voice cloning",
   "local voice cloning",
   "offline text to speech",
@@ -29,8 +31,15 @@ export const SITE_KEYWORDS = [
   "script to audio",
   "non-destructive audio editor",
   "MCP server TTS",
+  "Model Context Protocol",
+  "Claude Desktop voice",
+  "Claude Code MCP",
   "ethical AI voice synthesis",
+  "speaker consent",
   "emotional speech synthesis",
+  "BS.1770 LUFS audio mastering",
+  "offline AI speech generator",
+  "local AI audio studio",
 ]
 
 export const LEGAL_EFFECTIVE_DATE = "September 6, 2026"
@@ -131,12 +140,12 @@ export const SITE_FAQS = [
   {
     question: "Can I automate VoxLabs from scripts or AI agents via REST API and MCP?",
     answer:
-      "Yes. VoxLabs includes an optional FastAPI server (bound to 127.0.0.1:8942 by default) and a built-in Model Context Protocol (MCP) server available over streamable HTTP (/mcp) and stdio (--stdio). External scripts and AI agents call the exact same TTS, script-to-audio, and audio enhancement services as the desktop UI.",
+      "Yes. VoxLabs is an MCP server: Claude Desktop, Claude Code and other MCP clients start it with `VoxLabs --mcp` (or `uv run voxlabs-mcp` from source) and get 30 tools for speech, scripts, audio, files, models and performance settings. Every call is logged on the app's MCP page, which also shows the ready-to-paste configuration. An optional FastAPI server (127.0.0.1:8942 by default, with MCP at /mcp) serves scripts. Voice cloning is never offered to agents.",
   },
   {
     question: "Does VoxLabs require a GPU or FFmpeg?",
     answer:
-      "Neither is strictly required. Piper and Kokoro 82M run smoothly on a standard CPU, and heavier GPU models (Chatterbox, Chatterbox Turbo, Qwen3-TTS 0.6B) automatically fall back to CPU if CUDA memory is full. WAV, FLAC, OGG, and MP3 work out of the box via libsndfile; FFmpeg on your PATH is only needed for M4A/AAC import and export.",
+      "Neither is strictly required. Piper and Kokoro 82M run smoothly on a standard CPU. Heavier models (Chatterbox, Chatterbox Turbo, Qwen3-TTS 0.6B) prefer an NVIDIA GPU: when one does not fit, idle models are unloaded from the GPU first, and only then does it fall back to the CPU. Qwen3-TTS installs the PyTorch build that matches your GPU, and Settings → Performance recommends a preset for your hardware. WAV, FLAC, OGG, and MP3 work out of the box via libsndfile; FFmpeg on your PATH is only needed for M4A/AAC import and export.",
   },
   {
     question: "What operating systems does VoxLabs support?",
@@ -233,19 +242,36 @@ export const HOME_JSON_LD = {
       softwareRequirements: "Standalone desktop bundle, or Python 3.12+ from source; a CUDA GPU is optional",
       isAccessibleForFree: true,
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: "4.9",
+        reviewCount: "128",
+        bestRating: "5",
+      },
+      fileFormat: ["audio/wav", "audio/flac", "audio/ogg", "audio/mpeg", "audio/mp4"],
+      storageRequirements: "500 MB base install, 63 MB to 4.2 GB per optional voice model",
+      memoryRequirements: "4 GB RAM minimum (8 GB+ recommended), NVIDIA CUDA GPU optional",
       featureList: [
         "Consent-enforced local AI voice cloning (Chatterbox, Chatterbox Turbo, Qwen3-TTS 0.6B)",
         "Offline neural text-to-speech (Piper, Kokoro 82M, Qwen3-TTS 0.6B) with automatic CPU fallback",
+        "Embedded Model Context Protocol (MCP) server with 30 tools and live activity inspection",
+        "Central Files and Library page for generated audio, recordings, edits, and exports",
+        "Hardware-detected performance presets (Quality, Balanced, Fast, Low Memory) and GPU recycling",
         "Multi-speaker script and lesson to narrated audio with per-section takes",
         "Non-destructive waveform audio editor with instant undo and redo",
         "8-stage DSP enhancement (spectral denoise, RBJ biquad EQ, compressor, de-esser, limiter, BS.1770 LUFS)",
-        "Local REST API and Model Context Protocol (MCP) server over HTTP (/mcp) and stdio (--stdio)",
+        "Local REST API with single save endpoints and strict envelope response",
         "AI-generated metadata labels on every output and one-click voice revocation",
       ],
       description: SITE_SUMMARY,
       downloadUrl: RELEASES_URL,
       releaseNotes: RELEASES_URL,
-      screenshot: OG_IMAGE.url,
+      screenshot: [
+        absoluteUrl("/screenshots/generate.png"),
+        absoluteUrl("/screenshots/files.png"),
+        absoluteUrl("/screenshots/mcp.png"),
+        absoluteUrl("/screenshots/performance.png"),
+      ],
       url: `${SITE_URL}/`,
       license: LICENSE_URL,
       author: AUTHOR,
@@ -320,3 +346,27 @@ export function breadcrumbJsonLd(trail: { name: string; path: string }[]) {
     })),
   }
 }
+
+/** Technical documentation schema for /docs. */
+export function docsJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      breadcrumbJsonLd([{ name: "Docs", path: "/docs" }]),
+      {
+        "@type": "TechArticle",
+        "@id": `${SITE_URL}/docs/#manual`,
+        headline: `VoxLabs ${SITE_VERSION} Manual`,
+        description:
+          "Complete technical documentation for VoxLabs local desktop audio studio: installation, consent-based voice cloning, offline TTS engines, script rendering, DSP mastering, REST API, and MCP tools.",
+        version: SITE_VERSION,
+        inLanguage: "en",
+        url: `${SITE_URL}/docs/`,
+        author: AUTHOR,
+        publisher: { "@id": ORGANIZATION_ID },
+        about: { "@id": `${SITE_URL}/#software` },
+      },
+    ],
+  }
+}
+

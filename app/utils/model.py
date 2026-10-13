@@ -40,6 +40,7 @@ from app.constants.models import (
     QWEN3_DEFAULT_VOICE,
     Backend,
 )
+from app.constants.version import USER_AGENT
 from app.constants.voices import QWEN3_VOICES
 from app.exceptions import ModelError
 from app.utils import audio as audio_utils
@@ -311,7 +312,7 @@ def download(url: str, dest: Path, progress: Callable[[float], None] | None = No
         last_error: Exception | None = None
         for _attempt in range(2):
             try:
-                request = urllib.request.Request(url, headers={"User-Agent": "VoxLabs/3.0"})
+                request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
                 with urllib.request.urlopen(request, timeout=120) as response, open(tmp, "wb") as out:
                     total = int(response.headers.get("Content-Length") or 0)
                     done = 0

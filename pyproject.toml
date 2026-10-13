@@ -1,6 +1,6 @@
 [project]
 name = "voxlabs"
-version = "3.0.0"
+version = "3.1.0"
 description = "VoxLabs - local desktop voice cloning, TTS and audio production"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"

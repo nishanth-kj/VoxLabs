@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { DesktopPreview } from "@/components/landing/desktop-preview"
 import { PLATFORMS, RELEASES_URL } from "@/lib/links"
 import { usePlatform } from "@/hooks/use-platform"
+import { SITE_VERSION } from "@/lib/site"
 
 export function HeroSection() {
     const platform = usePlatform()
@@ -37,7 +38,7 @@ export function HeroSection() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-                Free &amp; MIT open-source desktop app (v3.0).{" "}
+                Free &amp; MIT open-source desktop app (v{SITE_VERSION}).{" "}
                 <a href={RELEASES_URL} className="underline underline-offset-4 hover:text-foreground">
                     View releases
                 </a>

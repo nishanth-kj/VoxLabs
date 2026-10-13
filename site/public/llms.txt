@@ -1,6 +1,6 @@
 # VoxLabs
 
-> VoxLabs (v3.0.0) is an open-source, local desktop studio (Python + PySide6) for consent-enforced AI voice cloning, emotional text-to-speech (TTS), multi-speaker script/lesson-to-audio production, non-destructive waveform editing, and 8-stage DSP audio enhancement. It includes an optional local FastAPI REST server and Model Context Protocol (MCP) server (`/mcp` over HTTP and `--stdio`).
+> VoxLabs (v3.1.0) is an open-source, local desktop studio (Python + PySide6) for consent-enforced AI voice cloning, emotional text-to-speech (TTS), multi-speaker script/lesson-to-audio production, non-destructive waveform editing, and 8-stage DSP audio enhancement. It includes an optional local FastAPI REST server and Model Context Protocol (MCP) server (`/mcp` over HTTP and `--stdio`).
 
 ## Key Facts & Architecture
 
@@ -16,7 +16,9 @@
   - **VoxLabs MFCC Voice Profile**: Pitch-matched profile approximation on CPU.
   - **Online Engines (Opt-In Only)**: Microsoft Edge Neural (`edge-tts`) and Google TTS (`gTTS`), disabled unless `allow_online_models` is enabled in Settings.
 - **DSP & Audio Editor**: Non-destructive edit list (`audios.edit_ops`) with cut, copy, paste, trim, split, move, duplicate, join, silence insertion, fade in/out, gain, normalize, and 8-stage enhancement (`trim_silence -> denoise -> eq -> compress -> deess -> normalize -> limit -> loudness` targeting BS.1770 LUFS).
-- **REST API & MCP Server**: Shared service layer exposed on `127.0.0.1:8942` (`/api/*`, `/docs`, `/mcp`) and over stdin/stdout (`python -m app.api.app --stdio`).
+- **REST API & MCP Server**: Shared service layer exposed on `127.0.0.1:8942` (`/api/*`, `/docs`, `/mcp`). MCP clients (Claude Desktop, Claude Code) start `VoxLabs --mcp` from the installed app or `uv run voxlabs-mcp` from source (stdio, no window, no port) and get 30 tools for speech, scripts, audio, files, models and performance. Every tool call is logged on the desktop app's MCP page.
+- **Files**: One Library page lists everything VoxLabs keeps (generated, imported, processed and edited audio, every export wherever it was saved, voice samples); also `GET /api/library` and the `list_library` MCP tool.
+- **Performance**: Models load once and are reused; idle GPU models make room before a CPU fallback; Qwen3-TTS batches sentences; Quality / Balanced / Fast / Low Memory presets; every generation reports its timings and real-time factor; `uv run benchmark` measures it on your hardware.
 
 ## Links
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { JsonLd } from "@/components/json-ld"
-import { breadcrumbJsonLd, pageMetadata } from "@/lib/site"
+import { docsJsonLd, pageMetadata } from "@/lib/site"
 
 export const metadata = pageMetadata({
   path: "/docs",
@@ -12,7 +12,7 @@ export const metadata = pageMetadata({
 export default function DocsLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      <JsonLd data={breadcrumbJsonLd([{ name: "Docs", path: "/docs" }])} />
+      <JsonLd data={docsJsonLd()} />
       {children}
     </>
   )

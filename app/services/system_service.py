@@ -22,7 +22,7 @@ from app.utils.database import database_path
 from app.utils.files import data_dir
 from app.utils.logger import LOG_BUFFER_SIZE, get_recent_logs, logger, set_level
 
-VERSION = "3.0.0"
+from app.constants.version import VERSION
 
 DEFAULT_SETTINGS = {
     "output_device": "",

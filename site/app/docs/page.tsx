@@ -23,6 +23,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { GITHUB_URL, RELEASES_URL } from "@/lib/links"
+import { SITE_VERSION } from "@/lib/site"
 
 const DOC_SECTIONS = [
   { id: "install", label: "1. Installation & Setup" },
@@ -51,15 +52,18 @@ const DESKTOP_PAGES = [
   { page: "Generate Speech (Ctrl+4)", desc: "Single or multi-sentence TTS with voice, built-in engine_voice, model, emotion, style, speed, pitch, energy, temperature, seed, inline pauses, pronunciations, and sentence regeneration." },
   { page: "Script to Audio (Ctrl+5)", desc: "Plain-text script & lesson editor (autosaves after 0.8 s) with Structure, Speakers, Section overrides, and Script settings tabs." },
   { page: "Audio Editor (Ctrl+6)", desc: "Non-destructive waveform editor with selection, cut/copy/paste/delete, trim, split, move, duplicate, join, silence, fade, gain, normalize, 8-stage DSP enhance, undo/redo, and loop playback." },
-  { page: "Voice Editor (Ctrl+9)", desc: "Edit a voice’s name, model, engine voice, and delivery (speed, pitch, energy, emotion, style). Preview it, then use that saved voice in Generate and script-to-audio." },
   { page: "Voices (Ctrl+7)", desc: "Cloned voices plus every built-in preset: Piper Lessac (the default voice), all 54 Kokoro voices, all 9 Qwen3-TTS voices, and the Edge neural catalog. Preview, edit, export metadata, revoke, or delete." },
   { page: "Models (Ctrl+8)", desc: "Download weights directly from Hugging Face (single model or Download All), load/unload into CPU or CUDA memory, run health checks, set defaults, and rescan data/models/." },
-  { page: "Settings (Ctrl+,)", desc: "Configure default TTS/cloning models, compute device (auto/cpu/cuda), online engine opt-in, editor autosave, appearance/theme, native title bar, and embedded REST API + MCP server." },
+  { page: "Voice Editor (Ctrl+9)", desc: "Edit a voice’s name, model, engine voice, and delivery (speed, pitch, energy, emotion, style). Preview it, then use that saved voice in Generate and script-to-audio." },
+  { page: "Files (Ctrl+0)", desc: "One place for every audio file: generated, imported, processed and edited audio, every export with its format and bitrate, and reference voice samples. Open folders, copy paths, play or re-edit." },
+  { page: "MCP", desc: "Inspect the embedded Model Context Protocol server: live activity log of every tool call from AI apps, real-time duration, argument inspector, and copyable configs for Claude Desktop and Claude Code." },
+  { page: "Settings (Ctrl+,)", desc: "Configure default TTS/cloning models, compute device (auto/cpu/cuda), performance hardware presets, online engine opt-in, editor autosave, appearance/theme, native title bar, and embedded REST API + MCP server." },
 ] as const
 
 const SHORTCUTS = [
   { key: "Ctrl+Shift+P / F1", action: "Open the Command Palette to search and trigger any menu command" },
-  { key: "Ctrl+1 … Ctrl+9", action: "Switch between Home, Studio, Clone, Generate, Script, Editor, Voices, Models, and Voice Editor (Ctrl+9)" },
+  { key: "Ctrl+1 … Ctrl+0", action: "Switch between Home, Studio, Clone, Generate, Script, Editor, Voices, Models, Voice Editor, and Files (Ctrl+0)" },
+  { key: "Ctrl+0", action: "Open the Central Audio Library / Files page" },
   { key: "Ctrl+,", action: "Open Settings" },
   { key: "Ctrl+B", action: "Collapse or expand the navigation sidebar" },
   { key: "Ctrl+`", action: "Toggle the bottom live Logs panel (with source filter & warning/error badges)" },
@@ -157,6 +161,8 @@ const DB_TABLES = [
   { table: "takes", purpose: "Renditions of a section", columns: "takes_id, script_sections_id, audios_id, take_number, selected" },
   { table: "jobs", purpose: "Background work records", columns: "jobs_id, users_id, job_type, title, progress, error, params, result, started_at, finished_at" },
   { table: "models", purpose: "Model catalog state", columns: "models_id, key, name, model_type, backend, version, size_mb, vram_mb, capabilities, online, installed_path" },
+  { table: "exports", purpose: "Exported files registry", columns: "exports_id, audios_id, path, format, duration, file_size, status, created_at, updated_at" },
+  { table: "mcp_calls", purpose: "MCP tool invocation audit log", columns: "mcp_calls_id, tool_name, arguments (JSON), result (JSON), error, duration_ms, source, status, created_at, updated_at" },
 ] as const
 
 const ERROR_CODES = [
@@ -172,6 +178,7 @@ const ERROR_CODES = [
 
 const API_ENDPOINTS = [
   { route: "GET /api/health, GET /api/presets", request: "—", service: "system_service.health() / presets()" },
+  { route: "POST /api/performance/preset", request: "PerformancePresetRequest", service: "system_service.apply_preset(name)" },
   { route: "GET /api/users, GET /api/users/{id}", request: "—", service: "user_service.list_users() / get_user()" },
   { route: "POST /api/users", request: "UserRequest", service: "user_service.save(body) (create / update / delete)" },
   { route: "GET /api/voices, GET /api/voices/{id}", request: "—", service: "voice_service.list_voices() / get()" },
@@ -188,9 +195,11 @@ const API_ENDPOINTS = [
   { route: "POST /api/scripts/sections", request: "SectionRequest", service: "script_service.update_section(body)" },
   { route: "POST /api/scripts/sections/{id}/generate, POST .../takes/{id}/select", request: "—", service: "script_service.generate_section() / select_take()" },
   { route: "GET /api/audio, GET /api/audio/{id}, GET /api/audio/{id}/file", request: "—", service: "audio_service.list_audios() / get() / file download" },
+  { route: "GET /api/library", request: "—", service: "audio_service.list_library() (all audios, exports, samples)" },
   { route: "POST /api/audio/import", request: "AudioImportRequest (multipart)", service: "audio_service.import_upload(body)" },
   { route: "POST /api/audio/process", request: "AudioProcessRequest", service: "audio_service.process(body) (steps/preset or editor ops list)" },
   { route: "POST /api/audio/export", request: "AudioExportRequest", service: "audio_service.export(body), returns the exported file" },
+  { route: "GET /api/exports", request: "—", service: "export_service.list_exports()" },
   { route: "GET /api/models, GET /api/models/{id}, GET .../health", request: "—", service: "model_service.list_models() / get() / health()" },
   { route: "POST /api/models/install-all", request: "—", service: "model_service.install_all_async()" },
   { route: "POST /api/models/{id}/install | load | unload", request: "—", service: "model_service.install_async() / load_async() / unload()" },
@@ -205,7 +214,7 @@ export default function DocsPage() {
         <aside className="hidden lg:block">
           <div className="sticky top-24 space-y-4 border-r border-border/40 pr-6">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              VoxLabs 3.0 Manual
+              VoxLabs {SITE_VERSION} Manual
             </p>
             <nav className="flex flex-col space-y-1.5 text-sm text-muted-foreground">
               {DOC_SECTIONS.map((s) => (
@@ -240,7 +249,7 @@ export default function DocsPage() {
               Documentation
             </h1>
             <p className="text-xl text-muted-foreground leading-relaxed">
-              VoxLabs is a local Python desktop application (PySide6) with an optional FastAPI REST API and Model Context Protocol (MCP) server. This manual covers every feature, page, model engine, DSP stage, database table, and API endpoint in VoxLabs 3.0.
+              VoxLabs is a local Python desktop application (PySide6) with an optional FastAPI REST API and Model Context Protocol (MCP) server. This manual covers every feature, page, model engine, DSP stage, database table, and API endpoint in VoxLabs {SITE_VERSION}.
             </p>
             <div className="flex flex-wrap gap-3">
               <a href={RELEASES_URL}>
@@ -782,15 +791,15 @@ uv run uvicorn app.api.app:app --reload        # Development server on 127.0.0.1
                 <TableBody>
                   <TableRow>
                     <TableCell className="font-semibold text-xs">System &amp; Users</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground whitespace-normal">health, presets, list_users, save_user</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground whitespace-normal">health, presets, apply_performance_preset, list_users, save_user</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-semibold text-xs">Voices &amp; Speech</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground whitespace-normal">list_voices, get_voice, save_voice, generate_speech, regenerate_speech</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-semibold text-xs">Audio &amp; Editor</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground whitespace-normal">list_audio, get_audio, process_audio, export_audio</TableCell>
+                    <TableCell className="font-semibold text-xs">Audio, Library &amp; Exports</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground whitespace-normal">list_audio, get_audio, process_audio, export_audio, list_library, list_exports</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-semibold text-xs">Scripts</TableCell>

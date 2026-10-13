@@ -38,6 +38,9 @@ export function Navbar() {
                         <Link href="/#features" className="hover:text-primary transition-colors">
                             Features
                         </Link>
+                        <Link href="/#mcp" className="hover:text-primary transition-colors">
+                            MCP
+                        </Link>
                         <Link href="/#how-it-works" className="hover:text-primary transition-colors">
                             How it works
                         </Link>
@@ -89,6 +92,13 @@ export function Navbar() {
                             onClick={() => setIsMenuOpen(false)}
                         >
                             Features
+                        </Link>
+                        <Link
+                            href="/#mcp"
+                            className="flex items-center p-2 rounded-md hover:bg-secondary/50 font-medium"
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            MCP
                         </Link>
                         <Link
                             href="/#how-it-works"

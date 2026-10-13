@@ -1,6 +1,6 @@
 # VoxLabs — Full Technical Reference for LLMs and AI Agents
 
-> VoxLabs v3.0.0 is a local Python desktop studio (PySide6) with an optional FastAPI REST API and Model Context Protocol (MCP) server. The desktop UI, REST API, and MCP tools all call the same service singletons backed by SQLite (`data/database/voxlabs.db`).
+> VoxLabs v3.1.0 is a local Python desktop studio (PySide6) with an optional FastAPI REST API and Model Context Protocol (MCP) server. The desktop UI, REST API, and MCP tools all call the same service singletons backed by SQLite (`data/database/voxlabs.db`).
 
 ## 1. Installation & Quick Start
 
@@ -62,10 +62,10 @@ Parses structured scripts with chapters (`Lesson 1`, `# Title`), headings (`Intr
 - **Default Bind**: `127.0.0.1:8942` (non-loopback binding requires `VOXLABS_API_TOKEN` bearer authentication).
 - **Response Envelope**: Every REST endpoint returns HTTP 200 with `{"status": 1|0, "data": ..., "error": null|{"error_code", "error_message", "field"}}`.
 - **MCP Tools (`app/api/mcp/tools.py`)**:
-  - System: `health`, `presets`
+  - System: `health`, `presets`, `apply_performance_preset`
   - Users: `list_users`, `save_user`
   - Voices: `list_voices`, `get_voice`, `save_voice` (Note: voice cloning is intentionally excluded from MCP so consent is always human-attributed)
   - Speech: `generate_speech`, `regenerate_speech`
-  - Audio: `list_audio`, `get_audio`, `process_audio`, `export_audio`
+  - Audio, Library & Exports: `list_audio`, `get_audio`, `process_audio`, `export_audio`, `list_library`, `list_exports`
   - Scripts: `list_scripts`, `get_script`, `save_script`, `update_section`, `generate_script`
   - Models & Jobs: `list_models`, `list_jobs`, `get_job`, `cancel_job`

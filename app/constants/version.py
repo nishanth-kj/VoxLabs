@@ -1,0 +1,2 @@
+VERSION = "3.1.0"
+USER_AGENT = f"VoxLabs/{VERSION}"

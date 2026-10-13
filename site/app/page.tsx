@@ -8,11 +8,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Mic, Wand2, Lock, FileText, Sliders, Terminal } from "lucide-react"
+import { Mic, Wand2, Lock, FileText, Sliders, Terminal, FolderOpen, Bot, Gauge } from "lucide-react"
 
 import { HeroSection } from "@/components/landing/hero-section"
 import { HowItWorksSection } from "@/components/landing/how-it-works-section"
 import { DownloadSection } from "@/components/landing/download-section"
+import { McpSection } from "@/components/landing/mcp-section"
+import { ScreenshotsSection } from "@/components/landing/screenshots-section"
 import { JsonLd } from "@/components/json-ld"
 import { ENGINE_SPECS, HOME_JSON_LD, SITE_FAQS } from "@/lib/site"
 
@@ -56,16 +58,33 @@ export default function LandingPage() {
             <FeatureCard
               icon={<Lock className="w-6 h-6 text-emerald-400" />}
               title="Local & Private by Default"
-              description="Run Piper, Kokoro 82M, Chatterbox, Chatterbox Turbo, and Qwen3-TTS 0.6B on your CPU or CUDA GPU (with automatic CPU fallback when VRAM is full)."
+              description="Run Piper, Kokoro 82M, Chatterbox, Chatterbox Turbo, and Qwen3-TTS 0.6B on your CPU or CUDA GPU. Nothing is uploaded unless you turn on an online engine."
+            />
+            <FeatureCard
+              icon={<Gauge className="w-6 h-6 text-orange-400" />}
+              title="Fast, and Measured"
+              description="Models load once and stay ready, idle models make room on the GPU, and Qwen3-TTS batches sentences. Every run shows its real speed, and Quality, Balanced, Fast and Low Memory presets fit your hardware."
+            />
+            <FeatureCard
+              icon={<FolderOpen className="w-6 h-6 text-sky-400" />}
+              title="Every File in One Place"
+              description="One Library page lists everything VoxLabs keeps: generated, imported, processed and edited audio, every export wherever you saved it, and voice samples."
+            />
+            <FeatureCard
+              icon={<Bot className="w-6 h-6 text-violet-400" />}
+              title="Works with AI Apps (MCP)"
+              description="Claude Desktop, Claude Code and other MCP clients use 30 VoxLabs tools for speech, scripts, audio, files and models, and every call is logged on the MCP page."
             />
             <FeatureCard
               icon={<Terminal className="w-6 h-6 text-cyan-400" />}
-              title="REST API & MCP Server"
-              description="Automate speech generation, script rendering, and DSP enhancement from external tools or AI agents via localhost REST API and MCP (--stdio & /mcp)."
+              title="Local REST API"
+              description="Automate speech generation, script rendering and DSP enhancement from your own scripts through a localhost REST API that uses the same services as the app."
             />
           </div>
         </div>
       </section>
+
+      <ScreenshotsSection />
 
       <section id="engines" className="py-20 px-6 bg-background border-t border-border/40">
         <div className="max-w-5xl mx-auto space-y-10">
@@ -106,6 +125,8 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <McpSection />
 
       <HowItWorksSection />
 
