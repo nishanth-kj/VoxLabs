@@ -16,6 +16,7 @@ from app.constants.performance import (
     PRECISIONS,
 )
 from app.exceptions import ValidationError, service_error
+from app.models.request.performance_request import PerformanceRequest
 from app.utils import device, ffmpeg
 from app.utils.database import database_path
 from app.utils.files import data_dir
@@ -122,6 +123,37 @@ class SystemService:
             return self.update_settings(performance_preset=preset, **PERFORMANCE_PRESETS[preset])
         except Exception as exc:
             raise service_error(exc, "system_service.apply_performance_preset")
+
+    def performance(self) -> dict:
+        """The performance settings, the presets, this computer's hardware and the preset recommended for it."""
+        try:
+            settings = self.get_settings()
+            return {"preset": settings["performance_preset"],
+                    "settings": {key: settings[key] for key in PERFORMANCE_PRESETS[DEFAULT_PERFORMANCE_PRESET]},
+                    "presets": PERFORMANCE_PRESETS, "hardware": device.summary()}
+        except Exception as exc:
+            raise service_error(exc, "system_service.performance")
+
+    def save_performance(self, body: PerformanceRequest) -> dict:
+        """Apply `body.preset`, then the values given; the preset becomes Custom unless they match one exactly.
+        Loaded models are unloaded when the precision changes, so they load again with it."""
+        try:
+            before = self.get_setting("precision")
+            if body.preset:
+                self.apply_performance_preset(body.preset)
+            changes = body.model_dump(exclude_unset=True, exclude_none=True, exclude={"preset"})
+            if changes:
+                values = {**{key: self.get_setting(key) for key in PERFORMANCE_PRESETS[DEFAULT_PERFORMANCE_PRESET]},
+                          **changes}
+                preset = next((name for name, preset in PERFORMANCE_PRESETS.items() if preset == values), "custom")
+                self.update_settings(performance_preset=preset, **changes)
+            if self.get_setting("precision") != before:
+                from app.services.model_service import model_service
+
+                model_service.unload_all()
+            return self.performance()
+        except Exception as exc:
+            raise service_error(exc, "system_service.save_performance")
 
     def reset_cache(self) -> None:
         try:

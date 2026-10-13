@@ -37,6 +37,7 @@ from app.ui.pages.editor_page import EditorPage
 from app.ui.pages.files_page import FilesPage
 from app.ui.pages.generate_page import GeneratePage
 from app.ui.pages.home_page import HomePage
+from app.ui.pages.mcp_page import McpPage
 from app.ui.pages.models_page import ModelsPage
 from app.ui.pages.script_page import ScriptPage
 from app.ui.pages.settings_page import SettingsPage
@@ -85,12 +86,13 @@ PAGES = [
     ("voices", "Voices", VoicesPage, "voices"),
     ("models", "Models", ModelsPage, "models"),
     ("files", "Files", FilesPage, "files"),
+    ("mcp", "MCP", McpPage, "mcp"),
     ("settings", "Settings", SettingsPage, "settings"),
 ]
 NAV_SECTIONS = [("", ["home", "studio"]),
                 ("Create", ["clone", "generate", "script", "editor", "voice_editor"]),
                 ("Library", ["voices", "models", "files"])]
-NAV_FOOTER = ["settings"]
+NAV_FOOTER = ["mcp", "settings"]
 EDIT_COMMANDS = ("undo", "redo", "cut", "copy", "paste", "delete", "select_all", "duplicate")
 
 
@@ -200,11 +202,17 @@ class MainWindow(QMainWindow):
 
     def _open_voice(self, voices_id: int):
         self.go("voice_editor")
-        self.pages["voice_editor"].open_voice(voices_id)
+        self._page("voice_editor", VoiceEditorPage).open_voice(voices_id)
 
     def _use_voice(self, voices_id: int):
         self.go("generate")
-        self.pages["generate"].use_voice(voices_id)
+        self._page("generate", GeneratePage).use_voice(voices_id)
+
+    def _page[P: BasePage](self, key: str, cls: type[P]) -> P:
+        """A page as its own class, for the commands only that page has."""
+        page = self.pages[key]
+        assert isinstance(page, cls)
+        return page
 
     def go(self, key: str):
         page = self.pages.get(key)

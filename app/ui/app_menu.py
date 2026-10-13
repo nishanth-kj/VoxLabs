@@ -181,6 +181,11 @@ def build_menu_bar(window: "MainWindow") -> QMenuBar:
 
     # ------------------------------------------------------------ Tools
     tools = bar.addMenu("&Tools")
+    mcp = _submenu(tools, "MCP Server", "mcp")
+    _add(mcp, "MCP Activity and Tools", lambda: window.go("mcp"))
+    _add(mcp, "Copy Claude Desktop Config", lambda: cmd("mcp", "copy_claude_desktop_config"), icon="copy")
+    _add(mcp, "Start or Stop the HTTP Endpoint", lambda: cmd("mcp", "toggle_http"))
+    _add(mcp, "Clear the MCP Log", lambda: cmd("mcp", "clear_log"), icon="delete")
     models = _submenu(tools, "Models", "models")
     _add(models, "Manage Models", lambda: window.go("models"))
     models.addSeparator()

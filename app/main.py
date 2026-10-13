@@ -32,6 +32,7 @@ def _import_bundled_engines() -> None:
         package = entry.get("package")
         if package and package_installed(package):
             importlib.import_module(package)
+    importlib.import_module("app.api.mcp.server")  # `VoxLabs --mcp` needs the MCP SDK in the bundle
 
 
 def _use_own_taskbar_icon() -> None:
@@ -44,7 +45,17 @@ def _use_own_taskbar_icon() -> None:
         pass
 
 
+def run_mcp() -> int:
+    """`VoxLabs --mcp`: the MCP server on stdin/stdout for AI apps (Claude Desktop, Claude Code, ...), with no
+    window and no port. The installed app's MCP config points here; calls show on the desktop's MCP page."""
+    from app.api.mcp.server import main as mcp_main
+
+    return mcp_main([])
+
+
 def main() -> int:
+    if "--mcp" in sys.argv:
+        return run_mcp()
     _ensure_std_streams()
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication

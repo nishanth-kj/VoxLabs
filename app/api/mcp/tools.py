@@ -17,7 +17,9 @@ from app.exceptions import AppError
 from app.models.request import (
     AudioExportRequest,
     AudioProcessRequest,
+    ExportRequest,
     GenerateScriptRequest,
+    PerformanceRequest,
     RegenerateRequest,
     ScriptRequest,
     SectionRequest,
@@ -130,6 +132,22 @@ def register_tools(mcp: MCPServer) -> None:
     def export_audio(body: AudioExportRequest) -> dict:
         return respond("export_audio", lambda: {"path": audio_service.export(body)})
 
+    @mcp.tool(description="Everything VoxLabs keeps, newest first: generated, imported, processed and rendered audio, "
+              "exported files and voice samples, each with its path and whether the file still exists. `kind` "
+              "keeps one of: generated, imported, processed, rendered, export, sample.", annotations=READ_ONLY)
+    def list_library(kind: str | None = None, limit: int = 200) -> dict:
+        return respond("list_library", lambda: audio_service.library(kind or None, Validation.limit(limit)))
+
+    @mcp.tool(description="Every exported file (wherever it was saved), newest first, with `exists`.",
+              annotations=READ_ONLY)
+    def list_exports(limit: int = 200) -> dict:
+        return respond("list_exports", lambda: audio_service.list_exports(Validation.limit(limit)))
+
+    @mcp.tool(description="Export and record an audio (no exports_id: audios_id, format), or remove an export from "
+              "the list (exports_id + status 8; delete_file=true deletes the file too).", annotations=SAVE)
+    def save_export(body: ExportRequest) -> dict:
+        return respond("save_export", lambda: audio_service.save_export(body))
+
     # ------------------------------------------------------------ scripts
 
     @mcp.tool(description="List scripts.", annotations=READ_ONLY)
@@ -164,6 +182,33 @@ def register_tools(mcp: MCPServer) -> None:
     @mcp.tool(description="List TTS/cloning models with install and load state.", annotations=READ_ONLY)
     def list_models(model_type: str | None = None) -> dict:
         return respond("list_models", lambda: model_service.list_models(model_type))
+
+    @mcp.tool(description="Load a model ahead of time (GPU when it fits, idle models make room, else CPU) and warm "
+              "it up, so the next generation starts at once. Runs as a job unless background=false.",
+              annotations=WRITE)
+    def load_model(model_key: str, background: bool = True) -> dict:
+        if background:
+            return respond("load_model", lambda: {"job": model_service.load_async(model_key)})
+        return respond("load_model", lambda: model_service.load(model_key, warm_up=True))
+
+    @mcp.tool(description="Unload a model and free its memory.", annotations=WRITE)
+    def unload_model(model_key: str) -> dict:
+        return respond("unload_model", lambda: model_service.unload(model_key))
+
+    @mcp.tool(description="Models in memory now: device, precision and seconds since last use.", annotations=READ_ONLY)
+    def loaded_models() -> dict:
+        return respond("loaded_models", model_service.loaded_models)
+
+    @mcp.tool(description="Performance settings (models kept loaded, GPU memory budget and reserve, precision, batch "
+              "size, jobs at once, preload), the presets, this computer's hardware and the recommended preset.",
+              annotations=READ_ONLY)
+    def get_performance() -> dict:
+        return respond("get_performance", system_service.performance)
+
+    @mcp.tool(description="Change performance settings: `preset` (quality, balanced, fast, low_memory) fills in every "
+              "value, then any value given replaces the preset's.", annotations=WRITE)
+    def save_performance(body: PerformanceRequest) -> dict:
+        return respond("save_performance", lambda: system_service.save_performance(body))
 
     @mcp.tool(description="List background jobs (newest first).", annotations=READ_ONLY)
     def list_jobs(active: bool = False, limit: int = 50) -> dict:

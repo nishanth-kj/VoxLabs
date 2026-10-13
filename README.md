@@ -17,6 +17,7 @@ VoxLabs is a native Python desktop application (PySide6). An optional REST API e
 - **Takes and autosave.** Every script section keeps its takes, and the audio editor autosaves its edit list on each audio.
 - **Local models.** Piper, Kokoro, Chatterbox, Chatterbox Turbo and Qwen3-TTS run on this machine (CPU or CUDA). Models load once and are reused; idle models make room on the GPU before anything falls back to the CPU. Performance presets (Quality, Balanced, Fast, Low Memory) trade speed against memory. Online engines (Google, Microsoft Edge) are opt-in.
 - **Background jobs.** Long work never freezes the UI. You can see what each job is doing, how long it took (queue, model load, inference, post-processing, real-time factor) and cancel it.
+- **MCP for AI apps.** Claude Desktop, Claude Code and other MCP clients can generate speech, run scripts, process audio, browse files and manage models (`VoxLabs --mcp`, `uv run voxlabs-mcp`, or `/mcp` on the local API). The MCP page shows the ready-to-paste config, every tool and a live log of every call. Voice cloning is never offered to agents.
 - **Files.** One Library page lists everything VoxLabs keeps: generated, imported, processed and edited audio, every exported file wherever it was saved, and voice samples.
 
 All generated audio is flagged as AI-generated in the library and tagged in the file metadata.

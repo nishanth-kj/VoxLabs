@@ -115,6 +115,7 @@ Compose publishes the port on the host's loopback only. Engines from `pyproject.
 | `POST /api/audio/export` | `AudioExportRequest` | `audio_service.export(body)`, returns the file (and records it under `/api/exports`) |
 | `GET /api/exports` | — | `audio_service.list_exports()`: every exported file, newest first, with `exists` |
 | `POST /api/exports` | `ExportRequest` | `audio_service.save_export(body)`: no id exports `audios_id` and records it; id + `status: Deleted` removes it from the list (`delete_file` deletes the file too) |
+| `GET /api/performance`, `POST /api/performance` | `PerformanceRequest` | `system_service.performance()` / `save_performance(body)`: settings, presets, hardware and the recommended preset; `preset` fills in every value, given values replace the preset's |
 | `GET /api/library?kind=` | — | `audio_service.library(kind)`: everything VoxLabs keeps (generated, imported, processed, rendered, exports, voice samples) in one shape |
 | `GET /api/models`, `GET /api/models/{id}`, `POST …/load`, `…/unload`, `…/install`, `GET …/health` | — | `model_service` (id is the numeric `models_id` or the key) |
 | `POST /api/models/install-all` | — | `model_service.install_all_async()` — download every local model that still needs weights |
@@ -124,16 +125,21 @@ Compose publishes the port on the host's loopback only. Engines from `pyproject.
 
 The same services are available to AI agents as MCP (Model Context Protocol) tools, from `app/api/mcp/`:
 
-- **HTTP**: streamable HTTP at `POST /mcp` on the API server (same host, port and token as the REST API).
-- **stdio**: `uv run python -m app.api.app --stdio` serves MCP on stdin/stdout **and** starts the HTTP server (REST + `/mcp`) in the same process. It stops when the MCP client closes stdin. Logs go to stderr, so stdout carries only MCP messages.
+- **stdio, MCP only**: `uv run voxlabs-mcp` from source, or `VoxLabs.exe --mcp` (`VoxLabs --mcp` on macOS/Linux) from the installed app. No window and no port; the MCP client starts it and it stops when the client closes stdin. Logs go to stderr, so stdout carries only MCP messages.
+- **HTTP**: streamable HTTP at `POST /mcp` on the API server (same host, port and token as the REST API), including the API the desktop app starts (Settings, the status bar or the MCP page).
+- **HTTP, MCP only**: `uv run voxlabs-mcp --http` serves just `/mcp` on port 8943 (`--host`, `--port`); beyond this computer it needs the API token.
+- `uv run python -m app.api.app --stdio` still serves MCP on stdin/stdout **and** starts the REST + `/mcp` HTTP server in the same process.
 
-Example client configuration (stdio):
+The desktop app's **MCP** page (sidebar, or Tools → MCP Server) shows the configuration for this install with Copy buttons. For the installed app on Windows it looks like this:
 
 ```json
 { "mcpServers": { "voxlabs": {
-    "command": "uv",
-    "args": ["run", "--directory", "C:/Projects/VoxLabs", "python", "-m", "app.api.app", "--stdio"] } } }
+    "command": "C:\\Program Files\\VoxLabs\\VoxLabs.exe", "args": ["--mcp"] } } }
 ```
+
+and from source `{"command": "uv", "args": ["run", "--directory", "C:/Projects/VoxLabs", "voxlabs-mcp"]}`. Claude Code: `claude mcp add voxlabs -- uv run --directory C:/Projects/VoxLabs voxlabs-mcp`, or over HTTP `claude mcp add --transport http voxlabs http://127.0.0.1:8942/mcp`. The page never puts the API token into copied config.
+
+Every tool call, from any transport and any process, is logged in the `mcp_calls` table: tool, transport, arguments, the result or error, and the time it took (long text is cut at 500 characters; argument names containing token, password or secret are never stored; the newest 2000 calls are kept). The MCP page shows the log live, with a filter per tool and for failures, each call's details, the tools with how often each was called, and Clear.
 
 Tools take the same request classes as the REST routes (for example `generate_speech(body: TTSRequest)` or `save_script(body: ScriptRequest)`) and return the same `{status, data, error}` envelope. A failed call is an MCP tool error whose text is the error envelope.
 
@@ -144,8 +150,10 @@ Tools take the same request classes as the REST routes (for example `generate_sp
 | Voices | `list_voices`, `get_voice`, `save_voice` |
 | Speech | `generate_speech`, `regenerate_speech` |
 | Audio | `list_audio`, `get_audio`, `process_audio`, `export_audio` |
+| Files | `list_library` (everything VoxLabs keeps), `list_exports`, `save_export` |
 | Scripts | `list_scripts`, `get_script`, `save_script`, `update_section`, `generate_script` |
-| Models and jobs | `list_models`, `list_jobs`, `get_job`, `cancel_job` |
+| Models and performance | `list_models`, `load_model`, `unload_model`, `loaded_models`, `get_performance`, `save_performance` |
+| Jobs | `list_jobs`, `get_job`, `cancel_job` |
 
 Voice cloning is **not** an MCP tool. Consent has to come from the speaker (the desktop app or the REST form), not from an agent.
 

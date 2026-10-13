@@ -117,10 +117,11 @@ class _Clock:
         self.stages[stage] = self.stages.get(stage, 0.0) + seconds
 
     def report(self, audio_s: float, **extra) -> dict:
-        total = time.perf_counter() - self.started
+        total_s = round(time.perf_counter() - self.started, 3)
+        audio_s = round(audio_s, 3)
         return {**{f"{stage}_s": round(value, 3) for stage, value in self.stages.items()},
-                "total_s": round(total, 3), "audio_s": round(audio_s, 3),
-                "rtf": round(total / audio_s, 3) if audio_s else None, **extra}
+                "total_s": total_s, "audio_s": audio_s,
+                "rtf": round(total_s / audio_s, 3) if audio_s else None, **extra}
 
 
 @dataclass

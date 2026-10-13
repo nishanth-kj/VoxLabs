@@ -62,6 +62,7 @@ The `status` column uses `Status` only. When a table needs its own numbered stat
 | `scripts` | Scripts and lessons | title, body, speaker_map, settings, final_audios_id |
 | `script_sections` | Generatable units | scripts_id, position, chapter, heading, speaker, text, voice/speed/pitch/emotion/style overrides, pause_after_ms |
 | `takes` | Renditions of a section | script_sections_id, audios_id, take_number, selected |
+| `mcp_calls` | Every MCP tool call, from any transport or process (the MCP page) | tool, transport (`stdio`/`http`), arguments (JSON, cut and with secrets masked), result (JSON), error, duration_ms; status is Completed or Failed; the newest 2000 are kept |
 | `exports` | Every exported file, wherever it was saved | audios_id (SET NULL when the audio is deleted), name, path, format, sample_rate, duration, file_size, ai_generated |
 | `jobs` | Background work | users_id, job_type, title, progress, error, params, result, started_at, finished_at |
 | `models` | Model catalog | key, name, model_type, backend, version, size_mb, vram_mb, capabilities, online, installed_path |

@@ -240,3 +240,35 @@ def test_every_select_is_the_app_select(window, qtbot):
     QTimer.singleShot(0, accept_dialog)
     assert choose_item(window, "Export", "Format:", ["wav", "mp3"], 1) == "mp3"
     assert seen["polished"]
+
+
+def test_mcp_page_shows_tools_calls_and_config(window, qtbot):
+    from app.services.mcp_service import mcp_service
+
+    mcp_service.record("generate_speech", {"body": {"text": "Hi"}}, "stdio", 42, result={"status": 1})
+    mcp_service.record("get_voice", {"voices_id": 9}, "http", 3, error="Voice 9 not found")
+    window.go("mcp")
+    page = window.pages["mcp"]
+    qtbot.waitUntil(lambda: page.call_table.rowCount() == 2, timeout=5000)
+    assert page.call_table.item(0, 1).text() == "get_voice" and page.call_table.item(0, 3).text().startswith("Failed")
+    qtbot.waitUntil(lambda: page.tool_table.rowCount() >= 30, timeout=5000)
+    qtbot.waitUntil(lambda: "voxlabs" in page.config_boxes["claude_desktop"].toPlainText(), timeout=5000)
+    mcp_service.record("list_library", {}, "stdio", 5, result={"status": 1})
+    page._poll()  # what the timer does every two seconds
+    qtbot.waitUntil(lambda: page.call_table.rowCount() == 3, timeout=5000)
+    page.call_table.selectRow(0)
+    assert "list_library" in page.details.toPlainText()
+
+
+def test_files_page_lists_everything(window, voice_wav, qtbot):
+    from app.models.request import AudioExportRequest
+    from app.services.audio_service import audio_service
+
+    audio = audio_service.import_file(voice_wav)
+    audio_service.export(AudioExportRequest(audios_id=audio["audios_id"]))
+    window.go("files")
+    page = window.pages["files"]
+    qtbot.waitUntil(lambda: page.table.rowCount() == 2, timeout=5000)
+    page.show_kind("export")
+    qtbot.waitUntil(lambda: page.table.rowCount() == 1, timeout=5000)
+    assert page.table.item(0, 1).text() == "Exported"

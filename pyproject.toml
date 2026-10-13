@@ -45,6 +45,8 @@ dev = [
 build = "scripts.build:main"
 # `uv run benchmark`: reproducible generation benchmarks on this computer (see scripts/benchmark.py).
 benchmark = "scripts.benchmark:main"
+# `uv run voxlabs-mcp`: only the MCP server, on stdio (or `--http` on port 8943). The installed app: VoxLabs --mcp.
+voxlabs-mcp = "app.api.mcp.server:main"
 
 [build-system]
 requires = ["hatchling"]

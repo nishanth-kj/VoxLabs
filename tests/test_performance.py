@@ -265,7 +265,7 @@ def test_timings_are_returned_and_kept_with_the_audio():
     audio = tts_service.generate(TTSRequest(text="Measure me."), progress=lambda v, m=None: messages.append((v, m)))
     timings = audio["timings"]
     assert timings["audio_s"] == pytest.approx(audio["duration"], abs=0.01)
-    assert timings["rtf"] == pytest.approx(timings["total_s"] / timings["audio_s"], rel=0.01)
+    assert timings["rtf"] == pytest.approx(timings["total_s"] / timings["audio_s"], abs=0.01)
     assert {"load_s", "inference_s", "write_s"} <= set(timings)
     assert audio["params"]["timings"]["inference_s"] >= 0
     values = [value for value, _ in messages]

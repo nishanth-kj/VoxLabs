@@ -32,7 +32,7 @@ PySide6 UI (app/ui)      REST API + MCP (app/api)
 - Never go UI → database, UI → AI model, API → database or API → AI model directly.
 - API routes validate path/query values with `Validation` (`app/utils/validation.py`), pass the **full request body** to the service, and `return ApiResponse(data).success()`. Never write `ApiResponse(data=...)`. Routes are annotated `-> ApiResponse` (a `JSONResponse` subclass) and contain no try/except. Error handlers return `ApiResponse(error=exc).error()`.
 - Every API response is **HTTP 200**, and the envelope is `{"status": 1|0, "data": ..., "error": null|{...}}`. The error object is exactly `{"error_code", "error_message", "field"}`: `field` maps field names to the specific message. Codes and texts are predefined in the `ErrorCode` and `ErrorMessage` BaseEnums (`app/constants/error_code.py`, `error_message.py`), and each exception class declares its pair.
-- MCP tools (`app/api/mcp/tools.py`) take the same request classes and return the same envelope through `respond()`. Voice cloning is not exposed over MCP.
+- MCP tools (`app/api/mcp/tools.py`) take the same request classes and return the same envelope through `respond()`. Voice cloning is not exposed over MCP. `VoxLabsMCP.call_tool` logs every call in `mcp_calls` (`mcp_service`), which the desktop's MCP page shows; `uv run voxlabs-mcp` and `VoxLabs --mcp` serve MCP alone over stdio.
 - Each CRUD resource has **one** `POST /api/<resource>` save endpoint: no id → create, id → update, id + `status: Status.DELETED.code` → delete. The dispatch lives in the service's `save()` method.
 - Request bodies are Pydantic classes in `app/models/request/`, including multipart forms (`CloneRequest`, `AudioImportRequest` with `Annotated[..., Form()]`). Response classes live in `app/models/response/`. One class per file.
 - Do not add repositories, controllers, managers, use-cases, DI frameworks or extra service layers.
@@ -44,6 +44,8 @@ uv sync                               # install (add --extra piper / kokoro / ch
 uv run python -m app.main             # desktop app
 uv run python -m app.api.app          # REST API + MCP over HTTP (binds 127.0.0.1)
 uv run python -m app.api.app --stdio  # the same, plus MCP over stdin/stdout
+uv run voxlabs-mcp                    # only MCP, over stdio (--http: only MCP on port 8943); built app: VoxLabs --mcp
+uv run benchmark                      # generation benchmarks on this computer (docs/performance.md)
 uv run pytest                         # tests (Qt tests run with QT_QPA_PLATFORM=offscreen)
 uv run build                          # desktop app for this OS: dist/*.zip (Windows) / .dmg (macOS) / .tar.gz (Linux)
 ```

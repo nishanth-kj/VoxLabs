@@ -3,6 +3,7 @@
 from app.models.audio import Audio
 from app.models.export import Export
 from app.models.job import Job
+from app.models.mcp_call import McpCall
 from app.models.model import Model
 from app.models.script import Script
 from app.models.script_section import ScriptSection
@@ -16,6 +17,7 @@ __all__ = [
     "Audio",
     "Export",
     "Job",
+    "McpCall",
     "Model",
     "Script",
     "ScriptSection",
