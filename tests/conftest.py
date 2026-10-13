@@ -9,6 +9,7 @@ from app.services.job_service import job_service
 from app.services.model_service import model_service
 from app.services.system_service import system_service
 from app.utils import audio as au
+from app.utils import device as device_utils
 from app.utils.database import reset_engine
 from app.utils.model import ModelBackend, register_backend
 
@@ -49,6 +50,7 @@ FAKE_MODELS = [
 def app_env(tmp_path, monkeypatch):
     monkeypatch.setenv("VOXLABS_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.delenv("VOXLABS_API_TOKEN", raising=False)
+    monkeypatch.setattr(device_utils, "nvidia_gpu_present", lambda: False)  # the same results with or without a GPU
     catalog = model_service_module.MODEL_CATALOG + FAKE_MODELS
     monkeypatch.setattr(model_service_module, "MODEL_CATALOG", catalog)
     monkeypatch.setattr(model_service_module, "_CATALOG", {m["key"]: m for m in catalog})

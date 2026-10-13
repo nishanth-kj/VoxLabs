@@ -234,6 +234,18 @@ class VoiceService:
 
     # ------------------------------------------------------------ samples
 
+    def list_samples(self) -> list[dict]:
+        """Every active voice sample with its voice's name (the Library's Files page), newest first."""
+        try:
+            with read_session() as session:
+                query = (select(VoiceSample, Voice.name).join(Voice, VoiceSample.voices_id == Voice.voices_id)
+                         .where(VoiceSample.status == Status.ACTIVE.code, Voice.status != Status.DELETED.code)
+                         .order_by(VoiceSample.created_at.desc()))
+                return [{**serialize(sample, exclude=("sha256",)), "voice_name": name}
+                        for sample, name in session.execute(query)]
+        except Exception as exc:
+            raise service_error(exc, "voice_service.list_samples")
+
     def attach_sample(self, voices_id: int, path: str | Path) -> dict:
         """Add another reference recording to an existing cloned voice."""
         from app.services.clone_service import clone_service

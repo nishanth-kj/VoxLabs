@@ -53,16 +53,28 @@ If the engine's libraries cannot share VoxLabs' versions, do not add a conflicti
 
 The UI picks it up automatically through `ModelService.list_models()`.
 
+## Benchmarks
+
+```bash
+uv run benchmark                                      # every installed local engine
+uv run benchmark --engines kokoro-82m --device cpu    # one engine on the CPU
+uv run benchmark --switch chatterbox,chatterbox-turbo,qwen3-tts-0.6b,chatterbox
+uv run benchmark --dsp                                # post-processing only
+uv run benchmark --out results.json                   # also writes results.md
+```
+
+Each engine runs in a fresh process on a temporary data folder linked to the installed models, so the numbers include a real cold start and the library is never touched. See [performance.md](performance.md) for the scenarios, the measured results and the performance settings.
+
 ## Packaging
 
 Build the desktop app for the operating system you are on:
 
 ```bash
-uv sync --inexact            # add --extra piper --extra kokoro to bundle those engines
 uv run build                 # bundle, self-test, portable package and installers
+uv run build --fast          # bundle and self-test only: for trying a change in the built app
 ```
 
-It bundles the app with PyInstaller, starts the bundle once with `--self-test` (offscreen, throwaway data folder; a crash prints the app's crash report), then makes the portable package and the installers:
+The bundle gets its own environment, `build/venv`, synced to `uv.lock` with the engines listed in `[tool.voxlabs] build-engines` (or `--engines`). A build therefore never changes your development environment: `.venv` keeps whatever it has, such as a CUDA build of torch, instead of being re-synced on every build, and the bundle always holds exactly the locked versions. uv links packages from its cache, so the first build sets `build/venv` up quickly and later builds find nothing to do. PyInstaller then bundles the app, the bundle is started once with `--self-test` (offscreen, throwaway data folder; a crash prints the app's crash report), and the portable package and the installers are made at the same time (each spends its time in its own compressor, so together they take about as long as the slowest). The build prints how long each step took.
 
 | Built on | Output in `dist/` | Installer tool |
 | --- | --- | --- |
@@ -74,7 +86,7 @@ It bundles the app with PyInstaller, starts the bundle once with `--self-test` (
 - **.msi** installs for all users into Program Files (admin), for IT deployment; newer versions upgrade in place.
 - **.pkg** installs `VoxLabs.app` into /Applications; **.deb / .rpm** install to `/opt/voxlabs` with a `voxlabs` command, an app-menu entry and an icon.
 
-Options: `--no-installer` (portable package only), `--no-package` (stop at the bundle), `--skip-self-test`, `--package-only` (reuse the bundle already in `dist/`, e.g. to rebuild just the installers), `--require-installers` (fail instead of skipping an installer whose tool is missing; CI uses it). Only one build runs at a time: a second `uv run build` stops with a message instead of breaking the first.
+Options: `--fast` (same as `--no-package`), `--no-installer` (portable package only), `--no-package` (stop at the bundle), `--skip-self-test`, `--package-only` (reuse the bundle already in `dist/`, e.g. to rebuild just the installers), `--require-installers` (fail instead of skipping an installer whose tool is missing; CI uses it). Only one build runs at a time: a second `uv run build` stops with a message instead of breaking the first.
 
 PyInstaller cannot cross-compile, so each OS's files are built on that OS. `.github/workflows/desktop.yml` runs `uv run build --require-installers` on Windows, macOS and Linux, and a `v*` tag publishes every file as a GitHub release. The builds are not code-signed yet, so SmartScreen and Gatekeeper ask for confirmation on first launch.
 

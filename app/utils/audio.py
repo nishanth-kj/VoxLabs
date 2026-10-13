@@ -158,12 +158,9 @@ def waveform_peaks(y: np.ndarray, buckets: int) -> np.ndarray:
     mono = to_mono(y)
     if mono.size == 0 or buckets <= 0:
         return np.zeros((max(buckets, 0), 2), dtype=np.float32)
-    edges = np.linspace(0, mono.size, buckets + 1).astype(int)
-    out = np.zeros((buckets, 2), dtype=np.float32)
-    for i in range(buckets):
-        chunk = mono[edges[i] : max(edges[i + 1], edges[i] + 1)]
-        out[i] = (chunk.min(), chunk.max())
-    return out
+    starts = np.linspace(0, mono.size, buckets + 1).astype(int)[:-1]
+    # reduceat over each bucket; a bucket narrower than one sample takes the sample it starts at.
+    return np.stack([np.minimum.reduceat(mono, starts), np.maximum.reduceat(mono, starts)], axis=1).astype(np.float32)
 
 
 def estimate_pitch_hz(y: np.ndarray, sr: int) -> float:

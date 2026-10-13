@@ -106,7 +106,9 @@ class JobStatusWidget(QWidget):
             self.bar.hide()
             return
         newest = active[0]
-        self.label.setText(f"{len(active)} job{'s' if len(active) > 1 else ''}: {newest['title']}")
+        message = (newest.get("result") or {}).get("message")
+        self.label.setText(f"{len(active)} job{'s' if len(active) > 1 else ''}: {newest['title']}"
+                           + (f" · {message}" if message else ""))
         self.bar.setValue(int(newest["progress"] * 100))
         self.bar.show()
 

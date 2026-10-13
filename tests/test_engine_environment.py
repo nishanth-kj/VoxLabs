@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from app.constants.models import ENGINE_ENVIRONMENTS, MODEL_CATALOG
+from app.constants.models import ENGINE_ENVIRONMENTS, ENGINE_TORCH_BACKEND, MODEL_CATALOG
 from app.exceptions import ModelError
 from app.services import model_service as model_service_module
 from app.services.model_service import model_service
@@ -37,11 +37,11 @@ def _write_worker(path: Path) -> Path:
             request = json.loads(line)
             log.write(line)
             log.flush()
-            if request["text"] == "fail":
+            if "fail" in request["texts"]:
                 send({"error": "the engine refused"})
                 continue
-            audio = np.full(len(request["text"]) * 100, 0.25, dtype="<f4")
-            send({"audio": base64.b64encode(audio.tobytes()).decode("ascii"), "sr": 24000})
+            audios = [np.full(len(text) * 100, 0.25, dtype="<f4") for text in request["texts"]]
+            send({"audios": [base64.b64encode(a.tobytes()).decode("ascii") for a in audios], "sr": 24000})
     '''), encoding="utf-8")
     return path
 
@@ -110,14 +110,18 @@ def test_worker_backend_speaks_through_its_helper_process(fake_environment, voic
         backend.synthesize(SynthesisRequest(text="Hi"), None)
         with pytest.raises(ModelError, match="no voice 'nobody'"):
             backend.synthesize(SynthesisRequest(text="Hi"), VoiceRef(engine_voice="nobody"))
+        # Several chunks go out in one request and come back in order.
+        batch = backend.synthesize_batch([SynthesisRequest(text="one"), SynthesisRequest(text="three")], None)
+        assert [audio.size for audio, _ in batch] == [300, 500]
     finally:
         backend.unload()
     assert not backend.loaded and backend._process is None
     sent = [json.loads(line) for line in (weights / "requests.jsonl").read_text(encoding="utf-8").splitlines()]
-    assert sent[0] == {"text": "Hallo", "language": "de", "temperature": 0.7, "seed": 3,
+    assert sent[0] == {"texts": ["Hallo"], "language": "de", "temperature": 0.7, "seed": 3,
                        "ref_audio": str(voice_wav.resolve())}
     assert [(m.get("speaker"), m["language"], "ref_audio" in m) for m in sent[3:]] == [
-        ("sohee", "ko", False), ("ryan", "en", False)]
+        ("sohee", "ko", False), ("ryan", "en", False), ("ryan", "en", False)]
+    assert sent[-1]["texts"] == ["one", "three"]
 
 
 def test_worker_backend_refuses_to_load_before_setup(tmp_path):
@@ -134,12 +138,12 @@ def test_install_downloads_weights_and_sets_up_the_environment(monkeypatch):
         dest.write_bytes(b"weights")
         return dest
 
-    def fake_create(name, cancelled=None):
+    def fake_create(name, cancelled=None, reinstall_torch=False):
         created.append(name)
         folder = environment_dir(name)
         folder.mkdir(parents=True, exist_ok=True)
-        (folder / "voxlabs-environment.json").write_text(
-            json.dumps({"requirements": list(ENGINE_ENVIRONMENTS[name]["requirements"])}))
+        (folder / "voxlabs-environment.json").write_text(json.dumps(
+            {"requirements": list(ENGINE_ENVIRONMENTS[name]["requirements"]), "torch_backend": ENGINE_TORCH_BACKEND}))
 
     monkeypatch.setattr(model_service_module, "download", fake_download)
     monkeypatch.setattr(model_utils, "environment_python", lambda _name: Path(sys.executable))
@@ -201,3 +205,42 @@ def test_a_built_app_sets_up_environments_with_its_bundled_uv(monkeypatch, tmp_p
     assert steps[0][:2] == [str(bundled), "venv"]
     assert steps[0][steps[0].index("--python") + 1] == f"{sys.version_info[0]}.{sys.version_info[1]}"
     assert model_utils._child_env()["LD_LIBRARY_PATH"] == "/usr/lib"  # not the bundle's libraries
+
+
+def test_environments_get_the_pytorch_build_for_this_computer(monkeypatch):
+    steps = []
+    monkeypatch.setattr(model_utils, "_run_step", lambda command, name, cancelled: steps.append(command))
+    environment_dir("qwen3-tts").mkdir(parents=True)
+    model_utils.create_environment("qwen3-tts")
+    install = steps[1]
+    assert install[install.index("--torch-backend") + 1] == ENGINE_TORCH_BACKEND and "--reinstall-package" not in install
+    marker = json.loads((environment_dir("qwen3-tts") / "voxlabs-environment.json").read_text(encoding="utf-8"))
+    assert marker["torch_backend"] == ENGINE_TORCH_BACKEND
+    steps.clear()
+    model_utils.create_environment("qwen3-tts", reinstall_torch=True)  # replaces a CPU-only build in place
+    assert steps[1].count("--reinstall-package") == 2
+
+
+def test_a_cpu_only_environment_is_upgraded_by_installing_again(monkeypatch, fake_environment):
+    """Environments set up before the GPU build was picked keep working, and Install adds GPU support."""
+    monkeypatch.setattr("app.utils.device.nvidia_gpu_present", lambda: True)
+    files = {e["key"]: e for e in MODEL_CATALOG}["qwen3-tts-0.6b"]["files"]
+    for name in files:
+        target = model_service.model_dir("qwen3-tts-0.6b") / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"weights")
+    model_service.sync_catalog()
+    assert model_service.get("qwen3-tts-0.6b")["install_label"].startswith("Installed · CPU only")
+    calls = []
+
+    def fake_create(name, cancelled=None, reinstall_torch=False):
+        calls.append(reinstall_torch)
+        (fake_environment / "voxlabs-environment.json").write_text(json.dumps(
+            {"requirements": list(ENGINE_ENVIRONMENTS[name]["requirements"]), "torch_backend": ENGINE_TORCH_BACKEND}))
+
+    monkeypatch.setattr(model_service_module, "create_environment", fake_create)
+    assert model_service.install("qwen3-tts-0.6b")["install_label"] == "Installed" and calls == [True]
+    monkeypatch.setattr("app.utils.device.nvidia_gpu_present", lambda: False)
+    (fake_environment / "voxlabs-environment.json").write_text(
+        json.dumps({"requirements": list(ENGINE_ENVIRONMENTS["qwen3-tts"]["requirements"])}))
+    assert model_service.get("qwen3-tts-0.6b")["install_label"] == "Installed"  # no GPU: nothing to upgrade

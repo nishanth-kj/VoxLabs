@@ -402,9 +402,11 @@ class ScriptService:
             script = self.get(scripts_id)
             todo = [s for s in script["sections"] if regenerate or not s["selected_audios_id"]]
             for index, section in enumerate(todo):
-                self.generate_section(section["script_sections_id"])
-                if progress:
-                    progress((index + 1) / max(len(todo), 1))
+                def within(value, message=None, index=index):  # progress inside this section
+                    label = f"Section {index + 1} of {len(todo)}" + (f" · {message}" if message else "")
+                    progress((index + value) / len(todo), label)
+
+                self.generate_section(section["script_sections_id"], progress=within if progress else None)
             return self.get(scripts_id)
         except Exception as exc:
             raise service_error(exc, "script_service.generate_all")
@@ -505,7 +507,8 @@ class ScriptService:
         """Generate every missing section (all of them with `body.regenerate`) and render the final audio."""
         try:
             regenerate = bool(body and body.regenerate)
-            sub = (lambda lo, hi: (lambda v: progress(lo + (hi - lo) * v))) if progress else (lambda lo, hi: None)
+            sub = (lambda lo, hi: (lambda v, message=None: progress(lo + (hi - lo) * v, message))) if progress \
+                else (lambda lo, hi: None)
             self.generate_all(scripts_id, regenerate, progress=sub(0.0, 0.85))
             return {"script": self.get(scripts_id), "audio": self.render(scripts_id, progress=sub(0.85, 1.0))}
         except Exception as exc:

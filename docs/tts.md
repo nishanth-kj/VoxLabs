@@ -22,7 +22,7 @@ With `cache: true`, `generate` first hashes everything that changes the sound (t
 
 ### Loading and fallbacks
 
-- When a model does not fit in free GPU memory while loading, it is loaded on the CPU instead.
+- A model is loaded once and every generation reuses it. When a model does not fit in free GPU memory, idle models on the GPU are unloaded first (least recently used first); if it still does not fit, it loads on the CPU. `max_loaded_models` and the other performance settings are described in [performance.md](performance.md).
 - When no model is requested and `default_tts_model` is not installed, the first installed model in `FALLBACK_TTS_MODELS` (`app/constants/models.py`: Chatterbox, Kokoro, Piper) is used. An explicitly requested model never falls back.
 
 ## Parameters

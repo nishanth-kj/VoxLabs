@@ -2,9 +2,11 @@
 
 Processing is non-destructive: each operation writes a new file and a new
 `audios` row pointing at its parent; source files are never overwritten.
-Internally audio is mono float32 and stored as WAV.
+Internally audio is mono float32 and stored as WAV. Every export is recorded in
+`exports` (wherever the file went), which the Library's Exports page lists.
 """
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -22,13 +24,14 @@ from app.constants.audio import (
 )
 from app.constants.audio_source import AudioSource
 from app.constants.jobs import JobType
+from app.constants.library import LIBRARY_KINDS
 from app.constants.status import Status
 from app.exceptions import AudioError, NotFoundError, ValidationError, service_error
-from app.models import Audio
-from app.models.request import AudioExportRequest, AudioImportRequest, AudioProcessRequest
+from app.models import Audio, Export
+from app.models.request import AudioExportRequest, AudioImportRequest, AudioProcessRequest, ExportRequest
 from app.utils import audio as au
-from app.utils.database import read_session, serialize, transaction
-from app.utils.files import copy_file, extension, remove_file, save_upload, subdir, unique_path
+from app.utils.database import deleted_result, read_session, serialize, transaction
+from app.utils.files import copy_file, extension, file_size, remove_file, save_upload, subdir, unique_path
 from app.utils.logger import logger
 from app.utils.validation import Validation
 
@@ -236,19 +239,146 @@ class AudioService:
             remove_file(path)
 
     def export(self, body: AudioExportRequest, dest: str | Path | None = None) -> str:
-        """Write the audio in `body.format` to `dest` (default: a new file under data/exports)."""
+        """Write the audio in `body.format` to `dest` (default: a new file under data/exports) and record it."""
         try:
-            audio = self.get(body.audios_id)
-            fmt = Validation.require_choice((body.format or "wav").lower(), EXPORT_FORMATS, "format")
-            dest = Path(dest) if dest else unique_path(subdir("exports"), audio["name"], fmt)
-            if extension(dest) != fmt:
-                dest = dest.with_suffix(f".{fmt}")
-            y, sr = au.load(audio["path"], sr=body.sample_rate)
-            au.save(dest, y, sr, fmt, ai_generated=audio["ai_generated"])
-            logger.info(f"Exported audio {body.audios_id} as {fmt}")
-            return str(dest)
+            return self._export_file(body, dest)["path"]
         except Exception as exc:
             raise service_error(exc, "audio_service.export")
+
+    def _export_file(self, body: AudioExportRequest, dest: str | Path | None = None) -> dict:
+        audio = self.get(body.audios_id)
+        fmt = Validation.require_choice((body.format or "wav").lower(), EXPORT_FORMATS, "format")
+        dest = Path(dest) if dest else unique_path(subdir("exports"), audio["name"], fmt)
+        if extension(dest) != fmt:
+            dest = dest.with_suffix(f".{fmt}")
+        y, sr = au.load(audio["path"], sr=body.sample_rate)
+        au.save(dest, y, sr, fmt, ai_generated=audio["ai_generated"])
+        path = str(Path(dest).resolve())
+        with transaction() as session:
+            # Exporting to the same file again replaces its earlier entry.
+            for old in session.scalars(select(Export).where(Export.path == path, Export.status != Status.DELETED.code)):
+                old.status = Status.DELETED.code
+            row = Export(audios_id=audio["audios_id"], name=audio["name"], path=path, format=fmt, sample_rate=sr,
+                         duration=round(au.duration(y, sr), 3), file_size=file_size(path),
+                         ai_generated=audio["ai_generated"])
+            session.add(row)
+            session.flush()
+            logger.info(f"Exported audio {body.audios_id} as {fmt} (export {row.exports_id})")
+            return self.export_dict(row)
+
+    # ------------------------------------------------------------ the Library's Files page
+
+    def library(self, kind: str | None = None, limit: int = 1000) -> list[dict]:
+        """Everything VoxLabs keeps, newest first: audio of every source (generated, imported, processed,
+        edited and rendered), exported files and voice samples, in one shape with whether each file is there.
+
+        `kind` keeps one of LIBRARY_KINDS."""
+        try:
+            if kind is not None and kind not in LIBRARY_KINDS:
+                raise ValidationError(f"Unknown kind '{kind}' (use one of: {', '.join(LIBRARY_KINDS)})", field="kind")
+            items: list[dict] = []
+            if kind not in ("export", AudioSource.SAMPLE):
+                for audio in self.list_audios(limit):
+                    if audio["source"] in LIBRARY_KINDS and kind in (None, audio["source"]):
+                        items.append(self._item(audio["source"], audio["audios_id"], audio["audios_id"], audio["name"],
+                                                audio["path"], audio["format"], audio["duration"], audio["file_size"],
+                                                audio["created_at"], audio["ai_generated"],
+                                                original_path=audio["original_path"]))
+            if kind in (None, "export"):
+                for export in self.list_exports(limit):
+                    items.append(self._item("export", export["exports_id"], export["audios_id"], export["name"],
+                                            export["path"], export["format"], export["duration"], export["file_size"],
+                                            export["created_at"], export["ai_generated"]))
+            if kind in (None, AudioSource.SAMPLE):
+                from app.services.voice_service import voice_service
+
+                for sample in voice_service.list_samples():
+                    path = Path(sample["path"])
+                    items.append(self._item(AudioSource.SAMPLE, sample["voice_samples_id"], None,
+                                            f"{sample['voice_name']} · {sample['original_name'] or path.stem}",
+                                            sample["path"], extension(path), sample["duration"], file_size(path),
+                                            sample["created_at"], False, voices_id=sample["voices_id"]))
+            items.sort(key=lambda item: item["created_at"] or "", reverse=True)
+            return items[:limit]
+        except Exception as exc:
+            raise service_error(exc, "audio_service.library")
+
+    @staticmethod
+    def _item(kind: str, item_id: int, audios_id: int | None, name: str, path: str, fmt: str, duration: float,
+              size: int, created_at: str | None, ai_generated: bool, **extra) -> dict:
+        file = Path(path)
+        return {"kind": kind, "kind_label": LIBRARY_KINDS[kind], "id": item_id, "audios_id": audios_id,
+                "name": name or file.stem, "path": path, "file_name": file.name, "folder": str(file.parent),
+                "format": fmt, "duration": duration, "file_size": size, "created_at": created_at,
+                "ai_generated": ai_generated, "exists": file.is_file(), **extra}
+
+    # ------------------------------------------------------------ exports
+
+    def export_dict(self, row: Export) -> dict:
+        data = serialize(row)
+        path = Path(row.path)
+        data.update(exists=path.is_file(), folder=str(path.parent), file_name=path.name)
+        return data
+
+    def list_exports(self, limit: int = 500) -> list[dict]:
+        """Every recorded export, newest first, with whether its file is still there.
+
+        Files in data/exports that have no record yet (exported before exports were recorded) are added
+        first; a file removed from the list stays removed."""
+        try:
+            self._adopt_export_folder()
+            with read_session() as session:
+                query = select(Export).where(Export.status != Status.DELETED.code)
+                rows = session.scalars(query.order_by(Export.created_at.desc()).limit(limit))
+                return [self.export_dict(row) for row in rows]
+        except Exception as exc:
+            raise service_error(exc, "audio_service.list_exports")
+
+    def _adopt_export_folder(self) -> None:
+        folder = subdir("exports")
+        files = [path.resolve() for path in folder.iterdir() if path.is_file() and extension(path) in EXPORT_FORMATS]
+        if not files:
+            return
+        with transaction() as session:
+            known = set(session.scalars(select(Export.path)))
+            for path in files:
+                if str(path) in known:
+                    continue
+                try:
+                    meta = au.info(path)
+                except AudioError:
+                    continue
+                stamp = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+                session.add(Export(name=path.stem, path=str(path), format=extension(path),
+                                   sample_rate=meta["sample_rate"], duration=round(meta["duration"], 3),
+                                   file_size=meta.get("file_size", 0), created_at=stamp, updated_at=stamp,
+                                   ai_generated=au.read_tags(path).get("comment") == AI_GENERATED_TAG))
+
+    def save_export(self, body: ExportRequest) -> dict:
+        """One entry point: export and record (no id), or remove from the list (status = Deleted)."""
+        try:
+            if body.exports_id is None:
+                if body.audios_id is None:
+                    raise ValidationError("Choose the audio to export", field="audios_id")
+                return self._export_file(AudioExportRequest(audios_id=body.audios_id, format=body.format,
+                                                            sample_rate=body.sample_rate))
+            if body.status != Status.DELETED.code:
+                raise ValidationError("An export can only be created or deleted", field="status")
+            with transaction() as session:
+                row = session.get(Export, body.exports_id)
+                if row is None or row.status == Status.DELETED.code:
+                    raise NotFoundError(f"Export {body.exports_id} not found", field="exports_id")
+                if body.delete_file:  # first, so a file that cannot be deleted stays listed
+                    try:
+                        remove_file(row.path)
+                    except OSError as exc:
+                        raise AudioError(f"Could not delete {row.path}: {exc.strerror or exc}") from exc
+                row.status = Status.DELETED.code
+            suffix = " and deleted its file" if body.delete_file else ""
+            logger.info(f"Removed export {body.exports_id} from the list{suffix}")
+            return deleted_result("exports_id", body.exports_id)
+        except Exception as exc:
+            raise service_error(exc, "audio_service.save_export")
 
     # ------------------------------------------------------------ enhancement pipeline
 

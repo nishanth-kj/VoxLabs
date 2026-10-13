@@ -8,6 +8,13 @@ import threading
 
 from app.constants.audio import DEFAULT_SAMPLE_RATE, EMOTIONS, ENHANCE_PRESETS, STYLES
 from app.constants.models import DEFAULT_CLONE_MODEL, DEFAULT_TTS_MODEL
+from app.constants.performance import (
+    BATCH_SIZE_MAX,
+    DEFAULT_PERFORMANCE_PRESET,
+    JOB_WORKERS_MAX,
+    PERFORMANCE_PRESETS,
+    PRECISIONS,
+)
 from app.exceptions import ValidationError, service_error
 from app.utils import device, ffmpeg
 from app.utils.database import database_path
@@ -40,7 +47,13 @@ DEFAULT_SETTINGS = {
     "theme": "system",
     "native_title_bar": False,
     "sidebar_collapsed": False,
+    # Performance (app/constants/performance.py): a preset fills in the values after it.
+    "performance_preset": DEFAULT_PERFORMANCE_PRESET,
+    **PERFORMANCE_PRESETS[DEFAULT_PERFORMANCE_PRESET],
 }
+# Integer performance settings and their allowed range.
+_RANGES = {"max_loaded_models": (0, 16), "gpu_memory_budget_mb": (0, 1 << 20), "gpu_memory_reserve_mb": (0, 1 << 16),
+           "batch_size": (1, BATCH_SIZE_MAX), "job_workers": (1, JOB_WORKERS_MAX)}
 
 
 class SystemService:
@@ -82,6 +95,14 @@ class SystemService:
                 raise ValidationError(f"Unknown settings: {', '.join(sorted(unknown))}")
             if "api_port" in changes and not 1 <= int(changes["api_port"]) <= 65535:
                 raise ValidationError("API port must be between 1 and 65535", field="api_port")
+            for key, (low, high) in _RANGES.items():
+                if key in changes and not low <= int(changes[key]) <= high:
+                    raise ValidationError(f"{key} must be between {low} and {high}", field=key)
+            if "precision" in changes and changes["precision"] not in PRECISIONS:
+                raise ValidationError(f"precision must be one of: {', '.join(PRECISIONS)}", field="precision")
+            if "performance_preset" in changes and changes["performance_preset"] not in (*PERFORMANCE_PRESETS, "custom"):
+                raise ValidationError(f"Unknown performance preset '{changes['performance_preset']}'",
+                                      field="performance_preset")
             settings = {**self.get_settings(), **changes}
             with self._lock:
                 self._path().write_text(json.dumps(settings, indent=2), encoding="utf-8")
@@ -92,6 +113,15 @@ class SystemService:
             return dict(settings)
         except Exception as exc:
             raise service_error(exc, "system_service.update_settings")
+
+    def apply_performance_preset(self, preset: str) -> dict:
+        """Copy a preset's values into the individual performance settings."""
+        try:
+            if preset not in PERFORMANCE_PRESETS:
+                raise ValidationError(f"Unknown performance preset '{preset}'", field="performance_preset")
+            return self.update_settings(performance_preset=preset, **PERFORMANCE_PRESETS[preset])
+        except Exception as exc:
+            raise service_error(exc, "system_service.apply_performance_preset")
 
     def reset_cache(self) -> None:
         try:

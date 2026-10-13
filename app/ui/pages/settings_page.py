@@ -1,4 +1,4 @@
-"""Settings: appearance, devices, defaults, export, GPU, the optional REST API and the log level.
+"""Settings: appearance, devices, defaults, export, GPU and performance, the optional REST API and the log level.
 
 The logs themselves are in the bottom Logs panel (View → Logs Panel).
 """
@@ -23,6 +23,13 @@ from PySide6.QtWidgets import (
 
 from app.constants.audio import ENHANCE_PRESETS, EXPORT_FORMATS, SAMPLE_RATES
 from app.constants.models import ModelType
+from app.constants.performance import (
+    BATCH_SIZE_MAX,
+    JOB_WORKERS_MAX,
+    PERFORMANCE_PRESET_LABELS,
+    PERFORMANCE_PRESETS,
+)
+from app.services.model_service import model_service
 from app.services.system_service import system_service
 from app.ui.pages import BasePage
 from app.ui.widgets.model_selector import ModelSelector
@@ -93,6 +100,7 @@ class SettingsPage(BasePage):
         voice_form.addRow("", self.allow_online)
         voice_form.addRow("", self.allow_edge)
         column.addWidget(voice)
+        column.addWidget(self._performance_group())
 
         api = QGroupBox("REST API (optional)")
         api_form = QFormLayout(api)
@@ -141,6 +149,132 @@ class SettingsPage(BasePage):
         save.clicked.connect(self.save)
         self.root.addWidget(save)
 
+    def _performance_group(self) -> QGroupBox:
+        """Speed versus memory: a preset fills in the values below, which stay editable."""
+        self._filling = True  # no "edited" reactions while the widgets are being built
+        box = QGroupBox("Performance")
+        form = QFormLayout(box)
+        self.hardware = QLabel("Checking this computer…")
+        self.hardware.setObjectName("Hint")
+        self.hardware.setWordWrap(True)
+        self.performance_preset = Select()
+        for key, label in PERFORMANCE_PRESET_LABELS.items():
+            self.performance_preset.addItem(label, key)
+        self.performance_preset.addItem("Custom", "custom")
+        self.performance_preset.currentIndexChanged.connect(self._apply_performance_preset)
+        self.max_loaded_models = self._spin(0, 16, "No limit")
+        self.max_loaded_models.setToolTip("Models kept in memory at once; the least recently used is unloaded first. "
+                                          "Models on the GPU also make room for each other when VRAM runs out.")
+        self.gpu_memory_budget = self._spin(0, 1 << 20, "All free VRAM", " MB", 256)
+        self.gpu_memory_reserve = self._spin(0, 1 << 16, "None", " MB", 256)
+        self.gpu_memory_reserve.setToolTip("VRAM left free for other programs when deciding whether a model fits.")
+        self.precision = Select()
+        for key, label in (("auto", "Engine default"), ("full", "Full (float32)"),
+                           ("half", "Half where supported (float16/bfloat16)")):
+            self.precision.addItem(label, key)
+        self.batch_size = self._spin(1, BATCH_SIZE_MAX)
+        self.batch_size.setToolTip("Text chunks sent to an engine in one call, for engines that batch (Qwen3-TTS).")
+        self.job_workers = self._spin(1, JOB_WORKERS_MAX)
+        self.preload_default_model = QCheckBox("Load the default speech model when VoxLabs starts")
+        self.release_memory_after_job = QCheckBox("Hand GPU memory back after every job")
+        self.loaded_models = QLabel("")
+        self.loaded_models.setObjectName("Hint")
+        self.loaded_models.setWordWrap(True)
+        unload = QPushButton("Unload all models")
+        unload.clicked.connect(lambda: self.run(model_service.unload_all, lambda _r: (
+            self.state.notify("models"), self._refresh_performance())))
+        loaded_row = QHBoxLayout()
+        loaded_row.addWidget(self.loaded_models, 1)
+        loaded_row.addWidget(unload)
+        form.addRow("", self.hardware)
+        form.addRow("Preset", self.performance_preset)
+        form.addRow("Models kept loaded", self.max_loaded_models)
+        form.addRow("GPU memory budget", self.gpu_memory_budget)
+        form.addRow("VRAM left for other apps", self.gpu_memory_reserve)
+        form.addRow("Precision", self.precision)
+        form.addRow("Batch size", self.batch_size)
+        form.addRow("Jobs at the same time", self.job_workers)
+        form.addRow("", self.preload_default_model)
+        form.addRow("", self.release_memory_after_job)
+        form.addRow("In memory", loaded_row)
+        for widget in (self.max_loaded_models, self.gpu_memory_budget, self.gpu_memory_reserve, self.batch_size,
+                       self.job_workers):
+            widget.valueChanged.connect(self._performance_edited)
+        self.precision.currentIndexChanged.connect(self._performance_edited)
+        for box_ in (self.preload_default_model, self.release_memory_after_job):
+            box_.toggled.connect(self._performance_edited)
+        self._filling = False
+        return box
+
+    @staticmethod
+    def _spin(low: int, high: int, special: str = "", suffix: str = "", step: int = 1) -> QSpinBox:
+        spin = QSpinBox()
+        spin.setRange(low, high)
+        spin.setSingleStep(step)
+        if special:
+            spin.setSpecialValueText(special)
+        if suffix:
+            spin.setSuffix(suffix)
+        return spin
+
+    def _performance_values(self) -> dict:
+        return {
+            "max_loaded_models": self.max_loaded_models.value(),
+            "gpu_memory_budget_mb": self.gpu_memory_budget.value(),
+            "gpu_memory_reserve_mb": self.gpu_memory_reserve.value(),
+            "precision": self.precision.currentData() or "auto",
+            "batch_size": self.batch_size.value(),
+            "job_workers": self.job_workers.value(),
+            "preload_default_model": self.preload_default_model.isChecked(),
+            "release_memory_after_job": self.release_memory_after_job.isChecked(),
+        }
+
+    def _fill_performance(self, values: dict) -> None:
+        self._filling = True
+        self.max_loaded_models.setValue(int(values["max_loaded_models"]))
+        self.gpu_memory_budget.setValue(int(values["gpu_memory_budget_mb"]))
+        self.gpu_memory_reserve.setValue(int(values["gpu_memory_reserve_mb"]))
+        self._select(self.precision, values["precision"])
+        self.batch_size.setValue(int(values["batch_size"]))
+        self.job_workers.setValue(int(values["job_workers"]))
+        self.preload_default_model.setChecked(bool(values["preload_default_model"]))
+        self.release_memory_after_job.setChecked(bool(values["release_memory_after_job"]))
+        self._filling = False
+
+    def _apply_performance_preset(self):
+        preset = self.performance_preset.currentData()
+        if preset in PERFORMANCE_PRESETS and not self._filling:
+            self._fill_performance(PERFORMANCE_PRESETS[preset])
+
+    def _performance_edited(self):
+        """A value edited by hand: the preset becomes Custom unless the values still match one exactly."""
+        if self._filling:
+            return
+        values = self._performance_values()
+        match = next((key for key, preset in PERFORMANCE_PRESETS.items() if preset == values), "custom")
+        self._filling = True
+        self._select(self.performance_preset, match)
+        self._filling = False
+
+    def _refresh_performance(self):
+        def load():
+            hardware = system_service.devices()
+            return hardware, model_service.loaded_models()
+
+        def show(data):
+            hardware, loaded = data
+            gpus = ", ".join(f"{g['name']} ({g['vram_total_mb'] / 1024:.1f} GB, {g['vram_free_mb'] / 1024:.1f} GB free)"
+                             for g in hardware["gpus"]) or "none"
+            cuda = "CUDA ready" if hardware["cuda"] else ("no CUDA build of torch" if hardware["gpus"] else "")
+            ram = hardware["ram_mb"]
+            memory = f"RAM {ram['total'] / 1024:.1f} GB ({ram['available'] / 1024:.1f} GB free)" if ram["total"] else ""
+            recommended = PERFORMANCE_PRESET_LABELS[hardware["recommended_preset"]]
+            self.hardware.setText(" · ".join(part for part in (f"GPU: {gpus}", cuda, memory) if part)
+                                  + f"\nRecommended for this computer: {recommended}")
+            self.loaded_models.setText(", ".join(f"{m['key']} ({m['device']})" for m in loaded) or "No models loaded")
+
+        self.run(load, show, busy=False)
+
     def _browse(self):
         folder = QFileDialog.getExistingDirectory(self, "Default output folder", self.output_dir.text())
         if folder:
@@ -181,6 +315,11 @@ class SettingsPage(BasePage):
         self.api_token.setText(s["api_token"])
         self.autosave.setChecked(bool(s["autosave"]))
         self.log_level.setCurrentText(s["log_level"])
+        self._filling = True
+        self._select(self.performance_preset, s["performance_preset"])
+        self._filling = False
+        self._fill_performance(s)
+        self._refresh_performance()
         self._select(self.theme, s["theme"])
         self.native_title_bar.setChecked(bool(s["native_title_bar"]))
         running = system_service.api_running()
@@ -217,10 +356,15 @@ class SettingsPage(BasePage):
             "log_level": self.log_level.currentText(),
             "theme": self.theme.currentData() or "system",
             "native_title_bar": self.native_title_bar.isChecked(),
+            "performance_preset": self.performance_preset.currentData() or "custom",
+            **self._performance_values(),
         }
 
         def apply():
+            reload = changes["precision"] != system_service.get_setting("precision")
             settings = system_service.update_settings(**changes)
+            if reload:  # loaded models keep the precision they were loaded with
+                model_service.unload_all()
             system_service.apply_api_setting()
             return settings
 

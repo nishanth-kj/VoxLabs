@@ -9,7 +9,6 @@ from app.constants.status import Status
 JOB_ACTIVE_STATUSES = (Status.PENDING.code, Status.IN_PROGRESS.code)
 JOB_FINISHED_STATUSES = (Status.COMPLETED.code, Status.FAILED.code, Status.CANCELLED.code)
 
-JOB_WORKERS = 2
 
 
 class JobType:

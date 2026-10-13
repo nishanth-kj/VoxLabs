@@ -112,10 +112,13 @@ Compose publishes the port on the host's loopback only. Engines from `pyproject.
 | `GET /api/audio`, `GET /api/audio/{id}`, `GET /api/audio/{id}/file` | — | `audio_service.list_audios()` / `get()` / file download |
 | `POST /api/audio/import` | `AudioImportRequest` (multipart `file`) | `audio_service.import_upload(body)` |
 | `POST /api/audio/process` | `AudioProcessRequest` | `audio_service.process(body)`: steps/preset, or an `ops` edit list |
-| `POST /api/audio/export` | `AudioExportRequest` | `audio_service.export(body)`, returns the file |
+| `POST /api/audio/export` | `AudioExportRequest` | `audio_service.export(body)`, returns the file (and records it under `/api/exports`) |
+| `GET /api/exports` | — | `audio_service.list_exports()`: every exported file, newest first, with `exists` |
+| `POST /api/exports` | `ExportRequest` | `audio_service.save_export(body)`: no id exports `audios_id` and records it; id + `status: Deleted` removes it from the list (`delete_file` deletes the file too) |
+| `GET /api/library?kind=` | — | `audio_service.library(kind)`: everything VoxLabs keeps (generated, imported, processed, rendered, exports, voice samples) in one shape |
 | `GET /api/models`, `GET /api/models/{id}`, `POST …/load`, `…/unload`, `…/install`, `GET …/health` | — | `model_service` (id is the numeric `models_id` or the key) |
 | `POST /api/models/install-all` | — | `model_service.install_all_async()` — download every local model that still needs weights |
-| `GET /api/jobs`, `GET /api/jobs/{id}`, `POST /api/jobs/{id}/cancel` | — | `job_service` |
+| `GET /api/jobs`, `GET /api/jobs/{id}`, `POST /api/jobs/{id}/cancel` | — | `job_service`. A running job's `result.message` says what it is doing; a finished job's `result.timings` has `queue_s` and `run_s` (and, for speech, the stages below) |
 
 ## MCP server
 

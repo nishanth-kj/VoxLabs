@@ -34,6 +34,7 @@ from app.ui.app_menu import build_menu_bar, refresh_menu_icons
 from app.ui.pages import BasePage
 from app.ui.pages.clone_page import ClonePage
 from app.ui.pages.editor_page import EditorPage
+from app.ui.pages.files_page import FilesPage
 from app.ui.pages.generate_page import GeneratePage
 from app.ui.pages.home_page import HomePage
 from app.ui.pages.models_page import ModelsPage
@@ -83,11 +84,12 @@ PAGES = [
     ("voice_editor", "Voice Editor", VoiceEditorPage, "voice_editor"),
     ("voices", "Voices", VoicesPage, "voices"),
     ("models", "Models", ModelsPage, "models"),
+    ("files", "Files", FilesPage, "files"),
     ("settings", "Settings", SettingsPage, "settings"),
 ]
 NAV_SECTIONS = [("", ["home", "studio"]),
                 ("Create", ["clone", "generate", "script", "editor", "voice_editor"]),
-                ("Library", ["voices", "models"])]
+                ("Library", ["voices", "models", "files"])]
 NAV_FOOTER = ["settings"]
 EDIT_COMMANDS = ("undo", "redo", "cut", "copy", "paste", "delete", "select_all", "duplicate")
 

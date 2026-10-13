@@ -84,5 +84,6 @@ uv run build                          # desktop app for this OS: dist/*.zip (Win
 - `docs/audio-engine.md`: AudioService, DSP pipeline, editor ops
 - `docs/voice-cloning.md`, `docs/tts.md`, `docs/script-to-audio.md`: feature workflows
 - `docs/rest-api.md`: endpoints and the response envelope
+- `docs/performance.md`: model lifecycle, performance settings and presets, benchmarks and measured results
 - `docs/development.md`: setup, testing, adding engines
 - `skills/`: task-oriented workflows for agents

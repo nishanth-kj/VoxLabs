@@ -31,8 +31,12 @@ ENGINE_ENVIRONMENTS = {
         "requirements": ("qwen-tts==0.1.1", "torch==2.6.0", "torchaudio==2.6.0", "soundfile>=0.12.1"),
         "module": "qwen_tts",
         "worker": "qwen3_worker.py",
+        # Installed with uv's `--torch-backend auto`: the CUDA build that matches the GPU driver, or the CPU
+        # build without an NVIDIA GPU (PyPI's Windows wheels are CPU-only).
+        "torch_packages": ("torch", "torchaudio"),
     },
 }
+ENGINE_TORCH_BACKEND = "auto"
 
 
 def _hf(repo: str, path: str) -> str:

@@ -4,6 +4,7 @@ from app.models.request.audio_export_request import AudioExportRequest
 from app.models.request.audio_import_request import AudioImportRequest
 from app.models.request.audio_process_request import AudioProcessRequest
 from app.models.request.clone_request import CloneRequest
+from app.models.request.export_request import ExportRequest
 from app.models.request.generate_script_request import GenerateScriptRequest
 from app.models.request.regenerate_request import RegenerateRequest
 from app.models.request.script_request import ScriptRequest
@@ -17,6 +18,7 @@ __all__ = [
     "AudioImportRequest",
     "AudioProcessRequest",
     "CloneRequest",
+    "ExportRequest",
     "GenerateScriptRequest",
     "RegenerateRequest",
     "ScriptRequest",

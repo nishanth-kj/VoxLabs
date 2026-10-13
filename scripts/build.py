@@ -1,14 +1,20 @@
 """Build the VoxLabs desktop app for this computer's operating system:
 
     uv run build          (the `build` command from [project.scripts]; same as uv run scripts/build.py)
+    uv run build --fast   (bundle and self-test only: no zip or installers, for trying a change quickly)
 
-1. PyInstaller bundles the app: dist/VoxLabs/ (Windows, Linux) or dist/VoxLabs.app (macOS).
-2. The bundle is started once with `--self-test` (offscreen) to prove it runs.
-3. It is packaged for download, as a portable package and as installers:
+1. The bundle's own environment, build/venv, is synced to uv.lock with the bundled engines. A build never
+   changes the development environment (.venv keeps, say, a CUDA build of torch), and after the first build
+   this sync has nothing to do.
+2. PyInstaller bundles the app: dist/VoxLabs/ (Windows, Linux) or dist/VoxLabs.app (macOS).
+3. The bundle is started once with `--self-test` (offscreen) to prove it runs.
+4. It is packaged for download, as a portable package and as installers, all at the same time:
        Windows  VoxLabs-Windows-x64.zip, VoxLabs-Windows-x64-Setup.exe (Inno Setup), VoxLabs-Windows-x64.msi (WiX)
        macOS    VoxLabs-macOS-arm64.dmg, VoxLabs-macOS-arm64.pkg (pkgbuild)
        Linux    VoxLabs-Linux-x86_64.tar.gz, VoxLabs-Linux-x86_64.deb (dpkg-deb), VoxLabs-Linux-x86_64.rpm (rpmbuild)
    An installer whose tool is missing is skipped with a hint (--require-installers makes that an error).
+
+Each step's time is printed at the end.
 
 PyInstaller cannot cross-compile: build the .exe on Windows, the .dmg on macOS and the Linux
 archive on Linux (.github/workflows/desktop.yml builds all three). Engines installed in the
@@ -28,13 +34,18 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import tomllib
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
 DIST = ROOT / "dist"
 ICON_DIR = BUILD / "icon"
+BUILD_ENV = BUILD / "venv"
 HOMEPAGE = "https://github.com/nishanth-kj/VoxLabs"
 SUMMARY = "Local voice cloning, text-to-speech and audio studio"
 DESCRIPTION = ("VoxLabs clones voices with recorded consent, turns text and scripts into speech and "
@@ -93,10 +104,10 @@ def app_icon_file() -> Path | None:
     return None
 
 
-def bundle() -> int:
-    """Run PyInstaller; the bundle lands in dist/."""
+def bundle(python: str = sys.executable, chatterbox: bool | None = None) -> int:
+    """Run PyInstaller with `python` (the build environment's); the bundle lands in dist/."""
     command = [
-        sys.executable, "-m", "PyInstaller",
+        python, "-m", "PyInstaller",
         "--noconfirm",
         "--windowed",
         "--name", "VoxLabs",
@@ -114,7 +125,9 @@ def bundle() -> int:
         # Helper scripts that engine environments (Qwen3-TTS) run with their own Python.
         "--add-data", f"{ROOT / 'app' / 'utils' / 'engine_workers'}{os.pathsep}app/utils/engine_workers",
     ]
-    if importlib.util.find_spec("chatterbox") is not None:
+    if chatterbox is None:
+        chatterbox = importlib.util.find_spec("chatterbox") is not None
+    if chatterbox:
         # Diffusers/Transformers check distribution versions at runtime, including transitive dependencies.
         command += ["--recursive-copy-metadata", "chatterbox-tts"]
         # Chatterbox loads Resemble's Perth watermarker, whose checkpoint is package data.
@@ -182,22 +195,27 @@ def build_engines() -> list[str]:
     return list(_pyproject().get("tool", {}).get("voxlabs", {}).get("build-engines", []))
 
 
-def sync_engines(engines: list[str]) -> int:
-    """Put the bundled engines into the environment at their uv.lock versions.
+def environment_python(folder: Path = BUILD_ENV) -> Path:
+    return folder / "Scripts" / "python.exe" if sys.platform == "win32" else folder / "bin" / "python"
 
-    `uv run` first syncs the environment without extras, which also moves libraries the engines
-    share with the app (numpy, librosa, ...) to the no-extras versions; Chatterbox needs other ones.
-    Syncing the engines again (keeping everything else) makes the bundle match the lock.
+
+def build_environment(engines: list[str]) -> tuple[int, str]:
+    """Sync build/venv to uv.lock with the bundled engines; returns (exit code, its Python).
+
+    The bundle then holds exactly the locked versions (the same libraries every time), while the
+    development environment is left alone: syncing it with the engines used to replace whatever it
+    had, such as a CUDA build of torch, on every build. uv links packages from its cache, so the
+    first sync is quick and later ones have nothing to do.
     """
-    if not engines:
-        return 0
-    uv = shutil.which("uv")
+    uv = os.environ.get("UV") or shutil.which("uv")
     if not uv:
-        print("uv not found: bundling whatever engines are installed.", file=sys.stderr)
-        return 0
-    command = [uv, "sync", "--frozen", "--inexact"] + [arg for engine in engines for arg in ("--extra", engine)]
-    print(" ".join(command), flush=True)
-    return subprocess.call(command, cwd=ROOT)
+        print("uv not found: bundling from the current environment as it is.", file=sys.stderr)
+        return 0, sys.executable
+    command = [uv, "sync", "--frozen"] + [arg for engine in engines for arg in ("--extra", engine)]
+    print(f"UV_PROJECT_ENVIRONMENT={BUILD_ENV} " + " ".join(command), flush=True)
+    env = {**os.environ, "UV_PROJECT_ENVIRONMENT": str(BUILD_ENV)}
+    env.pop("VIRTUAL_ENV", None)  # `uv run` points it at .venv; this sync is for build/venv
+    return subprocess.call(command, cwd=ROOT, env=env), str(environment_python())
 
 
 def artifact_names(system: str = sys.platform, machine: str | None = None) -> list[str]:
@@ -430,17 +448,26 @@ cp -a {stage}/. %{{buildroot}}/
     return target
 
 
-def installers(require: bool) -> list[Path]:
-    """This OS's installers; a missing tool skips its installer (or fails with `require`)."""
-    names = artifact_names()[1:]
+def installer_makers() -> list[Callable[[str], Path | None]]:
     if sys.platform == "win32":
-        makers = [windows_setup, windows_msi]
-    elif sys.platform == "darwin":
-        makers = [mac_pkg]
-    else:
-        makers = [linux_deb, linux_rpm]
-    built = [made for make, name in zip(makers, names) if (made := make(name))]
-    if require and len(built) < len(names):
+        return [windows_setup, windows_msi]
+    if sys.platform == "darwin":
+        return [mac_pkg]
+    return [linux_deb, linux_rpm]
+
+
+def packages(with_installers: bool, require: bool) -> list[Path]:
+    """The portable package and this OS's installers, made at the same time: each one spends its time in
+    its own compressor (zip, Inno Setup, WiX, ...), so together they take about as long as the slowest.
+    A missing installer tool skips that installer (or fails with `require`)."""
+    names = artifact_names()
+    makers: list[Callable[[], Path | None]] = [package]
+    if with_installers:
+        makers += [lambda make=make, name=name: make(name) for make, name in zip(installer_makers(), names[1:])]
+    with ThreadPoolExecutor(max_workers=len(makers)) as pool:
+        futures = [pool.submit(make) for make in makers]
+        built = [made for future in futures if (made := future.result())]
+    if with_installers and require and len(built) < len(names):
         raise SystemExit("Not every installer could be built (see the messages above).")
     return built
 
@@ -526,8 +553,30 @@ def package() -> Path:
     return target
 
 
+_timings: list[tuple[str, float]] = []
+
+
+@contextmanager
+def phase(name: str):
+    """Time one step of the build; main() prints them all at the end."""
+    print(f"==> {name}", flush=True)
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        _timings.append((name, time.perf_counter() - start))
+
+
+def print_timings() -> None:
+    if _timings:
+        print("Build steps: " + ", ".join(f"{name} {seconds:.0f}s" for name, seconds in _timings)
+              + f" (total {sum(seconds for _, seconds in _timings):.0f}s)", flush=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build the VoxLabs desktop app for this operating system.")
+    parser.add_argument("--fast", action="store_true",
+                        help="bundle and self-test only (no .zip/.dmg/.tar.gz or installers): for trying a change")
     parser.add_argument("--no-package", action="store_true", help="stop after the bundle in dist/ (no .zip/.dmg/.tar.gz)")
     parser.add_argument("--skip-self-test", action="store_true", help="do not start the built app to check it")
     parser.add_argument("--no-installer", action="store_true", help="make only the portable package")
@@ -556,21 +605,27 @@ def main() -> int:
         else:
             engines = build_engines() if args.engines is None else \
                 [e.strip() for e in args.engines.split(",") if e.strip() and e.strip() != "none"]
-            code = sync_engines(engines) or bundle()
+            with phase("environment"):
+                code, python = build_environment(engines)
+            if code:
+                return code
+            with phase("bundle"):
+                code = bundle(python, chatterbox="chatterbox" in engines)
             if code:
                 return code
             if not args.skip_self_test:
-                code = self_test()
+                with phase("self-test"):
+                    code = self_test()
                 if code:
                     return code
-        if not args.no_package:
-            built = [package()]
-            if not args.no_installer:
-                built += installers(args.require_installers)
+        if not (args.no_package or args.fast):
+            with phase("packages"):
+                built = packages(not args.no_installer, args.require_installers)
             for target in built:
                 print(f"Built {target} ({target.stat().st_size / 1_048_576:.0f} MB)", flush=True)
         return 0
     finally:
+        print_timings()
         LOCK.unlink(missing_ok=True)
 
 

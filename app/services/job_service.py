@@ -3,6 +3,10 @@
 Work runs on a small thread pool so neither the Qt event loop nor API requests
 block. Each job gets a `JobContext` for progress reporting and cooperative
 cancellation. Listeners (the UI's JobBridge) are notified on every change.
+
+The pool has `job_workers` threads (Settings) and at most JOB_QUEUE_LIMIT jobs
+may wait for one. Every result carries `timings` with the time spent waiting
+in the queue and running.
 """
 
 import contextvars
@@ -13,7 +17,8 @@ from concurrent.futures import Future, ThreadPoolExecutor
 
 from sqlalchemy import select
 
-from app.constants.jobs import JOB_ACTIVE_STATUSES, JOB_FINISHED_STATUSES, JOB_WORKERS
+from app.constants.jobs import JOB_ACTIVE_STATUSES, JOB_FINISHED_STATUSES
+from app.constants.performance import JOB_QUEUE_LIMIT, JOB_WORKERS_MAX
 from app.constants.status import Status
 from app.exceptions import AppError, JobCancelled, JobError, NotFoundError, service_error
 from app.models import Job
@@ -29,6 +34,13 @@ class JobContext:
         self._cancel = threading.Event()
         self._last_write = 0.0
         self._last_value = -1.0
+        self.queued_at = time.monotonic()
+        self.started_at: float | None = None
+
+    @property
+    def queue_s(self) -> float:
+        """Seconds the job waited for a worker."""
+        return (self.started_at or time.monotonic()) - self.queued_at
 
     @property
     def cancelled(self) -> bool:
@@ -39,7 +51,7 @@ class JobContext:
             raise JobCancelled()
 
     def progress(self, value: float, message: str | None = None) -> None:
-        """Report progress 0..1 (writes are throttled). Raises JobCancelled if cancelled."""
+        """Report progress 0..1 and what is happening (writes are throttled). Raises JobCancelled if cancelled."""
         self.check_cancelled()
         value = max(0.0, min(1.0, float(value)))
         now = time.monotonic()
@@ -49,7 +61,7 @@ class JobContext:
 
     def sub(self, start: float, end: float) -> Callable[[float], None]:
         """Progress callback mapping 0..1 onto [start, end] of this job."""
-        return lambda value: self.progress(start + (end - start) * value)
+        return lambda value, message=None: self.progress(start + (end - start) * value, message)
 
 
 JobFn = Callable[[JobContext], dict | None]
@@ -58,6 +70,7 @@ JobFn = Callable[[JobContext], dict | None]
 class JobService:
     def __init__(self):
         self._executor: ThreadPoolExecutor | None = None
+        self._workers = 0
         self._contexts: dict[int, JobContext] = {}
         self._futures: dict[int, Future] = {}
         self._listeners: list[Callable[[dict], None]] = []
@@ -104,6 +117,10 @@ class JobService:
     def submit(self, job_type: str, fn: JobFn, *, title: str = "", params: dict | None = None,
                users_id: int | None = None) -> dict:
         try:
+            with self._lock:
+                waiting = sum(1 for context in self._contexts.values() if context.started_at is None)
+            if waiting >= JOB_QUEUE_LIMIT:
+                raise JobError(f"{waiting} jobs are already waiting. Let some finish, or cancel them, first.")
             with transaction() as session:
                 job = Job(job_type=job_type, title=title or job_type, params=params or {}, status=Status.PENDING.code,
                           users_id=users_id)
@@ -113,8 +130,8 @@ class JobService:
             jobs_id = data["jobs_id"]
             context = JobContext(jobs_id, self)
             with self._lock:
-                if self._executor is None:
-                    self._executor = ThreadPoolExecutor(max_workers=JOB_WORKERS, thread_name_prefix="voxlabs-job")
+                self._ensure_executor()
+                assert self._executor is not None
                 self._contexts[jobs_id] = context
                 # Run in a copy of the caller's context so the job logs as "ui", "api" or "mcp".
                 caller = contextvars.copy_context()
@@ -125,14 +142,30 @@ class JobService:
         except Exception as exc:
             raise service_error(exc, "job_service.submit")
 
+    def _ensure_executor(self) -> None:
+        """The pool, rebuilt when the job_workers setting changed (the old pool finishes its jobs)."""
+        from app.services.system_service import system_service
+
+        workers = max(1, min(int(system_service.get_setting("job_workers") or 1), JOB_WORKERS_MAX))
+        if self._executor is not None and workers == self._workers:
+            return
+        if self._executor is not None:
+            self._executor.shutdown(wait=False)
+            logger.info(f"Background jobs now run {workers} at a time")
+        self._executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="voxlabs-job")
+        self._workers = workers
+
     def _run(self, context: JobContext, fn: JobFn) -> None:
         jobs_id = context.jobs_id
+        context.started_at = time.monotonic()
         try:
             if context.cancelled:
                 raise JobCancelled()
             self._update(jobs_id, status=Status.IN_PROGRESS.code, started_at=utcnow())
-            logger.info(f"Job {jobs_id} started")
+            logger.info(f"Job {jobs_id} started after {context.queue_s:.1f}s in the queue")
             result = fn(context) or {}
+            result["timings"] = {**(result.get("timings") or {}), "queue_s": round(context.queue_s, 3),
+                                 "run_s": round(time.monotonic() - context.started_at, 3)}
             self._update(jobs_id, status=Status.COMPLETED.code, progress=1.0, result=result, finished_at=utcnow())
             logger.info(f"Job {jobs_id} completed")
         except JobCancelled:
@@ -224,6 +257,7 @@ class JobService:
                 for context in self._contexts.values():
                     context._cancel.set()
                 executor, self._executor = self._executor, None
+                self._workers = 0
             if executor:
                 executor.shutdown(wait=wait, cancel_futures=True)
         except Exception as exc:

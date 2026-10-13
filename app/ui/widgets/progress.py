@@ -129,8 +129,10 @@ class JobBridge(QObject):
 def watch_job(job: dict, on_done: Callable[[dict], None] | None = None,
               on_error: Callable[[str], None] | None = None,
               on_progress: Callable[[float], None] | None = None,
-              parent: QWidget | None = None) -> None:
-    """Follow one job until it finishes; `on_done` receives the job's result dict."""
+              parent: QWidget | None = None,
+              on_message: Callable[[str], None] | None = None) -> None:
+    """Follow one job until it finishes; `on_done` receives the job's result dict and `on_message` what the
+    job says it is doing (e.g. "Chunk 2 of 5 · 12.4 s of audio · about 8 s left")."""
     bridge = JobBridge.instance()
     jobs_id = job["jobs_id"]
     state = {"finished": False}
@@ -144,6 +146,9 @@ def watch_job(job: dict, on_done: Callable[[dict], None] | None = None,
             return
         if on_progress:
             on_progress(update["progress"])
+        message = (update.get("result") or {}).get("message")
+        if on_message and message and not update["finished"]:
+            on_message(message)
         if not update["finished"]:
             return
         state["finished"] = True

@@ -11,6 +11,7 @@ only knows *how* to talk to each engine.
 import asyncio
 import base64
 import collections
+import gc
 import importlib.util
 import io
 import json
@@ -34,6 +35,7 @@ from app.constants.models import (
     EDGE_DEFAULT_VOICE,
     ENGINE_ENVIRONMENTS,
     ENGINE_INSTALL_COMMAND,
+    ENGINE_TORCH_BACKEND,
     KOKORO_DEFAULT_VOICE,
     QWEN3_DEFAULT_VOICE,
     Backend,
@@ -76,13 +78,26 @@ class ModelBackend:
     native_params: frozenset[str] = frozenset()
     # Longest text the engine speaks well in one call; None uses TTS_CHUNK_CHARS.
     max_chunk_chars: int | None = None
+    # Most chunks one call can take. Engines that batch (Qwen3-TTS) raise it; the batch_size setting caps it.
+    max_batch = 1
+    # Chunk length while batching: shorter chunks (about a sentence) give a batch more to work on at once.
+    batch_chunk_chars: int | None = None
 
-    def __init__(self, model_dir: Path, device: str = "cpu"):
+    def __init__(self, model_dir: Path, device: str = "cpu", precision: str = "auto"):
         self.model_dir = Path(model_dir)
         self.device = device
+        # "auto" (the engine's default), "full" (float32) or "half" (float16/bfloat16 where supported).
+        self.precision = precision
         self.loaded = False
         # One generation at a time: GPU memory and these models are not safe to share between threads.
         self.lock = threading.Lock()
+
+    @classmethod
+    def available_devices(cls) -> list[str]:
+        """Devices this engine can use here: the CPU and the CUDA devices PyTorch sees in this process."""
+        from app.utils.device import available_devices
+
+        return available_devices()
 
     def load(self) -> None:
         self.loaded = True
@@ -92,6 +107,20 @@ class ModelBackend:
 
     def synthesize(self, request: SynthesisRequest, voice: VoiceRef | None) -> tuple[np.ndarray, int]:
         raise NotImplementedError
+
+    def synthesize_batch(self, requests: list[SynthesisRequest], voice: VoiceRef | None) -> list[tuple[np.ndarray, int]]:
+        """Several chunks (same voice and settings) in one call. Engines without batching speak them in turn."""
+        return [self.synthesize(request, voice) for request in requests]
+
+    def warm_up(self) -> None:
+        """Speak a word once after loading, so one-time costs (CUDA kernels, the phonemizer, caches) are paid
+        while the model loads in the background instead of in the first real generation. Never fails a load."""
+        if self.online:
+            return  # would send text to the service
+        try:
+            self.synthesize(SynthesisRequest(text="Hello."), None)
+        except Exception as exc:
+            logger.debug(f"{self.backend_id} warm-up skipped: {exc!r}")
 
     def _require_reference(self, voice: VoiceRef | None) -> list[str]:
         if not voice or not voice.sample_paths:
@@ -125,15 +154,31 @@ def environment_python(name: str) -> Path:
     return folder / "Scripts" / "python.exe" if os.name == "nt" else folder / "bin" / "python"
 
 
+def _environment_marker(name: str) -> dict | None:
+    try:
+        return json.loads((environment_dir(name) / _ENV_MARKER).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def environment_ready(name: str | None) -> bool:
     """True when the engine environment exists and was set up with the current requirements."""
     if not name:
         return True
-    try:
-        marker = json.loads((environment_dir(name) / _ENV_MARKER).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    marker = _environment_marker(name)
+    return (marker is not None and environment_python(name).is_file()
+            and marker.get("requirements") == list(ENGINE_ENVIRONMENTS[name]["requirements"]))
+
+
+def environment_gpu_upgrade(name: str | None) -> bool:
+    """True when a ready environment was set up before VoxLabs picked the PyTorch build for the GPU, and this
+    computer has an NVIDIA GPU: on Windows it then has a CPU-only PyTorch. Installing the model again fixes it."""
+    if not name or not ENGINE_ENVIRONMENTS[name].get("torch_packages") or not environment_ready(name):
         return False
-    return environment_python(name).is_file() and marker.get("requirements") == list(ENGINE_ENVIRONMENTS[name]["requirements"])
+    from app.utils.device import nvidia_gpu_present
+
+    marker = _environment_marker(name) or {}
+    return marker.get("torch_backend") != ENGINE_TORCH_BACKEND and nvidia_gpu_present()
 
 
 def environment_supported() -> bool:
@@ -161,10 +206,15 @@ def _child_env() -> dict[str, str]:
     return env
 
 
-def create_environment(name: str, cancelled: Callable[[], bool] | None = None) -> None:
+def create_environment(name: str, cancelled: Callable[[], bool] | None = None, reinstall_torch: bool = False) -> None:
     """Set up data/engines/<name> with uv and check that its engine imports. Packages come from uv's cache
-    when VoxLabs already uses the same versions, so only the engine's own libraries are downloaded."""
+    when VoxLabs already uses the same versions, so only the engine's own libraries are downloaded.
+
+    PyTorch comes from the index that matches this computer (uv's --torch-backend): CUDA builds with an
+    NVIDIA GPU. `reinstall_torch` replaces a PyTorch that is already there (a CPU-only build counts as
+    installed for torch==x.y.z, so uv would keep it)."""
     spec = ENGINE_ENVIRONMENTS[name]
+    torch_packages = spec.get("torch_packages") or ()
     uv = _uv()
     if uv is None:
         raise ModelError(f"The {name} engine runs in its own Python environment, which VoxLabs sets up with uv, "
@@ -174,14 +224,26 @@ def create_environment(name: str, cancelled: Callable[[], bool] | None = None) -
     folder, python = environment_dir(name), environment_python(name)
     (folder / _ENV_MARKER).unlink(missing_ok=True)
     logger.info(f"Setting up the {name} engine environment in {folder}")
-    steps = (
-        [uv, "venv", str(folder), "--python", base_python, "--allow-existing", "--quiet"],
-        [uv, "pip", "install", "--python", str(python), "--quiet", *spec["requirements"]],
-        [str(python), "-c", f"import {spec['module']}"],
-    )
-    for command in steps:
-        _run_step(command, name, cancelled)
-    (folder / _ENV_MARKER).write_text(json.dumps({"requirements": list(spec["requirements"])}), encoding="utf-8")
+    install = [uv, "pip", "install", "--python", str(python), "--quiet"]
+    if torch_packages:
+        install += ["--torch-backend", ENGINE_TORCH_BACKEND]
+        if reinstall_torch:
+            install += [arg for package in torch_packages for arg in ("--reinstall-package", package)]
+    _run_step([uv, "venv", str(folder), "--python", base_python, "--allow-existing", "--quiet"], name, cancelled)
+    try:
+        _run_step([*install, *spec["requirements"]], name, cancelled)
+    except ModelError as exc:
+        if "torch-backend" not in exc.message:
+            raise
+        # A uv older than 0.6.9 has no --torch-backend: install PyPI's default PyTorch build instead.
+        logger.warning(f"This uv cannot pick a PyTorch build for the GPU; {name} gets PyPI's default build")
+        _run_step([uv, "pip", "install", "--python", str(python), "--quiet", *spec["requirements"]], name, cancelled)
+        torch_packages = ()
+    _run_step([str(python), "-c", f"import {spec['module']}"], name, cancelled)
+    marker: dict[str, Any] = {"requirements": list(spec["requirements"])}
+    if torch_packages:
+        marker["torch_backend"] = ENGINE_TORCH_BACKEND
+    (folder / _ENV_MARKER).write_text(json.dumps(marker), encoding="utf-8")
     logger.info(f"The {name} engine environment is ready")
 
 
@@ -326,14 +388,18 @@ def is_cuda_oom(exc: BaseException) -> bool:
     return type(exc).__name__ == "OutOfMemoryError" or "CUDA out of memory" in str(exc)
 
 
-def free_cuda_memory() -> None:
+def release_memory(device: str | None = None) -> None:
+    """Free what unloaded models left behind: collect their objects, then hand PyTorch's cached GPU memory
+    back so the next model (or another program) can use it. torch is never imported just for this."""
+    gc.collect()
+    torch = sys.modules.get("torch")
+    if torch is None or (device and not device.startswith("cuda")):
+        return
     try:
-        import torch  # pyright: ignore[reportMissingImports]
-
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and torch.cuda.is_initialized():
             torch.cuda.empty_cache()
-    except ImportError:
-        pass
+    except Exception as exc:  # a broken CUDA setup must not fail an unload
+        logger.debug(f"Could not empty the CUDA cache: {exc}")
 
 
 # ---------------------------------------------------------------- online backends (opt-in)
@@ -577,6 +643,14 @@ class WorkerBackend(ModelBackend):
     environment = ""
     _process: subprocess.Popen | None = None
 
+    @classmethod
+    def available_devices(cls) -> list[str]:
+        """The helper's own PyTorch decides: offer every NVIDIA GPU the driver reports (it falls back to the
+        CPU by itself when its PyTorch cannot use CUDA), whatever PyTorch build VoxLabs itself has."""
+        from app.utils.device import gpus
+
+        return ["cpu"] + [f"cuda:{gpu['index']}" for gpu in gpus()]
+
     def load(self):
         spec = ENGINE_ENVIRONMENTS[self.environment]
         if not environment_ready(self.environment):
@@ -584,14 +658,17 @@ class WorkerBackend(ModelBackend):
         worker = Path(__file__).parent / "engine_workers" / spec["worker"]
         self._errors: collections.deque[str] = collections.deque(maxlen=8)
         self._process = subprocess.Popen(
-            [str(environment_python(self.environment)), str(worker), str(self.model_dir), self.device],
+            [str(environment_python(self.environment)), str(worker), str(self.model_dir), self.device, self.precision],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
             errors="replace", env=_child_env(), creationflags=_NO_WINDOW,
         )
         self._stderr_reader = threading.Thread(target=self._drain_stderr, args=(self._process,), daemon=True)
         self._stderr_reader.start()
         ready = self._receive()
-        self.device = ready.get("device", self.device)
+        requested, self.device = self.device, ready.get("device", self.device)
+        if requested.startswith("cuda") and not self.device.startswith("cuda"):
+            logger.warning(f"The {self.environment} engine runs on the CPU: its PyTorch cannot use the GPU. "
+                           "Install the model again on the Models page to add GPU support.")
         self.loaded = True
 
     def unload(self):
@@ -653,11 +730,19 @@ class Qwen3Backend(WorkerBackend):
     environment = "qwen3-tts"
     supports_cloning = True
     native_params = frozenset({"temperature"})
+    max_batch = 16  # its generate() takes a list of texts and decodes them together
+    # Each frame is generated in many small steps, so a batch of sentences costs little more than one sentence.
+    batch_chunk_chars = 200
     VOICES = frozenset(voice["id"] for voice in QWEN3_VOICES)
 
     def synthesize(self, request, voice):
-        message: dict[str, Any] = {"text": request.text, "language": (voice.language if voice else None)
-                                   or request.language, "temperature": request.temperature, "seed": request.seed}
+        return self.synthesize_batch([request], voice)[0]
+
+    def synthesize_batch(self, requests, voice):
+        first = requests[0]
+        message: dict[str, Any] = {"texts": [r.text for r in requests], "temperature": first.temperature,
+                                   "language": (voice.language if voice else None) or first.language,
+                                   "seed": first.seed}
         if voice and voice.sample_paths:
             message["ref_audio"] = str(Path(voice.sample_paths[0]).resolve())
         else:
@@ -666,10 +751,10 @@ class Qwen3Backend(WorkerBackend):
                 raise ModelError(f"Qwen3-TTS has no voice '{speaker}'", field="engine_voice")
             message["speaker"] = speaker
         reply = self._call(message)
-        audio = np.frombuffer(base64.b64decode(reply["audio"]), dtype="<f4").astype(np.float32)
-        if not audio.size:
+        audios = [np.frombuffer(base64.b64decode(data), dtype="<f4").astype(np.float32) for data in reply["audios"]]
+        if len(audios) != len(requests) or any(not audio.size for audio in audios):
             raise ModelError("Qwen3-TTS returned no audio for this text")
-        return audio, int(reply["sr"])
+        return [(audio, int(reply["sr"])) for audio in audios]
 
 
 _BACKENDS: dict[str, type[ModelBackend]] = {
@@ -692,9 +777,9 @@ def backend_class(backend_id: str) -> type[ModelBackend] | None:
     return _BACKENDS.get(backend_id)
 
 
-def create_backend(backend_id: str, model_dir: Path, device: str) -> ModelBackend:
+def create_backend(backend_id: str, model_dir: Path, device: str, precision: str = "auto") -> ModelBackend:
     cls = backend_class(backend_id)
     if cls is None:
         raise ModelError(f"Backend '{backend_id}' cannot synthesize speech")
-    logger.info(f"Creating backend {backend_id} on {device}")
-    return cls(model_dir, device)
+    logger.info(f"Creating backend {backend_id} on {device} (precision: {precision})")
+    return cls(model_dir, device, precision)

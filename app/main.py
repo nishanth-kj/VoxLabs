@@ -83,11 +83,15 @@ def main() -> int:
     if self_test:
         _import_bundled_engines()  # raises (and fails the self-test) if an engine cannot load here
         QTimer.singleShot(0, app.quit)  # every page is built: the bundle works
-    elif system_service.get_setting("api_enabled"):
-        try:
-            system_service.start_api()
-        except Exception as exc:  # the desktop app works without the API
-            show_error(window, exc, "REST API not started")
+    else:
+        if system_service.get_setting("api_enabled"):
+            try:
+                system_service.start_api()
+            except Exception as exc:  # the desktop app works without the API
+                show_error(window, exc, "REST API not started")
+        # With preload_default_model, the default speech model loads (and warms up) in the background
+        # once the window is up, so the first generation does not wait for it.
+        QTimer.singleShot(0, model_service.preload_default)
 
     code = app.exec()
     logger.info("Shutting down")

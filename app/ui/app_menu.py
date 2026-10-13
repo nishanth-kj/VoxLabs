@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 NAV_SHORTCUTS = {"home": "Ctrl+1", "studio": "Ctrl+2", "clone": "Ctrl+3", "generate": "Ctrl+4", "script": "Ctrl+5",
                  "editor": "Ctrl+6", "voice_editor": "Ctrl+9", "voices": "Ctrl+7", "models": "Ctrl+8",
+                 "files": "Ctrl+0",
                  "settings": "Ctrl+,"}
 
 
@@ -69,6 +70,8 @@ def build_menu_bar(window: "MainWindow") -> QMenuBar:
     _add(file, "Import Audio File…", lambda: cmd("editor", "import_file"), hint="Ctrl+I", icon="import")
     _add(file, "Save Edits as New Audio", lambda: cmd("editor", "render_edits"), hint="Ctrl+S", icon="save")
     _add(file, "Export Audio…", lambda: cmd("editor", "export"), hint="Ctrl+E", icon="export")
+    _add(file, "All Files", lambda: cmd("files", "show_kind", None), icon="files")
+    _add(file, "Exported Files", lambda: cmd("files", "show_kind", "export"))
     file.addSeparator()
     _add(file, "Open Data Folder", window.open_data_folder)
     _add(file, "Settings", lambda: window.go("settings"), shortcut="Ctrl+,", icon="settings")

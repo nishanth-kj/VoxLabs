@@ -5,6 +5,7 @@ from typing import Any
 
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from app.services.tts_service import tts_service
 from app.ui.widgets.progress import BusyBar, run_async, show_error, watch_job
 
 
@@ -31,6 +32,12 @@ class BasePage(QWidget):
         self.root.addLayout(header)
         self.busy = BusyBar()
         self.root.addWidget(self.busy)
+        # What the followed job is doing, then how long it took (measured, never estimated up front).
+        self.job_status = QLabel("")
+        self.job_status.setObjectName("Hint")
+        self.job_status.setWordWrap(True)
+        self.job_status.hide()
+        self.root.addWidget(self.job_status)
 
     # Called by MainWindow whenever the page becomes visible.
     def refresh(self) -> None:
@@ -66,17 +73,30 @@ class BasePage(QWidget):
                on_fail: Callable[[], object] | None = None) -> None:
         """Show progress for a background job and call `on_done(result)` when it completes."""
         self.busy.start()
+        self.job_status.hide()
 
         def done(result):
             self.busy.stop()
+            self._show_timings(result.get("timings"))
             if on_done:
                 on_done(result)
 
         def failed(message):
             self.busy.stop()
+            self.job_status.hide()
             if on_fail:
                 on_fail()
             if message != "Cancelled":
                 show_error(self, message)
 
-        watch_job(job, done, failed, self.busy.set_progress, parent=self)
+        def says(message: str):
+            self.job_status.setText(message)
+            self.job_status.show()
+
+        watch_job(job, done, failed, self.busy.set_progress, parent=self, on_message=says)
+
+    def _show_timings(self, timings: dict | None) -> None:
+        """After a generation: audio length, time taken, RTF and where the time went (queue, load, ...)."""
+        text = tts_service.describe(timings) if timings and timings.get("audio_s") else ""
+        self.job_status.setText(text)
+        self.job_status.setVisible(bool(text))

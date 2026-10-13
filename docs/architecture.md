@@ -33,7 +33,7 @@ Here is what happens when you click **Generate** on the Generate page:
 
 1. `GeneratePage.generate()` builds a `TTSRequest` and calls `tts_service.generate_async(body)`.
 2. `JobService.submit()` records a `jobs` row (`status = Pending`) and runs the work on a thread pool.
-3. `TTSService.generate()` validates the input, resolves the voice (`VoiceService.voice_ref`, which checks consent), resolves the model (`ModelService.resolve_speech_model`) and loads the backend (`ModelService.backend_for`). It then synthesizes chunk by chunk, applies prosody, saves the original WAV, runs `AudioService.process_array`, and registers an `audios` row in one transaction.
+3. `TTSService.generate()` validates the input, resolves the voice (`VoiceService.voice_ref`, which checks consent), resolves the model (`ModelService.resolve_speech_model`) and loads the backend (`ModelService.backend_for`). It then synthesizes chunk by chunk (several chunks per call on engines that batch, holding the model with `ModelService.using()` for each call), applies prosody, saves the original WAV, runs `AudioService.process_array`, and registers an `audios` row in one transaction. The result carries `timings` (model load, inference, prosody, post-processing, file writes, database, audio length and real-time factor).
 4. The job's progress and completion are written to the database and pushed to listeners. `JobBridge` turns those into a Qt signal, and `BasePage.follow()` updates the progress bar and calls back on the UI thread.
 
 The API route `POST /api/tts` validates a `TTSRequest` and passes the whole body to the same `tts_service.generate(body)`. With `background: true` it calls `generate_async(body)` instead and returns the job, as `ApiResponse(data).success()`.
@@ -64,7 +64,7 @@ The window follows the Electron / VS Code layout:
 
 ## Engines
 
-`app/utils/model.py` defines `ModelBackend` (`load`, `unload`, `synthesize`) and one class per engine. Imports of heavy libraries happen inside `load()`, so a missing optional extra only disables that engine. `ModelService` owns the policy: which model to use, which device, when to load, and whether online engines are allowed.
+`app/utils/model.py` defines `ModelBackend` (`load`, `unload`, `synthesize`) and one class per engine. Imports of heavy libraries happen inside `load()`, so a missing optional extra only disables that engine. `ModelService` owns the policy: which model to use, which device, when to load and unload, and whether online engines are allowed. Loads run one at a time but never block generations on models that are already loaded; idle GPU models make room for a new one (least recently used first), and `max_loaded_models` caps how many stay in memory. See [performance.md](performance.md).
 
 ## Settings
 
