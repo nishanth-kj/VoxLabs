@@ -115,6 +115,30 @@ class LiveVoiceService(QObject):
         self._test_timer: QTimer | None = None
         self._simulated_phase = 0.0
 
+    @staticmethod
+    def _dev_id_to_str(dev: Any, fallback: str) -> str:
+        try:
+            if hasattr(dev, "id"):
+                raw_id = dev.id()
+                if hasattr(raw_id, "toStdString"):
+                    return str(raw_id.toStdString())
+                if hasattr(raw_id, "data"):
+                    raw_data: Any = raw_id.data()
+                    if isinstance(raw_data, (bytes, bytearray)):
+                        return raw_data.decode("utf-8", "ignore")
+                    if isinstance(raw_data, memoryview):
+                        return raw_data.tobytes().decode("utf-8", "ignore")
+            return fallback
+        except Exception:
+            return fallback
+
+    @staticmethod
+    def _butter_ba(order: int, wn: Any, btype: str = "lowpass") -> tuple[np.ndarray, np.ndarray]:
+        ba_filt: Any = signal.butter(order, wn, btype=btype, output="ba")
+        b = np.asarray(ba_filt[0], dtype=np.float64)
+        a = np.asarray(ba_filt[1], dtype=np.float64)
+        return b, a
+
     # ------------------------------------------------------------ Device discovery
 
     def get_input_devices(self) -> list[dict[str, Any]]:
@@ -126,8 +150,7 @@ class LiveVoiceService(QObject):
             for dev in devices:
                 desc = dev.description()
                 is_def = dev.id() == default.id() if hasattr(dev, "id") else False
-                dev_id_raw = dev.id().data() if hasattr(dev, "id") and hasattr(dev.id(), "data") else desc
-                dev_id_str = dev_id_raw.decode("utf-8", "ignore") if isinstance(dev_id_raw, (bytes, bytearray, memoryview)) else str(dev_id_raw)
+                dev_id_str = self._dev_id_to_str(dev, desc)
                 result.append({
                     "id": dev_id_str,
                     "description": desc,
@@ -149,8 +172,7 @@ class LiveVoiceService(QObject):
             for dev in devices:
                 desc = dev.description()
                 is_def = dev.id() == default.id() if hasattr(dev, "id") else False
-                dev_id_raw = dev.id().data() if hasattr(dev, "id") and hasattr(dev.id(), "data") else desc
-                dev_id_str = dev_id_raw.decode("utf-8", "ignore") if isinstance(dev_id_raw, (bytes, bytearray, memoryview)) else str(dev_id_raw)
+                dev_id_str = self._dev_id_to_str(dev, desc)
                 result.append({
                     "id": dev_id_str,
                     "description": desc,
@@ -436,8 +458,13 @@ class LiveVoiceService(QObject):
             qba = self._input_io.readAll()
             if qba.isEmpty():
                 return
-            raw_data = qba.data()
-            raw_bytes = bytes(raw_data) if isinstance(raw_data, (bytes, bytearray, memoryview)) else bytes(qba)
+            raw_data: Any = qba.data()
+            if isinstance(raw_data, (bytes, bytearray)):
+                raw_bytes = bytes(raw_data)
+            elif isinstance(raw_data, memoryview):
+                raw_bytes = raw_data.tobytes()
+            else:
+                raw_bytes = b""
             if not raw_bytes:
                 return
 
@@ -523,9 +550,7 @@ class LiveVoiceService(QObject):
         if self.filter_mode == "radio":
             nyq = self.sample_rate / 2.0
             low, high = 350.0 / nyq, min(0.95, 3200.0 / nyq)
-            b_raw, a_raw = signal.butter(2, [low, high], btype="bandpass", output="ba")
-            b = np.asarray(b_raw, dtype=np.float64)
-            a = np.asarray(a_raw, dtype=np.float64)
+            b, a = self._butter_ba(2, [low, high], btype="bandpass")
             if self._radio_zi is None or len(self._radio_zi) != max(len(a), len(b)) - 1:
                 self._radio_zi = signal.lfilter_zi(b, a)
             filt_out, self._radio_zi = signal.lfilter(b, a, processed, zi=self._radio_zi)
@@ -534,25 +559,19 @@ class LiveVoiceService(QObject):
         elif self.filter_mode == "telephone":
             nyq = self.sample_rate / 2.0
             low, high = 300.0 / nyq, min(0.95, 3400.0 / nyq)
-            b_raw, a_raw = signal.butter(2, [low, high], btype="bandpass", output="ba")
-            b = np.asarray(b_raw, dtype=np.float64)
-            a = np.asarray(a_raw, dtype=np.float64)
+            b, a = self._butter_ba(2, [low, high], btype="bandpass")
             if self._radio_zi is None or len(self._radio_zi) != max(len(a), len(b)) - 1:
                 self._radio_zi = signal.lfilter_zi(b, a)
             filt_out, self._radio_zi = signal.lfilter(b, a, processed, zi=self._radio_zi)
             processed = np.asarray(filt_out, dtype=np.float32)
         elif self.filter_mode == "bass_boost":
             nyq = self.sample_rate / 2.0
-            b_raw, a_raw = signal.butter(1, 260.0 / nyq, btype="lowpass", output="ba")
-            b = np.asarray(b_raw, dtype=np.float64)
-            a = np.asarray(a_raw, dtype=np.float64)
+            b, a = self._butter_ba(1, 260.0 / nyq, btype="lowpass")
             lows = np.asarray(signal.lfilter(b, a, processed), dtype=np.float32)
             processed = processed + 0.6 * lows
         elif self.filter_mode == "treble_boost":
             nyq = self.sample_rate / 2.0
-            b_raw, a_raw = signal.butter(1, min(0.95, 2500.0 / nyq), btype="highpass", output="ba")
-            b = np.asarray(b_raw, dtype=np.float64)
-            a = np.asarray(a_raw, dtype=np.float64)
+            b, a = self._butter_ba(1, min(0.95, 2500.0 / nyq), btype="highpass")
             highs = np.asarray(signal.lfilter(b, a, processed), dtype=np.float32)
             processed = processed + 0.5 * highs
         elif self.filter_mode == "alien":
