@@ -19,9 +19,8 @@ if TYPE_CHECKING:
     from app.ui.main_window import MainWindow
 
 NAV_SHORTCUTS = {"home": "Ctrl+1", "studio": "Ctrl+2", "clone": "Ctrl+3", "generate": "Ctrl+4", "script": "Ctrl+5",
-                 "editor": "Ctrl+6", "voice_editor": "Ctrl+9", "voices": "Ctrl+7", "models": "Ctrl+8",
-                 "files": "Ctrl+0",
-                 "settings": "Ctrl+,"}
+                 "dubbing": "Ctrl+Shift+D", "editor": "Ctrl+6", "voice_editor": "Ctrl+9", "voices": "Ctrl+7",
+                 "models": "Ctrl+8", "files": "Ctrl+0", "settings": "Ctrl+,"}
 
 
 def _add(menu: QMenu, text: str, handler: Callable[[], object], *, shortcut: str | None = None,
@@ -181,6 +180,18 @@ def build_menu_bar(window: "MainWindow") -> QMenuBar:
 
     # ------------------------------------------------------------ Tools
     tools = bar.addMenu("&Tools")
+    dubbing = _submenu(tools, "Video Dubbing", "video")
+    _add(dubbing, "Open Dubbing Studio", lambda: window.go("dubbing"), icon="video")
+    _add(dubbing, "Import Video / Media…", lambda: cmd("dubbing", "new_project_dialog"), icon="import")
+    _add(dubbing, "Import Subtitles (SRT/VTT)…", lambda: cmd("dubbing", "import_subtitles_dialog"), icon="open")
+    _add(dubbing, "Export Subtitles…", lambda: cmd("dubbing", "export_subtitles_dialog"), icon="export")
+    dubbing.addSeparator()
+    _add(dubbing, "Auto-assign Voices to Speakers", lambda: cmd("dubbing", "auto_assign_voices"), icon="voices")
+    _add(dubbing, "Generate Selected Line", lambda: cmd("dubbing", "generate_active_segment"), icon="generate")
+    _add(dubbing, "Generate All Lines", lambda: cmd("dubbing", "generate_all_lines"), icon="play")
+    dubbing.addSeparator()
+    _add(dubbing, "Render Synchronized Video…", lambda: cmd("dubbing", "render_final_video"), icon="save")
+    tools.addSeparator()
     mcp = _submenu(tools, "MCP Server", "mcp")
     _add(mcp, "MCP Activity and Tools", lambda: window.go("mcp"))
     _add(mcp, "Copy Claude Desktop Config", lambda: cmd("mcp", "copy_claude_desktop_config"), icon="copy")

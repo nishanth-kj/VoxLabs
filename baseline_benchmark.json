@@ -1,0 +1,93 @@
+{
+  "label": "run",
+  "device": "auto",
+  "machine": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "python": "3.12.10",
+    "cpu": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "cores": 16,
+    "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU, 6141 MiB, 610.88"
+  },
+  "date": "2026-10-14 18:11:21",
+  "engines": [
+    {
+      "engine": "piper-en-us-lessac-medium",
+      "device_requested": "auto",
+      "scenarios": {
+        "short": {
+          "wall_s": 0.21,
+          "audio_s": 4.27,
+          "rtf": 0.049,
+          "inference_s": 0.183,
+          "save_s": 0.007,
+          "post_s": 0.0,
+          "register_s": 0.014,
+          "engine_calls": 1,
+          "other_s": 0.006,
+          "runs": [
+            0.201,
+            0.21
+          ],
+          "median_wall_s": 0.206
+        }
+      },
+      "import_init_s": 1.706,
+      "load_s": 2.278,
+      "device": "cpu",
+      "first_generate": {
+        "wall_s": 3.048,
+        "audio_s": 4.32,
+        "rtf": 0.706,
+        "inference_s": 3.026,
+        "save_s": 0.005,
+        "post_s": 0.0,
+        "register_s": 0.013,
+        "engine_calls": 1,
+        "other_s": 0.004
+      },
+      "cold_total_s": 7.032,
+      "peak_rss_mb": 330,
+      "peak_vram_mb": 0
+    },
+    {
+      "engine": "kokoro-82m",
+      "device_requested": "auto",
+      "scenarios": {
+        "short": {
+          "wall_s": 0.242,
+          "audio_s": 4.74,
+          "rtf": 0.051,
+          "inference_s": 0.175,
+          "save_s": 0.038,
+          "post_s": 0.001,
+          "register_s": 0.022,
+          "engine_calls": 1,
+          "other_s": 0.006,
+          "runs": [
+            0.242,
+            0.23
+          ],
+          "median_wall_s": 0.236
+        }
+      },
+      "import_init_s": 1.434,
+      "load_s": 47.738,
+      "device": "cuda:0",
+      "first_generate": {
+        "wall_s": 7.335,
+        "audio_s": 4.74,
+        "rtf": 1.547,
+        "inference_s": 7.277,
+        "save_s": 0.022,
+        "post_s": 0.001,
+        "register_s": 0.022,
+        "engine_calls": 1,
+        "other_s": 0.013
+      },
+      "cold_total_s": 56.507,
+      "peak_rss_mb": 2150,
+      "torch_peak_allocated_mb": 655,
+      "peak_vram_mb": 863
+    }
+  ]
+}

@@ -55,6 +55,7 @@
 | **Voice cloning with consent** | Import or record samples, get a quality report, record who consented, then clone. Revoke a voice to delete its data, or delete it completely. |
 | **Text to speech** | Voice, model, speed, pitch, energy, emotion, style, pauses, pronunciations, temperature and seed. Regenerate a single sentence without redoing the rest. |
 | **Scripts and lessons** | Chapters, sections and speakers (`Teacher: …`) mapped to voices, per-section settings, several takes per section, intro and outro, and a final render. |
+| **Video dubbing** | Multi-speaker video dubbing: extract media audio, align SRT/WebVTT subtitles with millisecond precision, map speakers to voices, detect duration conflicts without silent audio warping, duck background audio, and remux synchronized output video. |
 | **Audio editor** | Non-destructive waveform editing: cut, copy, paste, split, trim, move, duplicate, join, fade, volume, normalize, undo and redo, and loop playback. Edits autosave. |
 | **Enhancement** | Denoise, EQ, compression, de-esser, limiter and loudness, with the presets Voice Clean, Podcast, Narration, Lesson, Studio and Raw. The untouched original is always kept. |
 | **Files** | One Library page lists everything VoxLabs keeps: generated, imported, processed and edited audio, every export wherever you saved it, and voice samples. |

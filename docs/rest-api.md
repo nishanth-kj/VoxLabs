@@ -109,6 +109,15 @@ Compose publishes the port on the host's loopback only. Engines from `pyproject.
 | `POST /api/scripts/{id}/generate` | `GenerateScriptRequest` | `script_service.generate(id, body)` / `generate_async(id, body)` (default `background: true`) |
 | `POST /api/scripts/sections` | `SectionRequest` | `script_service.update_section(body)` |
 | `POST /api/scripts/sections/{id}/generate`, `POST /api/scripts/takes/{id}/select` | — | section and take operations |
+| `GET /api/dubbing`, `GET /api/dubbing/{id}` | — | `dubbing_service.list_projects()` / `get()` |
+| `POST /api/dubbing` | `DubbingProjectRequest` | `dubbing_service.save(body)` (create, update, delete) |
+| `POST /api/dubbing/import-subtitles` | `DubbingImportRequest` | `dubbing_service.import_subtitles()` (SRT / WebVTT) |
+| `GET /api/dubbing/{id}/subtitles` | — | `dubbing_service.export_subtitles()` |
+| `POST /api/dubbing/segments` | `DubbingSegmentRequest` | `dubbing_service.save_segment(body)` |
+| `POST /api/dubbing/segments/{id}/generate` | — | `dubbing_service.generate_segment(id)` (with conflict metrics) |
+| `POST /api/dubbing/{id}/auto-map` | — | `dubbing_service.auto_map_speakers(id)` |
+| `POST /api/dubbing/{id}/generate-all` | — | `dubbing_service.generate_all(id)` |
+| `POST /api/dubbing/render` | `DubbingRenderRequest` | `dubbing_service.render_video(body)` (mix with ducking, remux) |
 | `GET /api/audio`, `GET /api/audio/{id}`, `GET /api/audio/{id}/file` | — | `audio_service.list_audios()` / `get()` / file download |
 | `POST /api/audio/import` | `AudioImportRequest` (multipart `file`) | `audio_service.import_upload(body)` |
 | `POST /api/audio/process` | `AudioProcessRequest` | `audio_service.process(body)`: steps/preset, or an `ops` edit list |

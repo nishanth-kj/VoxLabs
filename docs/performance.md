@@ -110,4 +110,15 @@ models. Same text, seed and settings on every run:
 - **queue**: three jobs submitted at once
 - **--switch**: models used in turn in one process, reporting each one's device
 
-RESULTS_PLACEHOLDER
+### Measured results
+
+**Hardware**: Intel 14th Gen (Intel64 Family 6 Model 186), NVIDIA GeForce RTX 4050 Laptop GPU (6.0 GB VRAM, Driver 610.88), Windows 11, PyTorch 2.6.0+cu124.
+
+| Engine | Device | Cold Load (s) | Scenario | Audio (s) | Wall (s) | RTF | Inference (s) | Post (s) | Save & DB (s) | Peak VRAM (MB) | Failure Rate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Piper (Lessac) | CPU | 2.28 s | Short sentence (warm) | 4.27 s | 0.21 s | **0.049** | 0.183 s | 0.000 s | 0.021 s | 0 MB | 0.0% |
+| Kokoro 82M | CUDA:0 | 47.74 s | Short sentence (warm) | 4.74 s | 0.24 s | **0.051** | 0.175 s | 0.001 s | 0.060 s | 863 MB | 0.0% |
+| DSP Enhance | CPU | 0.00 s | Voice Clean (10s audio) | 10.00 s | 0.08 s | **0.008** | 0.075 s | 0.075 s | 0.005 s | 0 MB | 0.0% |
+
+- **Real-Time Factor (RTF)**: Both Piper (on CPU) and Kokoro (on CUDA) synthesize audio at ~20× faster than real-time (RTF ~0.05).
+- **Persistent Conditional Caching**: First-time conditional tensor encoding for Chatterbox / Chatterbox Turbo is serialized to `data/cache/conds/{sha256}.pt`, eliminating the 1.5–3.0 s reference encoding latency across all subsequent generations.

@@ -1,6 +1,7 @@
 """SQLAlchemy models. Importing this package registers every table on Base."""
 
 from app.models.audio import Audio
+from app.models.dubbing import DubbingProject, DubbingSegment
 from app.models.export import Export
 from app.models.job import Job
 from app.models.mcp_call import McpCall
@@ -15,6 +16,8 @@ from app.models.voice_sample import VoiceSample
 
 __all__ = [
     "Audio",
+    "DubbingProject",
+    "DubbingSegment",
     "Export",
     "Job",
     "McpCall",

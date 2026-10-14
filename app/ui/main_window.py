@@ -33,6 +33,7 @@ from app.ui import icons, theme
 from app.ui.app_menu import build_menu_bar, refresh_menu_icons
 from app.ui.pages import BasePage
 from app.ui.pages.clone_page import ClonePage
+from app.ui.pages.dubbing_page import DubbingPage
 from app.ui.pages.editor_page import EditorPage
 from app.ui.pages.files_page import FilesPage
 from app.ui.pages.generate_page import GeneratePage
@@ -81,6 +82,7 @@ PAGES = [
     ("clone", "Clone Voice", ClonePage, "clone"),
     ("generate", "Generate", GeneratePage, "generate"),
     ("script", "Script to Audio", ScriptPage, "script"),
+    ("dubbing", "Video Dubbing", DubbingPage, "video"),
     ("editor", "Audio Editor", EditorPage, "editor"),
     ("voice_editor", "Voice Editor", VoiceEditorPage, "voice_editor"),
     ("voices", "Voices", VoicesPage, "voices"),
@@ -90,7 +92,7 @@ PAGES = [
     ("settings", "Settings", SettingsPage, "settings"),
 ]
 NAV_SECTIONS = [("", ["home", "studio"]),
-                ("Create", ["clone", "generate", "script", "editor", "voice_editor"]),
+                ("Create", ["clone", "generate", "script", "dubbing", "editor", "voice_editor"]),
                 ("Library", ["voices", "models", "files"])]
 NAV_FOOTER = ["mcp", "settings"]
 EDIT_COMMANDS = ("undo", "redo", "cut", "copy", "paste", "delete", "select_all", "duplicate")

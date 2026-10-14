@@ -17,6 +17,9 @@ from app.exceptions import AppError
 from app.models.request import (
     AudioExportRequest,
     AudioProcessRequest,
+    DubbingImportRequest,
+    DubbingProjectRequest,
+    DubbingRenderRequest,
     ExportRequest,
     GenerateScriptRequest,
     PerformanceRequest,
@@ -29,6 +32,7 @@ from app.models.request import (
 )
 from app.models.response import ApiResponse
 from app.services.audio_service import audio_service
+from app.services.dubbing_service import dubbing_service
 from app.services.job_service import job_service
 from app.services.model_service import model_service
 from app.services.script_service import script_service
@@ -176,6 +180,32 @@ def register_tools(mcp: MCPServer) -> None:
         if body.background:
             return respond("generate_script", lambda: {"job": script_service.generate_async(scripts_id, body)})
         return respond("generate_script", lambda: script_service.generate(scripts_id, body))
+
+    # ------------------------------------------------------------ dubbing
+
+    @mcp.tool(description="List video dubbing projects.", annotations=READ_ONLY)
+    def list_dubbing_projects() -> dict:
+        return respond("list_dubbing_projects", dubbing_service.list_projects)
+
+    @mcp.tool(description="One dubbing project with its timeline segments, speaker assignments, and conflict status.",
+              annotations=READ_ONLY)
+    def get_dubbing_project(dubbing_projects_id: int) -> dict:
+        return respond("get_dubbing_project", lambda: dubbing_service.get(Validation.require_id(dubbing_projects_id, "dubbing_projects_id")))
+
+    @mcp.tool(description="Create (no dubbing_projects_id: title, source_media_path), update (dubbing_projects_id), "
+                          "or delete (dubbing_projects_id + status 8) a video dubbing project.", annotations=SAVE)
+    def save_dubbing_project(body: DubbingProjectRequest) -> dict:
+        return respond("save_dubbing_project", lambda: dubbing_service.save(body))
+
+    @mcp.tool(description="Import SRT or WebVTT subtitles into a dubbing project.", annotations=WRITE)
+    def import_dubbing_subtitles(body: DubbingImportRequest) -> dict:
+        return respond("import_dubbing_subtitles", lambda: dubbing_service.import_subtitles(
+            dubbing_projects_id=body.dubbing_projects_id, content=body.content, format=body.format, replace_existing=body.replace_existing
+        ))
+
+    @mcp.tool(description="Render synchronized dubbed dialogue and remux the video.", annotations=WRITE)
+    def render_dubbed_video(body: DubbingRenderRequest) -> dict:
+        return respond("render_dubbed_video", lambda: dubbing_service.render_video(body))
 
     # ------------------------------------------------------------ models and jobs
 

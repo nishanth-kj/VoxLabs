@@ -12,6 +12,7 @@ import asyncio
 import base64
 import collections
 import gc
+import hashlib
 import importlib.util
 import io
 import json
@@ -21,6 +22,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 import wave
 from collections.abc import Callable
@@ -294,43 +296,81 @@ def _discard(path: Path) -> None:
         pass
 
 
+def _verify_sha256(path: Path, expected: str) -> bool:
+    try:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            while chunk := f.read(1 << 18):
+                h.update(chunk)
+        return h.hexdigest().lower() == expected.strip().lower()
+    except OSError:
+        return False
+
+
 def download(url: str, dest: Path, progress: Callable[[float], None] | None = None,
-             cancelled: Callable[[], bool] | None = None) -> Path:
+             cancelled: Callable[[], bool] | None = None,
+             sha256: str | None = None) -> Path:
     """Save `url` to `dest`. Hugging Face rejects some clients, so this sends a User-Agent
     and turns HTTP failures into a ModelError instead of a raw library exception.
 
+    Supports HTTP Range resumption on partial downloads and optional SHA256 integrity checks.
     Two installs can ask for the same file. They share one lock, and a file Windows still
     has open is left alone when the other install already finished it.
     """
     dest.parent.mkdir(parents=True, exist_ok=True)
     with _download_lock(dest):
         if _saved(dest):
-            if progress:
-                progress(1.0)
-            return dest
+            if sha256 and not _verify_sha256(dest, sha256):
+                _discard(dest)
+            else:
+                if progress:
+                    progress(1.0)
+                return dest
         tmp = dest.with_name(f"{dest.name}.{threading.get_ident()}.part")
         last_error: Exception | None = None
         for _attempt in range(2):
             try:
-                request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-                with urllib.request.urlopen(request, timeout=120) as response, open(tmp, "wb") as out:
-                    total = int(response.headers.get("Content-Length") or 0)
-                    done = 0
-                    checked = False
-                    while chunk := response.read(1 << 16):
-                        if cancelled and cancelled():
-                            raise ModelError("Download cancelled")
-                        if not checked:
-                            head = chunk.lstrip()[:15].lower()
-                            if head.startswith(b"<!doctype") or head.startswith(b"<html"):
-                                raise ModelError(f"Download of {dest.name} returned a web page instead of the file")
-                            checked = True
-                        out.write(chunk)
-                        done += len(chunk)
-                        if progress and total:
-                            progress(min(done / total, 1.0))
+                headers = {"User-Agent": USER_AGENT}
+                existing_bytes = tmp.stat().st_size if tmp.is_file() else 0
+                if existing_bytes > 0:
+                    headers["Range"] = f"bytes={existing_bytes}-"
+                request = urllib.request.Request(url, headers=headers)
+                try:
+                    response = urllib.request.urlopen(request, timeout=120)
+                except urllib.error.HTTPError as http_err:
+                    if http_err.code in (416, 400) and existing_bytes > 0:
+                        _discard(tmp)
+                        headers.pop("Range", None)
+                        request = urllib.request.Request(url, headers=headers)
+                        response = urllib.request.urlopen(request, timeout=120)
+                        existing_bytes = 0
+                    else:
+                        raise
+
+                with response:
+                    is_resume = (getattr(response, "status", 200) == 206) and existing_bytes > 0
+                    content_len = int(response.headers.get("Content-Length") or 0)
+                    total = (existing_bytes + content_len) if is_resume else content_len
+                    mode = "ab" if is_resume else "wb"
+                    done = existing_bytes if is_resume else 0
+                    checked = is_resume
+                    with open(tmp, mode) as out:
+                        while chunk := response.read(1 << 16):
+                            if cancelled and cancelled():
+                                raise ModelError("Download cancelled")
+                            if not checked:
+                                head = chunk.lstrip()[:15].lower()
+                                if head.startswith(b"<!doctype") or head.startswith(b"<html"):
+                                    raise ModelError(f"Download of {dest.name} returned a web page instead of the file")
+                                checked = True
+                            out.write(chunk)
+                            done += len(chunk)
+                            if progress and total:
+                                progress(min(done / total, 1.0))
                 if done == 0:
                     raise ModelError(f"Download of {dest.name} was empty")
+                if sha256 and not _verify_sha256(tmp, sha256):
+                    raise ModelError(f"Download of {dest.name} failed SHA256 integrity verification")
                 tmp.replace(dest)
                 return dest
             except ModelError:
@@ -585,10 +625,41 @@ class ChatterboxBackend(ModelBackend):
         if not voice or not voice.sample_paths:
             return self._builtin_conds
         sample = Path(voice.sample_paths[0])
-        key = (str(sample.resolve()), sample.stat().st_mtime)
-        if key not in self._sample_conds:
-            self._model.prepare_conditionals(str(sample), exaggeration=exaggeration)
-            self._sample_conds[key] = self._model.conds
+        resolved_path = str(sample.resolve())
+        mtime = sample.stat().st_mtime
+        key = (resolved_path, mtime, exaggeration)
+        if key in self._sample_conds:
+            return self._sample_conds[key]
+
+        # Check persistent disk cache
+        cache_dir = subdir("cache") / "conds"
+        cache_key = hashlib.sha256(f"{self.backend_id}:{resolved_path}:{mtime}:{exaggeration}".encode("utf-8")).hexdigest()
+        cache_file = cache_dir / f"{cache_key}.pt"
+        if cache_file.is_file():
+            try:
+                import torch
+
+                conds = torch.load(cache_file, map_location=self.device, weights_only=False)
+                self._sample_conds[key] = conds
+                return conds
+            except Exception as exc:
+                logger.debug(f"Failed to load cached conditionals from {cache_file}: {exc}")
+                _discard(cache_file)
+
+        self._model.prepare_conditionals(str(sample), exaggeration=exaggeration)
+        conds = self._model.conds
+        self._sample_conds[key] = conds
+
+        try:
+            import torch
+
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            tmp_cache = cache_file.with_name(f"{cache_file.name}.{threading.get_ident()}.tmp")
+            torch.save(conds, tmp_cache)
+            tmp_cache.replace(cache_file)
+        except Exception as exc:
+            logger.debug(f"Failed to persist conditionals to disk cache: {exc}")
+
         return self._sample_conds[key]
 
 

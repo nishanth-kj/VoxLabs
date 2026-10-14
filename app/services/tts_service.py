@@ -200,6 +200,8 @@ class TTSService:
             speed=eff_speed if "speed" in native else 1.0, pitch=eff_pitch if "pitch" in native else 1.0,
             emotion=emotion, style=style, temperature=temperature, seed=seed,
         )
+        global_pron = system_service.get_setting("pronunciations") or {}
+        merged_pron = {**global_pron, **(body.pronunciations or {})}
         info = {
             "text": text,
             "voices_id": voices_id,
@@ -210,7 +212,7 @@ class TTSService:
             "cloned": bool(voice and voice["source"] == CLONE and backend.supports_cloning),
             "pitch_matched": False,
             "speed": speed, "pitch": pitch, "energy": energy, "emotion": emotion, "style": style,
-            "pause_ms": pause_ms, "pronunciations": body.pronunciations or {},
+            "pause_ms": pause_ms, "pronunciations": merged_pron,
             "temperature": temperature, "seed": seed,
         }
         batch = max(1, min(backend.max_batch, int(system_service.get_setting("batch_size") or 1)))
@@ -219,7 +221,7 @@ class TTSService:
         return _Plan(text=text, info=info, model=model, voice=voice, voice_ref=voice_ref, native=native,
                      supports_cloning=backend.supports_cloning, request=request, speed=eff_speed, pitch=eff_pitch,
                      energy=eff_energy, gap_ms=gap_ms, chunk_chars=chunk_chars, batch=batch,
-                     pronunciations=body.pronunciations or {})
+                     pronunciations=merged_pron)
 
     def _speak(self, plan: _Plan, texts: list[str], clock: _Clock, progress: Progress | None = None,
                span: tuple[float, float] = (0.0, 0.8)) -> list[tuple[np.ndarray, int]]:

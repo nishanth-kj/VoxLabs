@@ -40,6 +40,7 @@ DEFAULT_SETTINGS = {
     "device": "auto",
     "enhance_preset": "Voice Clean",
     "autosave": True,
+    "pronunciations": {},
     "api_enabled": False,
     "api_host": "127.0.0.1",
     "api_port": 8942,

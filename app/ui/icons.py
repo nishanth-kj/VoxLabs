@@ -35,6 +35,8 @@ ICONS: dict[str, str] = {
     "settings": '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/>'
                 '<circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
     "sidebar": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+    "video": '<rect x="2" y="4" width="15" height="16" rx="2"/><path d="M17 9l5-4v14l-5-4z"/>',
+    "dubbing": '<rect x="2" y="4" width="15" height="16" rx="2"/><path d="M17 9l5-4v14l-5-4z"/><circle cx="8" cy="12" r="2.5"/>',
     # window
     "minimize": '<path d="M6 12h12"/>',
     "maximize": '<rect x="6" y="6" width="12" height="12" rx="1"/>',

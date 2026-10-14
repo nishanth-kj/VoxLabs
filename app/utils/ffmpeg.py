@@ -91,3 +91,74 @@ def probe(path: str | Path) -> dict:
         "format": Path(path).suffix.lower().lstrip("."),
         "codec": stream.get("codec_name"),
     }
+
+
+def probe_media(path: str | Path) -> dict:
+    """Probe media file for both video and audio streams."""
+    exe = executable("ffprobe")
+    if not exe:
+        raise AudioError("FFprobe is not installed or not on PATH")
+    out = subprocess.run(
+        [exe, "-v", "error", "-print_format", "json", "-show_streams", "-show_format", str(path)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        creationflags=_NO_WINDOW,
+    )
+    if out.returncode != 0:
+        raise AudioError(f"Cannot probe media {Path(path).name}")
+    data = json.loads(out.stdout or "{}")
+    streams = data.get("streams", [])
+    v_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
+    a_stream = next((s for s in streams if s.get("codec_type") == "audio"), None)
+    fmt = data.get("format", {})
+
+    # Calculate FPS safely from rational like '30/1' or '24000/1001'
+    fps = 0.0
+    if v_stream and (r_fps := v_stream.get("r_frame_rate")):
+        try:
+            num, denom = r_fps.split("/")
+            fps = round(float(num) / float(denom), 2) if float(denom) > 0 else 0.0
+        except (ValueError, ZeroDivisionError):
+            fps = 0.0
+
+    duration = float(
+        fmt.get("duration")
+        or (v_stream.get("duration") if v_stream else None)
+        or (a_stream.get("duration") if a_stream else None)
+        or 0.0
+    )
+
+    return {
+        "has_video": v_stream is not None,
+        "has_audio": a_stream is not None,
+        "duration": duration,
+        "format": Path(path).suffix.lower().lstrip("."),
+        "video_codec": v_stream.get("codec_name") if v_stream else None,
+        "width": int(v_stream.get("width") or 0) if v_stream else None,
+        "height": int(v_stream.get("height") or 0) if v_stream else None,
+        "fps": fps if v_stream else None,
+        "audio_codec": a_stream.get("codec_name") if a_stream else None,
+        "sample_rate": int(a_stream.get("sample_rate") or 0) if a_stream else None,
+        "channels": int(a_stream.get("channels") or 0) if a_stream else None,
+    }
+
+
+def extract_audio(src: str | Path, dst: str | Path, sample_rate: int = 44100) -> Path:
+    """Extract audio stream from a video or audio container safely to WAV."""
+    args = ["-i", str(src), "-vn", "-ac", "1", "-ar", str(sample_rate), "-c:a", "pcm_s16le", str(dst)]
+    run(args)
+    return Path(dst)
+
+
+def remux_video(video_path: str | Path, audio_path: str | Path, dst_path: str | Path,
+                video_mode: str = "copy", crf: int = 20, audio_bitrate: str = "192k") -> Path:
+    """Remux new dubbed audio into a video container, preserving lossless video stream when mode is 'copy'."""
+    args = ["-i", str(video_path), "-i", str(audio_path)]
+    if video_mode == "copy":
+        args += ["-c:v", "copy"]
+    else:
+        args += ["-c:v", "libx264", "-crf", str(crf), "-preset", "fast"]
+    args += ["-c:a", "aac", "-b:a", str(audio_bitrate), "-map", "0:v:0", "-map", "1:a:0", "-shortest", str(dst_path)]
+    run(args)
+    return Path(dst_path)
