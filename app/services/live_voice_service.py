@@ -9,6 +9,7 @@ headphones, or virtual audio cables for Discord, OBS, and games) via QAudioSink.
 import math
 import sys
 import threading
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -24,6 +25,7 @@ from scipy import signal
 
 from app.constants.live_voice import LIVE_VOICE_PRESETS
 from app.exceptions import service_error
+from app.utils.files import data_dir
 from app.utils.logger import logger
 
 
@@ -124,11 +126,13 @@ class LiveVoiceService(QObject):
             for dev in devices:
                 desc = dev.description()
                 is_def = dev.id() == default.id() if hasattr(dev, "id") else False
+                dev_id_raw = dev.id().data() if hasattr(dev, "id") and hasattr(dev.id(), "data") else desc
+                dev_id_str = dev_id_raw.decode("utf-8", "ignore") if isinstance(dev_id_raw, (bytes, bytearray, memoryview)) else str(dev_id_raw)
                 result.append({
-                    "id": str(bytes(dev.id()).decode("utf-8", "ignore")) if hasattr(dev, "id") else desc,
+                    "id": dev_id_str,
                     "description": desc,
                     "is_default": is_def,
-                    "is_virtual": any(k in desc.lower() for k in ("cable", "virtual", "voicemeeter", "voxlabs")),
+                    "is_virtual": any(k in desc.lower() for k in ("cable", "virtual", "voicemeeter", "voxlabs", "vox mic")),
                     "device": dev,
                 })
             return result
@@ -145,11 +149,13 @@ class LiveVoiceService(QObject):
             for dev in devices:
                 desc = dev.description()
                 is_def = dev.id() == default.id() if hasattr(dev, "id") else False
+                dev_id_raw = dev.id().data() if hasattr(dev, "id") and hasattr(dev.id(), "data") else desc
+                dev_id_str = dev_id_raw.decode("utf-8", "ignore") if isinstance(dev_id_raw, (bytes, bytearray, memoryview)) else str(dev_id_raw)
                 result.append({
-                    "id": str(bytes(dev.id()).decode("utf-8", "ignore")) if hasattr(dev, "id") else desc,
+                    "id": dev_id_str,
                     "description": desc,
                     "is_default": is_def,
-                    "is_virtual": any(k in desc.lower() for k in ("cable", "virtual", "voicemeeter", "voxlabs")),
+                    "is_virtual": any(k in desc.lower() for k in ("cable", "virtual", "voicemeeter", "voxlabs", "vox mic")),
                     "device": dev,
                 })
             return result
@@ -167,6 +173,106 @@ class LiveVoiceService(QObject):
             if dev["is_virtual"]:
                 return dev["device"]
         return None
+
+    # ------------------------------------------------------------ Driver installation & uninstallation
+
+    def get_driver_folder(self) -> Path:
+        """Directory where the Virtual Audio Cable driver package is stored."""
+        folder = data_dir() / "drivers" / "vbcable"
+        folder.mkdir(parents=True, exist_ok=True)
+        return folder
+
+    def get_driver_installer_exe(self) -> Path | None:
+        """Find the 64-bit or 32-bit driver installer executable if present."""
+        folder = self.get_driver_folder()
+        for name in ("VBCABLE_Setup_x64.exe", "VBCABLE_Setup.exe"):
+            candidate = folder / name
+            if candidate.exists() and candidate.stat().st_size > 10_000:
+                return candidate
+        return None
+
+    def download_and_extract_driver(self) -> Path:
+        """Download and extract the official VB-CABLE driver pack."""
+        installer = self.get_driver_installer_exe()
+        if installer is not None:
+            return installer
+
+        import io
+        import ssl
+        import urllib.request
+        import zipfile
+
+        url = "https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip"
+        logger.info(f"Downloading Virtual Audio Driver package from {url}")
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        ctx = ssl.create_default_context()
+        try:
+            import certifi
+            ctx.load_verify_locations(certifi.where())
+        except Exception:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+
+        with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
+            data = resp.read()
+
+        folder = self.get_driver_folder()
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            zf.extractall(folder)
+
+        installer = self.get_driver_installer_exe()
+        if installer is None:
+            raise RuntimeError("Driver package extracted but VBCABLE_Setup_x64.exe was not found.")
+        logger.info(f"Virtual Audio Driver package ready at {installer}")
+        return installer
+
+    def install_virtual_driver(self) -> tuple[bool, str]:
+        """Launch the Virtual Audio Cable driver installer with Windows administrator privileges."""
+        try:
+            if sys.platform != "win32":
+                return False, "Virtual Audio Cable driver installer is designed for Windows."
+
+            installer = self.download_and_extract_driver()
+
+            import ctypes
+
+            logger.info(f"Launching driver installer with UAC: {installer}")
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", str(installer), "-i", str(installer.parent), 1
+            )
+            if ret > 32:
+                return True, "Driver installer launched. Please approve the Windows Administrator prompt to complete installation."
+            elif ret == 1223:
+                return False, "Installation was cancelled by the user."
+            else:
+                return False, f"Windows ShellExecute failed with error code: {ret}"
+        except Exception as exc:
+            logger.error("Failed to run virtual driver installer", exc_info=exc)
+            raise service_error(exc, "live_voice_service.install_virtual_driver")
+
+    def uninstall_virtual_driver(self) -> tuple[bool, str]:
+        """Launch the Virtual Audio Cable driver uninstaller with Windows administrator privileges."""
+        try:
+            if sys.platform != "win32":
+                return False, "Virtual Audio Cable driver uninstaller is designed for Windows."
+
+            installer = self.download_and_extract_driver()
+
+            import ctypes
+
+            logger.info(f"Launching driver uninstaller with UAC: {installer}")
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", str(installer), "-u", str(installer.parent), 1
+            )
+            if ret > 32:
+                return True, "Driver uninstaller launched. Please approve the Windows Administrator prompt to remove the driver."
+            elif ret == 1223:
+                return False, "Uninstallation was cancelled by the user."
+            else:
+                return False, f"Windows ShellExecute failed with error code: {ret}"
+        except Exception as exc:
+            logger.error("Failed to run virtual driver uninstaller", exc_info=exc)
+            raise service_error(exc, "live_voice_service.uninstall_virtual_driver")
 
     def get_presets(self) -> list[dict[str, Any]]:
         """Return available live voice presets."""
@@ -327,7 +433,11 @@ class LiveVoiceService(QObject):
         if not self._streaming or self._input_io is None:
             return
         try:
-            raw_bytes = self._input_io.readAll().data()
+            qba = self._input_io.readAll()
+            if qba.isEmpty():
+                return
+            raw_data = qba.data()
+            raw_bytes = bytes(raw_data) if isinstance(raw_data, (bytes, bytearray, memoryview)) else bytes(qba)
             if not raw_bytes:
                 return
 
@@ -413,28 +523,37 @@ class LiveVoiceService(QObject):
         if self.filter_mode == "radio":
             nyq = self.sample_rate / 2.0
             low, high = 350.0 / nyq, min(0.95, 3200.0 / nyq)
-            b, a = signal.butter(2, [low, high], btype="bandpass")
+            b_raw, a_raw = signal.butter(2, [low, high], btype="bandpass", output="ba")
+            b = np.asarray(b_raw, dtype=np.float64)
+            a = np.asarray(a_raw, dtype=np.float64)
             if self._radio_zi is None or len(self._radio_zi) != max(len(a), len(b)) - 1:
                 self._radio_zi = signal.lfilter_zi(b, a)
-            processed, self._radio_zi = signal.lfilter(b, a, processed, zi=self._radio_zi)
+            filt_out, self._radio_zi = signal.lfilter(b, a, processed, zi=self._radio_zi)
             # Soft saturation
-            processed = 1.25 * np.tanh(1.6 * processed)
+            processed = 1.25 * np.tanh(1.6 * np.asarray(filt_out, dtype=np.float32))
         elif self.filter_mode == "telephone":
             nyq = self.sample_rate / 2.0
             low, high = 300.0 / nyq, min(0.95, 3400.0 / nyq)
-            b, a = signal.butter(2, [low, high], btype="bandpass")
+            b_raw, a_raw = signal.butter(2, [low, high], btype="bandpass", output="ba")
+            b = np.asarray(b_raw, dtype=np.float64)
+            a = np.asarray(a_raw, dtype=np.float64)
             if self._radio_zi is None or len(self._radio_zi) != max(len(a), len(b)) - 1:
                 self._radio_zi = signal.lfilter_zi(b, a)
-            processed, self._radio_zi = signal.lfilter(b, a, processed, zi=self._radio_zi)
+            filt_out, self._radio_zi = signal.lfilter(b, a, processed, zi=self._radio_zi)
+            processed = np.asarray(filt_out, dtype=np.float32)
         elif self.filter_mode == "bass_boost":
             nyq = self.sample_rate / 2.0
-            b, a = signal.butter(1, 260.0 / nyq, btype="lowpass")
-            lows = signal.lfilter(b, a, processed)
+            b_raw, a_raw = signal.butter(1, 260.0 / nyq, btype="lowpass", output="ba")
+            b = np.asarray(b_raw, dtype=np.float64)
+            a = np.asarray(a_raw, dtype=np.float64)
+            lows = np.asarray(signal.lfilter(b, a, processed), dtype=np.float32)
             processed = processed + 0.6 * lows
         elif self.filter_mode == "treble_boost":
             nyq = self.sample_rate / 2.0
-            b, a = signal.butter(1, min(0.95, 2500.0 / nyq), btype="highpass")
-            highs = signal.lfilter(b, a, processed)
+            b_raw, a_raw = signal.butter(1, min(0.95, 2500.0 / nyq), btype="highpass", output="ba")
+            b = np.asarray(b_raw, dtype=np.float64)
+            a = np.asarray(a_raw, dtype=np.float64)
+            highs = np.asarray(signal.lfilter(b, a, processed), dtype=np.float32)
             processed = processed + 0.5 * highs
         elif self.filter_mode == "alien":
             n_samples = len(processed)

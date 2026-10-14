@@ -228,10 +228,19 @@ class LiveVoicePage(BasePage):
         self.vox_mic_btn.clicked.connect(self.auto_route_to_vox_mic)
         mic_actions_row.addWidget(self.vox_mic_btn)
 
-        self.setup_mic_btn = QPushButton("Vox MIC Driver Setup…")
-        self.setup_mic_btn.setToolTip("Install or configure the Virtual Audio Cable driver")
-        self.setup_mic_btn.clicked.connect(self.setup_virtual_mic_dialog)
-        mic_actions_row.addWidget(self.setup_mic_btn)
+        self.install_driver_btn = QPushButton("Install Virtual Mic Driver")
+        self.install_driver_btn.setToolTip("Download and install the Windows Virtual Audio Cable driver")
+        self.install_driver_btn.clicked.connect(self.install_virtual_driver_action)
+        mic_actions_row.addWidget(self.install_driver_btn)
+
+        self.uninstall_driver_btn = QPushButton("Uninstall Driver")
+        self.uninstall_driver_btn.setToolTip("Uninstall the Windows Virtual Audio Cable driver")
+        self.uninstall_driver_btn.clicked.connect(self.uninstall_virtual_driver_action)
+        mic_actions_row.addWidget(self.uninstall_driver_btn)
+
+        self.driver_status_label = QLabel()
+        self.driver_status_label.setStyleSheet("font-size: 12px; margin-left: 8px;")
+        mic_actions_row.addWidget(self.driver_status_label)
 
         mic_actions_row.addStretch()
         rg_layout.addLayout(mic_actions_row)
@@ -370,6 +379,53 @@ class LiveVoicePage(BasePage):
 
         self.input_select.blockSignals(False)
         self.output_select.blockSignals(False)
+
+        has_virt = self.service.has_virtual_mic()
+        if hasattr(self, "driver_status_label"):
+            if has_virt:
+                self.driver_status_label.setText("🟢 Vox MIC Ready")
+                self.driver_status_label.setStyleSheet("color: #10b981; font-weight: bold; margin-left: 8px;")
+                self.uninstall_driver_btn.setEnabled(True)
+            else:
+                self.driver_status_label.setText("⚪ Virtual Driver Not Installed")
+                self.driver_status_label.setStyleSheet("color: #888; margin-left: 8px;")
+                self.uninstall_driver_btn.setEnabled(False)
+
+    def install_virtual_driver_action(self) -> None:
+        """Download and launch the Virtual Audio Cable driver installer with administrative privileges."""
+        self.run(
+            self.service.install_virtual_driver,
+            lambda res: self._on_driver_action_finished(res[1]),
+            on_error=self.error,
+        )
+
+    def uninstall_virtual_driver_action(self) -> None:
+        """Prompt confirmation and launch driver uninstaller with administrative privileges."""
+        from PySide6.QtWidgets import QMessageBox
+
+        res = QMessageBox.question(
+            self,
+            "Uninstall Virtual Audio Driver",
+            "Are you sure you want to uninstall the Virtual Audio Cable driver from Windows?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if res == QMessageBox.StandardButton.Yes:
+            self.run(
+                self.service.uninstall_virtual_driver,
+                lambda r: self._on_driver_action_finished(r[1]),
+                on_error=self.error,
+            )
+
+    def _on_driver_action_finished(self, message: str) -> None:
+        from PySide6.QtWidgets import QMessageBox
+
+        QMessageBox.information(
+            self,
+            "Vox MIC Driver",
+            f"{message}\n\nOnce the setup window completes, click 'Refresh Devices' to update VoxLabs.",
+        )
+        self._populate_devices()
 
     def auto_route_to_vox_mic(self) -> None:
         """Automatically find and select the Vox MIC / Virtual Cable output device."""

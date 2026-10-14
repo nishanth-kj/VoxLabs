@@ -150,3 +150,26 @@ def test_live_voice_page_ui(qtbot):
     page.toggle_streaming()
     assert live_voice_service.is_streaming() is False
     assert "Start" in page.stream_button.text()
+
+    # Driver UI buttons exist
+    assert page.install_driver_btn is not None
+    assert page.uninstall_driver_btn is not None
+    assert page.vox_mic_btn is not None
+    assert hasattr(page, "install_virtual_driver_action")
+    assert hasattr(page, "uninstall_virtual_driver_action")
+
+
+def test_virtual_driver_service_helpers(monkeypatch, tmp_path):
+    from app.services import live_voice_service as lvs_mod
+
+    folder = live_voice_service.get_driver_folder()
+    assert folder.exists()
+
+    # Test non-Windows fallback
+    monkeypatch.setattr(lvs_mod.sys, "platform", "linux")
+    ok, msg = live_voice_service.install_virtual_driver()
+    assert not ok and "Windows" in msg
+
+    ok_un, msg_un = live_voice_service.uninstall_virtual_driver()
+    assert not ok_un and "Windows" in msg_un
+
