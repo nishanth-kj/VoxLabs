@@ -38,6 +38,7 @@ from app.ui.pages.editor_page import EditorPage
 from app.ui.pages.files_page import FilesPage
 from app.ui.pages.generate_page import GeneratePage
 from app.ui.pages.home_page import HomePage
+from app.ui.pages.live_voice_page import LiveVoicePage
 from app.ui.pages.mcp_page import McpPage
 from app.ui.pages.models_page import ModelsPage
 from app.ui.pages.script_page import ScriptPage
@@ -51,6 +52,7 @@ from app.ui.widgets.job_status import JobStatusWidget
 from app.ui.widgets.log_panel import LogPanel
 from app.ui.widgets.nav_bar import NavBar
 from app.ui.widgets.title_bar import TitleBar
+from app.ui.widgets.tray_icon import VoxTrayIcon
 from app.utils.files import data_dir
 from app.utils.logger import logger
 
@@ -83,6 +85,7 @@ PAGES = [
     ("generate", "Generate", GeneratePage, "generate"),
     ("script", "Script to Audio", ScriptPage, "script"),
     ("dubbing", "Video Dubbing", DubbingPage, "video"),
+    ("live_voice", "Live Voice Changer", LiveVoicePage, "live_voice"),
     ("editor", "Audio Editor", EditorPage, "editor"),
     ("voice_editor", "Voice Editor", VoiceEditorPage, "voice_editor"),
     ("voices", "Voices", VoicesPage, "voices"),
@@ -92,7 +95,7 @@ PAGES = [
     ("settings", "Settings", SettingsPage, "settings"),
 ]
 NAV_SECTIONS = [("", ["home", "studio"]),
-                ("Create", ["clone", "generate", "script", "dubbing", "editor", "voice_editor"]),
+                ("Create", ["clone", "generate", "script", "dubbing", "live_voice", "editor", "voice_editor"]),
                 ("Library", ["voices", "models", "files"])]
 NAV_FOOTER = ["mcp", "settings"]
 EDIT_COMMANDS = ("undo", "redo", "cut", "copy", "paste", "delete", "select_all", "duplicate")
@@ -192,6 +195,7 @@ class MainWindow(QMainWindow):
             self.nav.set_collapsed(True)
         theme.polish_views(self)
         self._check_theme_action()
+        self.tray_icon = VoxTrayIcon(self)
         self._update_api_status()
         self._update_logs_status()
         self.go("home")
@@ -415,6 +419,8 @@ class MainWindow(QMainWindow):
         self.api_button.setIcon(icons.icon("api", theme.current().statusbar_text, size=14))
         if self.api_action is not None:
             self.api_action.setChecked(running)
+        if hasattr(self, "tray_icon") and self.tray_icon is not None:
+            self.tray_icon.update_status()
 
     def _update_titles(self) -> None:
         page = self.stack.currentWidget()
@@ -499,6 +505,8 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         self._autosave_editor()
+        if hasattr(self, "tray_icon") and self.tray_icon is not None:
+            self.tray_icon.hide()
         super().closeEvent(event)
 
 

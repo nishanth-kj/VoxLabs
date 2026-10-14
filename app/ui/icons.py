@@ -37,6 +37,9 @@ ICONS: dict[str, str] = {
     "sidebar": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
     "video": '<rect x="2" y="4" width="15" height="16" rx="2"/><path d="M17 9l5-4v14l-5-4z"/>',
     "dubbing": '<rect x="2" y="4" width="15" height="16" rx="2"/><path d="M17 9l5-4v14l-5-4z"/><circle cx="8" cy="12" r="2.5"/>',
+    "live_voice": '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8M2 12h2M20 12h2"/>',
+    "mic": '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3M9 21h6"/>',
+    "speaker": '<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>',
     # window
     "minimize": '<path d="M6 12h12"/>',
     "maximize": '<rect x="6" y="6" width="12" height="12" rx="1"/>',
