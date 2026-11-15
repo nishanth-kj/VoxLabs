@@ -454,13 +454,15 @@ def isolated_runtime_versions(environment: str | None, package: str | None) -> d
     if not python.is_file():
         return {"package_version": None, "torch_version": None}
     distribution = PACKAGE_DISTRIBUTIONS.get(package, package) or "qwen-tts"
-    script = (
-        "import importlib.metadata as m, json, sys\\n"
-        "def version(name):\\n"
-        "    try: return m.version(name)\\n"
-        "    except m.PackageNotFoundError: return None\\n"
-        "print(json.dumps([version(name) for name in (sys.argv[1], 'torch')]))"
-    )
+    script = "\\n".join((
+        "import importlib.metadata as m, json, sys",
+        "def version(name):",
+        "    try:",
+        "        return m.version(name)",
+        "    except m.PackageNotFoundError:",
+        "        return None",
+        "print(json.dumps([version(name) for name in (sys.argv[1], 'torch')]))",
+    ))
     try:
         result = subprocess.run(
             [str(python), "-c", script, distribution],
