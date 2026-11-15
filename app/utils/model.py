@@ -348,7 +348,11 @@ def download(url: str, dest: Path, progress: Callable[[float], None] | None = No
                         raise
 
                 with response:
-                    is_resume = (getattr(response, "status", 200) == 206) and existing_bytes > 0
+                    content_range = response.headers.get("Content-Range", "")
+                    is_resume = (getattr(response, "status", 200) == 206 and existing_bytes > 0
+                                 and content_range.startswith(f"bytes {existing_bytes}-"))
+                    if getattr(response, "status", 200) == 206 and existing_bytes > 0 and not is_resume:
+                        raise ModelError(f"Download of {dest.name} returned an invalid resume range")
                     content_len = int(response.headers.get("Content-Length") or 0)
                     total = (existing_bytes + content_len) if is_resume else content_len
                     mode = "ab" if is_resume else "wb"
@@ -373,9 +377,25 @@ def download(url: str, dest: Path, progress: Callable[[float], None] | None = No
                     raise ModelError(f"Download of {dest.name} failed SHA256 integrity verification")
                 tmp.replace(dest)
                 return dest
-            except ModelError:
-                _discard(tmp)
+            except ModelError as exc:
+                if exc.message != "Download cancelled":
+                    _discard(tmp)
                 raise
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+                # Keep the partial file so the next attempt (or a later app run) can resume it.
+                last_error = exc
+                if _saved(dest):
+                    if progress:
+                        progress(1.0)
+                    return dest
+            except urllib.error.HTTPError as exc:
+                if exc.code < 500:
+                    _discard(tmp)
+                last_error = exc
+                if _saved(dest):
+                    if progress:
+                        progress(1.0)
+                    return dest
             except Exception as exc:
                 _discard(tmp)
                 if _saved(dest):
