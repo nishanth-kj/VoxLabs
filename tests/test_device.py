@@ -7,7 +7,7 @@ from app.utils import device
 
 def test_cpu_info_reports_architecture_and_core_counts(monkeypatch):
     device.cpu_info.cache_clear()
-    monkeypatch.setattr(device.platform, "processor", lambda: "Test CPU")
+    monkeypatch.setattr(device, "_cpu_model", lambda: "Test CPU")
     monkeypatch.setattr(device.platform, "machine", lambda: "x86_64")
     monkeypatch.setattr(device.os, "cpu_count", lambda: 8)
     monkeypatch.setattr(device, "_physical_cpu_count", lambda: 4)
