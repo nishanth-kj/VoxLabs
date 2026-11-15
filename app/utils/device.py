@@ -317,14 +317,8 @@ def runtime_info() -> dict:
 
 
 def recommended_preset(gpu_list: list[dict] | None = None, cuda: bool | None = None, ram: dict | None = None) -> str:
-    """Recommend a conservative preset from available memory and known accelerator resources."""
-    gpu_list = gpus() if gpu_list is None else gpu_list
-    cuda = cuda_usable() if cuda is None else cuda
-    ram = ram_mb() if ram is None else ram
-    vram = max((g.get("vram_total_mb", 0) or 0 for g in gpu_list), default=0) if cuda else 0
-    if (ram["total"] and ram["total"] < 8192) or (cuda and vram and vram < 4096):
-        return "low_memory"
-    return "balanced"
+    """Return the selectable performance profile recommended for the detected hardware."""
+    return recommended_profile(gpu_list, ram, cpu_info())
 
 
 def recommended_profile(gpu_list: list[dict] | None = None, ram: dict | None = None,
