@@ -454,7 +454,7 @@ def isolated_runtime_versions(environment: str | None, package: str | None) -> d
     if not python.is_file():
         return {"package_version": None, "torch_version": None}
     distribution = PACKAGE_DISTRIBUTIONS.get(package, package) or "qwen-tts"
-    script = "\\n".join((
+    script = "\n".join((
         "import importlib.metadata as m, json, sys",
         "def version(name):",
         "    try:",
