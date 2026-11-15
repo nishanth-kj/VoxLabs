@@ -56,11 +56,13 @@ def test_runtime_detection_does_not_import_optional_frameworks(monkeypatch):
         return None
 
     monkeypatch.setattr(device.importlib.util, "find_spec", find_spec)
+    torch_was_loaded = "torch" in sys.modules
     result = device.runtime_info()
 
     assert all(value is False for value in result["installed"].values())
     assert result["onnx_providers_detected"] == []
-    assert "torch" not in sys.modules or imported
+    assert ("torch" in sys.modules) == torch_was_loaded
+    assert imported == ["torch", "onnxruntime", "onnxruntime_directml", "tensorflow", "coremltools"]
 
 
 
