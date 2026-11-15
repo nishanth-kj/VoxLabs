@@ -140,7 +140,7 @@ def _other_gpus() -> list[dict]:
 
 
 def _parse_vram_mb(value: str) -> int | None:
-    match = re.search(r"(\\d+(?:\\.\\d+)?)\\s*(TB|GB|MB)", value, re.IGNORECASE)
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(TB|GB|MB)", value, re.IGNORECASE)
     if not match:
         return None
     amount, unit = float(match.group(1)), match.group(2).upper()
