@@ -80,7 +80,7 @@ PERFORMANCE_PRESETS = {
         "gpu_memory_reserve_mb": 0,
         "precision": "half",
         "batch_size": 8,
-        "job_workers": JOB_WORKERS_MAX,
+        "job_workers": 4,
         "preload_default_model": True,
         "release_memory_after_job": False,
     },
