@@ -89,3 +89,10 @@ def test_profile_recommends_performance_only_with_headroom():
     assert device.recommended_profile(
         gpu, {"total": 32768, "available": 20000}, {"logical_cores": 16}
     ) == "performance"
+
+
+
+def test_vram_parser_converts_units_without_treating_gigabytes_as_megabytes():
+    assert device._parse_vram_mb("8 GB") == 8192
+    assert device._parse_vram_mb("1536 MB") == 1536
+    assert device._parse_vram_mb("unknown") is None
