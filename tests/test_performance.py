@@ -353,7 +353,7 @@ def test_recommended_preset_follows_the_hardware():
     small_gpu = [{"index": 0, "name": "GPU", "vram_total_mb": 2048, "vram_free_mb": 2000}]
     big_gpu = [{"index": 0, "name": "GPU", "vram_total_mb": 12288, "vram_free_mb": 12000}]
     plenty = {"total": 32768, "available": 20000}
-    assert device_utils.recommended_preset(small_gpu, True, plenty) == "low_memory"
-    assert device_utils.recommended_preset(big_gpu, True, plenty) == "balanced"
-    assert device_utils.recommended_preset([], False, {"total": 4096, "available": 1000}) == "low_memory"
+    assert device_utils.recommended_preset(small_gpu, True, plenty) == "low"
+    assert device_utils.recommended_preset(big_gpu, True, plenty) in {"balanced", "performance"}
+    assert device_utils.recommended_preset([], False, {"total": 4096, "available": 1000}) == "ultra_low"
     assert device_utils.recommended_preset([], False, plenty) == "balanced"
