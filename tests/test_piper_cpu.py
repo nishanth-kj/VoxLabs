@@ -1,6 +1,4 @@
 """Piper must remain usable as the low-resource CPU TTS baseline."""
-
-import io
 import sys
 import wave
 from pathlib import Path
