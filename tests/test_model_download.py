@@ -127,3 +127,108 @@ def test_chatterbox_watermarker_can_load():
 
         importlib.reload(perth)
     assert perth.PerthImplicitWatermarker is not None
+
+
+def test_download_resumes_after_a_connection_interruption(monkeypatch, tmp_path):
+    dest = tmp_path / "voice.bin"
+    requests = []
+
+    class Response:
+        def __init__(self, chunks, status=200, headers=None):
+            self.chunks = iter(chunks)
+            self.status = status
+            self.headers = headers or {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _size):
+            chunk = next(self.chunks)
+            if isinstance(chunk, Exception):
+                raise chunk
+            return chunk
+
+    def open_url(request, timeout=0):
+        requests.append(request)
+        if len(requests) == 1:
+            return Response([b"abc", urllib.error.URLError("connection lost")])
+        assert request.get_header("Range") == "bytes=3-"
+        return Response([b"def", b""], status=206,
+                        headers={"Content-Length": "3", "Content-Range": "bytes 3-5/6"})
+
+    monkeypatch.setattr("app.utils.model.urllib.request.urlopen", open_url)
+
+    assert download("https://example.invalid/voice.bin", dest).read_bytes() == b"abcdef"
+    assert len(requests) == 2
+
+
+def test_download_keeps_partial_file_when_cancelled(monkeypatch, tmp_path):
+    dest = tmp_path / "voice.bin"
+
+    class Response:
+        status = 200
+        headers = {"Content-Length": "6"}
+
+        def __init__(self):
+            self.chunks = iter([b"abc", b"def"])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _size):
+            return next(self.chunks, b"")
+
+    monkeypatch.setattr("app.utils.model.urllib.request.urlopen", lambda *_args, **_kwargs: Response())
+    calls = iter([False, True])
+
+    with pytest.raises(ModelError, match="Download cancelled"):
+        download("https://example.invalid/voice.bin", dest, cancelled=lambda: next(calls))
+
+    assert list(tmp_path.glob("voice.bin.part"))
+    assert not dest.exists()
+
+
+def test_download_resumes_partial_file_on_a_later_invocation(monkeypatch, tmp_path):
+    dest = tmp_path / "voice.bin"
+    requests = []
+
+    class Response:
+        def __init__(self, chunks, status=200, headers=None):
+            self.chunks = iter(chunks)
+            self.status = status
+            self.headers = headers or {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self, _size):
+            chunk = next(self.chunks)
+            if isinstance(chunk, Exception):
+                raise chunk
+            return chunk
+
+    def open_url(request, timeout=0):
+        requests.append(request)
+        if len(requests) <= 2:
+            return Response([b"abc", urllib.error.URLError("connection lost")])
+        assert request.get_header("Range") == "bytes=3-"
+        return Response([b"def", b""], status=206,
+                        headers={"Content-Length": "3", "Content-Range": "bytes 3-5/6"})
+
+    monkeypatch.setattr("app.utils.model.urllib.request.urlopen", open_url)
+
+    with pytest.raises(ModelError, match="Could not download voice.bin"):
+        download("https://example.invalid/voice.bin", dest)
+
+    assert list(tmp_path.glob("voice.bin.part"))
+    assert download("https://example.invalid/voice.bin", dest).read_bytes() == b"abcdef"
+    assert len(requests) == 3
