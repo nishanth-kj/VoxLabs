@@ -61,3 +61,31 @@ def test_runtime_detection_does_not_import_optional_frameworks(monkeypatch):
     assert all(value is False for value in result["installed"].values())
     assert result["onnx_providers_detected"] == []
     assert "torch" not in sys.modules or imported
+
+
+
+def test_profile_is_ultra_low_when_available_ram_is_critically_low():
+    assert device.recommended_profile(
+        [], {"total": 16384, "available": 700}, {"logical_cores": 8}
+    ) == "ultra_low"
+
+
+def test_profile_is_low_when_gpu_vram_is_limited():
+    gpu = [{"index": 0, "name": "GPU", "vram_total_mb": 2048, "vram_free_mb": 1800}]
+    assert device.recommended_profile(
+        gpu, {"total": 16384, "available": 8000}, {"logical_cores": 8}
+    ) == "low"
+
+
+def test_profile_does_not_assume_unknown_vram_is_large():
+    gpu = [{"index": 0, "name": "Integrated GPU"}]
+    assert device.recommended_profile(
+        gpu, {"total": 16384, "available": 8000}, {"logical_cores": 8}
+    ) == "balanced"
+
+
+def test_profile_recommends_performance_only_with_headroom():
+    gpu = [{"index": 0, "name": "GPU", "vram_total_mb": 12288, "vram_free_mb": 8192}]
+    assert device.recommended_profile(
+        gpu, {"total": 32768, "available": 20000}, {"logical_cores": 16}
+    ) == "performance"
