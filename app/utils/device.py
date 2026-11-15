@@ -241,17 +241,18 @@ def _physical_cpu_count() -> int | None:
             cores = set()
             physical_id = "0"
             core_id = None
-            for line in open("/proc/cpuinfo", encoding="utf-8", errors="replace"):
-                if not line.strip():
-                    if core_id is not None:
-                        cores.add((physical_id, core_id))
-                    physical_id, core_id = "0", None
-                elif ":" in line:
-                    key, value = (part.strip() for part in line.split(":", 1))
-                    if key == "physical id":
-                        physical_id = value
-                    elif key == "core id":
-                        core_id = value
+            with open("/proc/cpuinfo", encoding="utf-8", errors="replace") as cpuinfo:
+                for line in cpuinfo:
+                    if not line.strip():
+                        if core_id is not None:
+                            cores.add((physical_id, core_id))
+                        physical_id, core_id = "0", None
+                    elif ":" in line:
+                        key, value = (part.strip() for part in line.split(":", 1))
+                        if key == "physical id":
+                            physical_id = value
+                        elif key == "core id":
+                            core_id = value
             if core_id is not None:
                 cores.add((physical_id, core_id))
             return len(cores) or None
