@@ -104,6 +104,13 @@ uv run benchmark --settings '{"batch_size": 1}' --out results.json
 Each engine runs in a fresh process (a real cold start) on a temporary data folder linked to the installed
 models. Same text, seed and settings on every run:
 
+The JSON report records the OS and release, Python version, CPU and logical/physical core counts, system RAM,
+GPU inventory, requested and actual execution device, model version, installed backend/runtime package versions,
+PyTorch version when installed, and configured precision. Each generation scenario includes input character count
+and generated audio duration; queue scenarios report the combined input character count. Missing package versions
+and unavailable hardware telemetry are recorded as `null`, not inferred. These fields describe the measured
+machine and environment; they are not performance estimates.
+
 - **short**: one sentence, warm, three runs (median)
 - **paragraph**: eight sentences (560 characters) as one generation
 - **sentences**: the same paragraph per sentence (the Generate page's default)
