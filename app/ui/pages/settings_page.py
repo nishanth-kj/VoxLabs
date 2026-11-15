@@ -263,14 +263,20 @@ class SettingsPage(BasePage):
 
         def show(data):
             hardware, loaded = data
-            gpus = ", ".join(f"{g['name']} ({g['vram_total_mb'] / 1024:.1f} GB, {g['vram_free_mb'] / 1024:.1f} GB free)"
-                             for g in hardware["gpus"]) or "none"
+            gpus = ", ".join(
+                f"{g['name']} ({g['vram_total_mb'] / 1024:.1f} GB, {g['vram_free_mb'] / 1024:.1f} GB free)"
+                if g.get("vram_total_mb") is not None and g.get("vram_free_mb") is not None
+                else f"{g['name']} (VRAM unknown)"
+                for g in hardware["gpus"]
+            ) or "none"
             cuda = "CUDA ready" if hardware["cuda"] else ("no CUDA build of torch" if hardware["gpus"] else "")
             ram = hardware["ram_mb"]
             memory = f"RAM {ram['total'] / 1024:.1f} GB ({ram['available'] / 1024:.1f} GB free)" if ram["total"] else ""
             recommended = PERFORMANCE_PRESET_LABELS[hardware["recommended_preset"]]
+            profile = hardware.get("recommended_profile", "balanced").replace("_", " ").title()
             self.hardware.setText(" · ".join(part for part in (f"GPU: {gpus}", cuda, memory) if part)
-                                  + f"\nRecommended for this computer: {recommended}")
+                                  + f"\nRecommended for this computer: {recommended}"
+                                  + f"\nHardware profile: {profile}")
             self.loaded_models.setText(", ".join(f"{m['key']} ({m['device']})" for m in loaded) or "No models loaded")
 
         self.run(load, show, busy=False)
