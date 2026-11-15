@@ -190,7 +190,7 @@ def test_download_keeps_partial_file_when_cancelled(monkeypatch, tmp_path):
     with pytest.raises(ModelError, match="Download cancelled"):
         download("https://example.invalid/voice.bin", dest, cancelled=lambda: next(calls))
 
-    assert list(tmp_path.glob("voice.bin.*.part"))
+    assert list(tmp_path.glob("voice.bin.part"))
     assert not dest.exists()
 
 
