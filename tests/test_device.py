@@ -17,6 +17,7 @@ def test_cpu_info_reports_architecture_and_core_counts(monkeypatch):
     assert result == {
         "name": "Test CPU",
         "architecture": "x86_64",
+        "cores": 8,
         "logical_cores": 8,
         "physical_cores": 4,
     }
@@ -35,8 +36,9 @@ def test_gpu_inventory_supports_non_nvidia_devices_without_vram(monkeypatch):
     monkeypatch.setattr(device, "_nvidia_smi", lambda: [])
     monkeypatch.setattr(device, "_other_gpus", lambda: [gpu])
 
-    assert device.gpus() == [gpu]
-    assert device.recommended_preset([gpu], False, {"total": 16384, "available": 8000}) == "balanced"
+    detected = device.gpus()
+    assert detected == [{**gpu, "vram_total_mb": None, "vram_free_mb": None}]
+    assert device.recommended_preset(detected, False, {"total": 16384, "available": 8000}) == "balanced"
 
 
 def test_recommendation_uses_low_memory_when_system_ram_is_limited():
