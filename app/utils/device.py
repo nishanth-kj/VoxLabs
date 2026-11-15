@@ -183,7 +183,12 @@ def gpus() -> list[dict]:
                 item["driver_version"] = driver_version
             result.append(item)
         return result
-    return smi or _other_gpus()
+    detected = smi or _other_gpus()
+    # Keep a stable GPU schema for UI consumers when a device does not expose VRAM telemetry.
+    for gpu in detected:
+        gpu.setdefault("vram_total_mb", None)
+        gpu.setdefault("vram_free_mb", None)
+    return detected
 
 
 def cuda_usable() -> bool:
@@ -286,6 +291,7 @@ def cpu_info() -> dict:
     return {
         "name": _cpu_model(),
         "architecture": platform.machine() or "Unknown",
+        "cores": os.cpu_count() or 1,  # Backward-compatible key used by ModelsPage.
         "logical_cores": os.cpu_count() or 1,
         "physical_cores": _physical_cpu_count(),
     }
