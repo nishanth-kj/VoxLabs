@@ -42,12 +42,12 @@ def test_gpu_inventory_supports_non_nvidia_devices_without_vram(monkeypatch):
 
 
 def test_recommendation_uses_low_memory_when_system_ram_is_limited():
-    assert device.recommended_preset([], False, {"total": 4096, "available": 900}) == "low_memory"
+    assert device.recommended_preset([], False, {"total": 4096, "available": 900}) == "ultra_low"
 
 
 def test_recommendation_uses_low_memory_for_known_small_cuda_memory():
     gpu = [{"index": 0, "name": "GPU", "vram_total_mb": 2048, "vram_free_mb": 1800}]
-    assert device.recommended_preset(gpu, True, {"total": 16384, "available": 8000}) == "low_memory"
+    assert device.recommended_preset(gpu, True, {"total": 16384, "available": 8000}) == "low"
 
 
 def test_runtime_detection_does_not_import_optional_frameworks(monkeypatch):
