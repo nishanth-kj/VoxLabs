@@ -276,14 +276,8 @@ def runtime_info() -> dict:
             installed[label] = importlib.util.find_spec(package) is not None
         except (ImportError, ValueError, ModuleNotFoundError):
             installed[label] = False
-    providers = ["CPUExecutionProvider"] if installed["onnx_runtime"] else []
-    torch = sys.modules.get("torch")
-    if installed["onnx_runtime"] and torch is not None and torch.cuda.is_available():
-        providers.append("CUDAExecutionProvider")
-    if installed["onnx_runtime_directml"]:
-        providers.append("DmlExecutionProvider")
-    if installed["coreml"]:
-        providers.append("CoreMLExecutionProvider")
+    onnxruntime = sys.modules.get("onnxruntime")
+    providers = onnxruntime.get_available_providers() if onnxruntime is not None else []
     return {"installed": installed, "onnx_providers_detected": providers}
 
 
@@ -295,6 +289,26 @@ def recommended_preset(gpu_list: list[dict] | None = None, cuda: bool | None = N
     vram = max((g.get("vram_total_mb", 0) or 0 for g in gpu_list), default=0) if cuda else 0
     if (ram["total"] and ram["total"] < 8192) or (cuda and vram and vram < 4096):
         return "low_memory"
+    return "balanced"
+
+
+def recommended_profile(gpu_list: list[dict] | None = None, ram: dict | None = None,
+                        cpu: dict | None = None) -> str:
+    """Recommend a conservative resource tier; unknown telemetry never counts as a capability."""
+    gpu_list = gpus() if gpu_list is None else gpu_list
+    ram = ram_mb() if ram is None else ram
+    cpu = cpu_info() if cpu is None else cpu
+    total_ram, available_ram = ram.get("total", 0), ram.get("available", 0)
+    known_vram = [gpu for gpu in gpu_list if gpu.get("vram_total_mb") is not None]
+    if (total_ram and total_ram < 4096) or (available_ram and available_ram < 1024):
+        return "ultra_low"
+    if (total_ram and total_ram < 8192) or (available_ram and available_ram < 2048):
+        return "low"
+    if known_vram and max(gpu["vram_total_mb"] for gpu in known_vram) < 4096:
+        return "low"
+    if (total_ram >= 16384 and available_ram >= 8192 and cpu.get("logical_cores", 0) >= 8
+            and known_vram and max(gpu["vram_total_mb"] for gpu in known_vram) >= 8192):
+        return "performance"
     return "balanced"
 
 
@@ -318,6 +332,7 @@ def summary() -> dict:
         "runtimes": runtime_info(),
         "fallback_reason": cuda_fallback_reason(),
         "recommended_preset": recommended_preset(gpu_list, cuda, ram),
+        "recommended_profile": recommended_profile(gpu_list, ram, cpu_info()),
     }
 
 
