@@ -54,8 +54,41 @@ PERFORMANCE_PRESETS = {
         "preload_default_model": False,
         "release_memory_after_job": True,
     },
+    "ultra_low": {
+        "max_loaded_models": 1,
+        "gpu_memory_budget_mb": 2048,
+        "gpu_memory_reserve_mb": 1024,
+        "precision": "auto",
+        "batch_size": 1,
+        "job_workers": 1,
+        "preload_default_model": False,
+        "release_memory_after_job": True,
+    },
+    "low": {
+        "max_loaded_models": 1,
+        "gpu_memory_budget_mb": 4096,
+        "gpu_memory_reserve_mb": 1024,
+        "precision": "auto",
+        "batch_size": 1,
+        "job_workers": 1,
+        "preload_default_model": False,
+        "release_memory_after_job": True,
+    },
+    "performance": {
+        "max_loaded_models": 0,
+        "gpu_memory_budget_mb": 0,
+        "gpu_memory_reserve_mb": 0,
+        "precision": "half",
+        "batch_size": 8,
+        "job_workers": JOB_WORKERS_MAX,
+        "preload_default_model": True,
+        "release_memory_after_job": False,
+    },
 }
-PERFORMANCE_PRESET_LABELS = {"quality": "Quality", "balanced": "Balanced", "fast": "Fast", "low_memory": "Low Memory"}
+PERFORMANCE_PRESET_LABELS = {
+    "quality": "Quality", "balanced": "Balanced", "fast": "Fast", "low_memory": "Low Memory",
+    "ultra_low": "Ultra Low", "low": "Low", "performance": "Performance",
+}
 DEFAULT_PERFORMANCE_PRESET = "balanced"
 PRECISIONS = ("auto", "full", "half")
 
