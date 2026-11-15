@@ -277,8 +277,9 @@ def runtime_info() -> dict:
         except (ImportError, ValueError, ModuleNotFoundError):
             installed[label] = False
     providers = ["CPUExecutionProvider"] if installed["onnx_runtime"] else []
-    if installed["onnx_runtime"]:
-        providers += ["CUDAExecutionProvider"] if cuda_usable() else []
+    torch = sys.modules.get("torch")
+    if installed["onnx_runtime"] and torch is not None and torch.cuda.is_available():
+        providers.append("CUDAExecutionProvider")
     if installed["onnx_runtime_directml"]:
         providers.append("DmlExecutionProvider")
     if installed["coreml"]:
