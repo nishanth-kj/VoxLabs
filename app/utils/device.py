@@ -306,8 +306,12 @@ def recommended_profile(gpu_list: list[dict] | None = None, ram: dict | None = N
         return "low"
     if known_vram and max(gpu["vram_total_mb"] for gpu in known_vram) < 4096:
         return "low"
+    known_free_vram = [gpu["vram_free_mb"] for gpu in known_vram if gpu.get("vram_free_mb") is not None]
+    if known_free_vram and max(known_free_vram) < 1024:
+        return "low"
     if (total_ram >= 16384 and available_ram >= 8192 and cpu.get("logical_cores", 0) >= 8
-            and known_vram and max(gpu["vram_total_mb"] for gpu in known_vram) >= 8192):
+            and known_vram and max(gpu["vram_total_mb"] for gpu in known_vram) >= 8192
+            and (not known_free_vram or max(known_free_vram) >= 4096)):
         return "performance"
     return "balanced"
 
