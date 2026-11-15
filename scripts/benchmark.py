@@ -223,15 +223,15 @@ def _measure(args, process_start: float, sampler: GpuSampler) -> dict:
     system_service.initialize()
     system_service.update_settings(device=args.device, **(json.loads(args.settings) if args.settings else {}))
     model = model_service.get(key)
+    runtime_versions = isolated_runtime_versions(model.get("environment"), model.get("package"))
     result: dict = {
         "engine": key,
         "model_version": model.get("version"),
         "device_requested": args.device,
         "runtime": {
             "backend": model.get("backend"),
-            "package": model.get("package"),
-            "package_version": package_version(model.get("package")),
-            "torch_version": package_version("torch"),
+            "package": model.get("package") or ("qwen-tts" if model.get("environment") else None),
+            **runtime_versions,
             "precision": system_service.get_setting("precision"),
         },
         "scenarios": {},
@@ -429,14 +429,47 @@ def machine() -> dict:
     return info
 
 
+PACKAGE_DISTRIBUTIONS = {"piper": "piper-tts", "chatterbox": "chatterbox-tts"}
+
+
 def package_version(name: str | None) -> str | None:
     """Return installed distribution version without importing an optional ML runtime."""
     if not name:
         return None
+    distribution = PACKAGE_DISTRIBUTIONS.get(name, name)
     try:
-        return importlib.metadata.version(name)
+        return importlib.metadata.version(distribution)
     except importlib.metadata.PackageNotFoundError:
         return None
+
+
+def isolated_runtime_versions(environment: str | None, package: str | None) -> dict:
+    """Read runtime versions from an engine's own Python environment when it has one."""
+    if not environment:
+        return {"package_version": package_version(package), "torch_version": package_version("torch")}
+
+    from app.utils.model import environment_python
+
+    python = environment_python(environment)
+    if not python.is_file():
+        return {"package_version": None, "torch_version": None}
+    distribution = PACKAGE_DISTRIBUTIONS.get(package, package) or "qwen-tts"
+    script = (
+        "import importlib.metadata as m, json, sys; "
+        "names = (sys.argv[1], 'torch'); "
+        "print(json.dumps([next((v for d in (n,) for v in [m.version(d)]), None) "
+        "if n else None for n in names]))"
+    )
+    try:
+        result = subprocess.run(
+            [str(python), "-c", script, distribution],
+            capture_output=True, text=True, timeout=10, check=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        package_version_value, torch_version = json.loads(result.stdout)
+        return {"package_version": package_version_value, "torch_version": torch_version}
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+        return {"package_version": None, "torch_version": None}
 
 
 def _child(args, engine: str) -> dict:
