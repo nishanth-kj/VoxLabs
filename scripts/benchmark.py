@@ -27,6 +27,7 @@ helper processes (Qwen3-TTS) and other programs. Peak RAM is this process only.
 """
 
 import argparse
+import importlib.metadata
 import json
 import os
 import platform
@@ -222,7 +223,19 @@ def _measure(args, process_start: float, sampler: GpuSampler) -> dict:
     system_service.initialize()
     system_service.update_settings(device=args.device, **(json.loads(args.settings) if args.settings else {}))
     model = model_service.get(key)
-    result: dict = {"engine": key, "device_requested": args.device, "scenarios": {}}
+    runtime_versions = isolated_runtime_versions(model.get("environment"), model.get("package"))
+    result: dict = {
+        "engine": key,
+        "model_version": model.get("version"),
+        "device_requested": args.device,
+        "runtime": {
+            "backend": model.get("backend"),
+            "package": model.get("package") or ("qwen-tts" if model.get("environment") else None),
+            **runtime_versions,
+            "precision": system_service.get_setting("precision"),
+        },
+        "scenarios": {},
+    }
     if not model["installed"]:
         result["skipped"] = model["install_label"]
         return result
@@ -246,31 +259,31 @@ def _measure(args, process_start: float, sampler: GpuSampler) -> dict:
     def request(text: str, **extra) -> TTSRequest:
         return TTSRequest(text=text, model_key=key, seed=SEED, **extra)
 
-    def timed(fn) -> dict:
+    def timed(fn, text_length: int) -> dict:
         stages.reset()
         start = time.perf_counter()
         out = fn()
         wall = time.perf_counter() - start
         duration = out["duration"] if "duration" in out else out["combined"]["duration"]
-        row = {"wall_s": round(wall, 3), "audio_s": round(duration, 2), "rtf": round(wall / duration, 3),
-               **stages.snapshot()}
+        row = {"text_chars": text_length, "wall_s": round(wall, 3), "audio_s": round(duration, 2),
+               "rtf": round(wall / duration, 3), **stages.snapshot()}
         known = sum(v for k, v in row.items() if k.endswith("_s") and k not in ("wall_s", "audio_s"))
         row["other_s"] = round(max(0.0, wall - known), 3)
         return row
 
-    result["first_generate"] = timed(lambda: tts_service.generate(request(SHORT)))
+    result["first_generate"] = timed(lambda: tts_service.generate(request(SHORT)), len(SHORT))
     result["cold_total_s"] = round(time.perf_counter() - process_start, 3)
 
     for scenario in args.scenarios:
         if scenario == "short":
-            runs = [timed(lambda: tts_service.generate(request(SHORT))) for _ in range(args.repeat)]
+            runs = [timed(lambda: tts_service.generate(request(SHORT)), len(SHORT)) for _ in range(args.repeat)]
             best = sorted(runs, key=lambda r: r["wall_s"])[len(runs) // 2]
             result["scenarios"]["short"] = {**best, "runs": [r["wall_s"] for r in runs],
                                             "median_wall_s": round(statistics.median(r["wall_s"] for r in runs), 3)}
         elif scenario == "paragraph":
-            result["scenarios"]["paragraph"] = timed(lambda: tts_service.generate(request(PARAGRAPH)))
+            result["scenarios"]["paragraph"] = timed(lambda: tts_service.generate(request(PARAGRAPH)), len(PARAGRAPH))
         elif scenario == "sentences":
-            result["scenarios"]["sentences"] = timed(lambda: tts_service.generate_sentences(request(PARAGRAPH)))
+            result["scenarios"]["sentences"] = timed(lambda: tts_service.generate_sentences(request(PARAGRAPH)), len(PARAGRAPH))
         elif scenario == "queue":
             stages.reset()
             start = time.perf_counter()
@@ -281,7 +294,7 @@ def _measure(args, process_start: float, sampler: GpuSampler) -> dict:
             audio_s = sum(job["result"]["audio"]["duration"] for job in finished if not job["error"])
             result["scenarios"]["queue"] = {
                 "wall_s": round(wall, 3), "audio_s": round(audio_s, 2), "rtf": round(wall / audio_s, 3) if audio_s else None,
-                "jobs": len(jobs), "failed": failed, **stages.snapshot(),
+                "jobs": len(jobs), "text_chars": sum(map(len, QUEUE_TEXTS)), "failed": failed, **stages.snapshot(),
                 "job_timings": [job["result"].get("timings") for job in finished if job.get("result")],
             }
     result["peak_rss_mb"] = round(peak_rss_mb())
@@ -363,8 +376,9 @@ def run_dsp(args) -> dict:
 
 def markdown(report: dict) -> str:
     lines = [f"# VoxLabs benchmark: {report['label']}", "",
-             f"{report['machine']['cpu']} · {report['machine'].get('gpu') or 'no GPU'} · "
-             f"{report['machine']['platform']} · device={report['device']}", ""]
+             f"{report['machine']['cpu'].get('name', report['machine']['cpu'])} · "
+             f"{report['machine'].get('gpu') or 'no GPU'} · {report['machine']['platform']} · "
+             f"Python {report['machine']['python']} · device={report['device']}", ""]
     if report.get("engines"):
         lines += ["| Engine | Device | Cold total (s) | Load (s) | Scenario | Wall (s) | Audio (s) | RTF | "
                   "Inference (s) | Post (s) | Save (s) | Register (s) | Other (s) | Peak VRAM (MB) |",
@@ -399,17 +413,66 @@ def markdown(report: dict) -> str:
 
 
 def machine() -> dict:
-    info = {"platform": platform.platform(), "python": platform.python_version(),
-            "cpu": platform.processor() or platform.machine(), "cores": os.cpu_count()}
-    exe = shutil.which("nvidia-smi")
-    if exe:
-        try:
-            out = subprocess.run([exe, "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader"],
-                                 capture_output=True, text=True, timeout=5)
-            info["gpu"] = out.stdout.strip().splitlines()[0]
-        except Exception:
-            pass
+    from app.utils.device import cpu_info, gpus, ram_mb
+
+    info = {
+        "platform": platform.platform(),
+        "os": platform.system(),
+        "os_release": platform.release(),
+        "python": platform.python_version(),
+        "cpu": cpu_info(),
+        "cores": os.cpu_count(),
+        "ram_mb": ram_mb(),
+        "gpus": gpus(),
+    }
+    info["gpu"] = ", ".join(gpu["name"] for gpu in info["gpus"]) or None
     return info
+
+
+PACKAGE_DISTRIBUTIONS = {"piper": "piper-tts", "chatterbox": "chatterbox-tts"}
+
+
+def package_version(name: str | None) -> str | None:
+    """Return installed distribution version without importing an optional ML runtime."""
+    if not name:
+        return None
+    distribution = PACKAGE_DISTRIBUTIONS.get(name, name)
+    try:
+        return importlib.metadata.version(distribution)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def isolated_runtime_versions(environment: str | None, package: str | None) -> dict:
+    """Read runtime versions from an engine's own Python environment when it has one."""
+    if not environment:
+        return {"package_version": package_version(package), "torch_version": package_version("torch")}
+
+    from app.utils.model import environment_python
+
+    python = environment_python(environment)
+    if not python.is_file():
+        return {"package_version": None, "torch_version": None}
+    distribution = PACKAGE_DISTRIBUTIONS.get(package, package) or "qwen-tts"
+    script = "\n".join((
+        "import importlib.metadata as m, json, sys",
+        "def version(name):",
+        "    try:",
+        "        return m.version(name)",
+        "    except m.PackageNotFoundError:",
+        "        return None",
+        "print(json.dumps([version(name) for name in (sys.argv[1], 'torch')]))",
+    ))
+    try:
+        result = subprocess.run(
+            [str(python), "-c", script, distribution],
+            capture_output=True, text=True, timeout=10, check=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        package_version_value, torch_version = json.loads(result.stdout)
+        return {"package_version": package_version_value, "torch_version": torch_version}
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+        return {"package_version": None, "torch_version": None}
 
 
 def _child(args, engine: str) -> dict:
