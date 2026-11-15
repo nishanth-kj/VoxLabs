@@ -20,7 +20,7 @@ def test_piper_loads_and_synthesizes_without_cuda(tmp_path, monkeypatch):
             wav_file.setnchannels(1)
             wav_file.setsampwidth(2)
             wav_file.setframerate(22050)
-            wav_file.writeframes(b"\\x00\\x00" * 2205)
+            wav_file.writeframes(b"\x00\x00" * 2205)
 
     class FakePiperVoice:
         @staticmethod
