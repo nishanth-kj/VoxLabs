@@ -274,9 +274,19 @@ class SettingsPage(BasePage):
             memory = f"RAM {ram['total'] / 1024:.1f} GB ({ram['available'] / 1024:.1f} GB free)" if ram["total"] else ""
             recommended = PERFORMANCE_PRESET_LABELS[hardware["recommended_preset"]]
             profile = hardware.get("recommended_profile", "balanced").replace("_", " ").title()
-            self.hardware.setText(" · ".join(part for part in (f"GPU: {gpus}", cuda, memory) if part)
-                                  + f"\nRecommended for this computer: {recommended}"
-                                  + f"\nHardware profile: {profile}")
+            cpu = hardware["cpu"]
+            cpu_label = (f"CPU: {cpu['name']} ({cpu.get('physical_cores') or '?'} cores / "
+                         f"{cpu['logical_cores']} threads)")
+            runtimes = ", ".join(
+                name.replace("_", " ").title()
+                for name, available in hardware.get("runtimes", {}).get("installed", {}).items()
+                if available
+            ) or "none detected"
+            self.hardware.setText(" · ".join(part for part in (
+                f"OS: {hardware.get('os', 'Unknown')}", cpu_label, f"GPU: {gpus}", cuda, memory
+            ) if part) + f"\nInference runtimes: {runtimes}"
+                + f"\nRecommended for this computer: {recommended}"
+                + f"\nHardware profile: {profile}")
             self.loaded_models.setText(", ".join(f"{m['key']} ({m['device']})" for m in loaded) or "No models loaded")
 
         self.run(load, show, busy=False)
