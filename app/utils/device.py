@@ -255,10 +255,36 @@ def _physical_cpu_count() -> int | None:
     return None
 
 
+def _cpu_model() -> str:
+    system = platform.system()
+    if system == "Windows":
+        value = _run([
+            "powershell", "-NoProfile", "-NonInteractive", "-Command",
+            "(Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Name)",
+        ])
+        if value:
+            return value
+    elif system == "Darwin":
+        value = _run(["sysctl", "-n", "machdep.cpu.brand_string"])
+        if value:
+            return value
+    elif system == "Linux":
+        try:
+            with open("/proc/cpuinfo", encoding="utf-8", errors="replace") as cpuinfo:
+                for line in cpuinfo:
+                    if line.startswith(("model name", "Hardware", "Processor")) and ":" in line:
+                        value = line.split(":", 1)[1].strip()
+                        if value:
+                            return value
+        except OSError:
+            pass
+    return platform.processor() or platform.machine() or "Unknown"
+
+
 @lru_cache(maxsize=1)
 def cpu_info() -> dict:
     return {
-        "name": platform.processor() or platform.machine() or "Unknown",
+        "name": _cpu_model(),
         "architecture": platform.machine() or "Unknown",
         "logical_cores": os.cpu_count() or 1,
         "physical_cores": _physical_cpu_count(),
