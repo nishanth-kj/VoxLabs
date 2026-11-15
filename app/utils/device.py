@@ -1,6 +1,9 @@
 """Cross-platform hardware inspection. Runtime policy remains in ModelService."""
 
+import importlib.metadata
 import importlib.util
+import json
+import re
 import os
 import platform
 import shutil
@@ -78,22 +81,28 @@ def _other_gpus() -> list[dict]:
     if system == "Windows":
         output = _run([
             "powershell", "-NoProfile", "-NonInteractive", "-Command",
-            "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVersion | ConvertTo-Csv -NoTypeInformation",
+            "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,DriverVersion | ConvertTo-Json -Compress",
         ])
-        rows = output.splitlines()[1:]
+        try:
+            rows = json.loads(output) if output else []
+            rows = rows if isinstance(rows, list) else [rows]
+        except ValueError:
+            return []
         result = []
         for index, row in enumerate(rows):
-            fields = [field.strip().strip('"') for field in row.split(",")]
-            if not fields or not fields[0]:
+            name = row.get("Name")
+            if not name:
                 continue
-            item = {"index": index, "name": fields[0], "vendor": _vendor(fields[0])}
-            if len(fields) > 1:
-                try:
-                    item["vram_total_mb"] = int(fields[1]) // (1 << 20)
-                except ValueError:
-                    pass
-            if len(fields) > 2 and fields[2]:
-                item["driver_version"] = fields[2]
+            item = {"index": index, "name": name, "vendor": _vendor(name)}
+            try:
+                # Win32_VideoController.AdapterRAM is a 32-bit field; max/overflow values are not trustworthy.
+                memory = int(row.get("AdapterRAM") or 0)
+                if 0 < memory < 0xFFFFFFFF:
+                    item["vram_total_mb"] = memory // (1 << 20)
+            except (TypeError, ValueError):
+                pass
+            if row.get("DriverVersion"):
+                item["driver_version"] = row["DriverVersion"]
             result.append(item)
         return result
     if system == "Darwin":
@@ -110,9 +119,7 @@ def _other_gpus() -> list[dict]:
                         item = {"index": index, "name": name, "vendor": _vendor(name)}
                         vram = display.get("spdisplays_vram")
                         if vram:
-                            digits = "".join(ch for ch in str(vram) if ch.isdigit())
-                            if digits:
-                                item["vram_total_mb"] = int(digits)
+                            item["vram_total_mb"] = _parse_vram_mb(str(vram))
                         result.append(item)
                 return result
             except (ValueError, TypeError):
@@ -124,10 +131,21 @@ def _other_gpus() -> list[dict]:
             if "VGA compatible controller" not in line and "3D controller" not in line and "Display controller" not in line:
                 continue
             fields = line.split('"')
-            name = fields[3] if len(fields) > 3 else line
-            result.append({"index": len(result), "name": name, "vendor": _vendor(name)})
+            vendor = fields[3] if len(fields) > 3 else "Unknown"
+            model = fields[5] if len(fields) > 5 else ""
+            name = f"{vendor} {model}".strip()
+            result.append({"index": len(result), "name": name, "vendor": _vendor(vendor)})
         return result
     return []
+
+
+def _parse_vram_mb(value: str) -> int | None:
+    match = re.search(r"(\\d+(?:\\.\\d+)?)\\s*(TB|GB|MB)", value, re.IGNORECASE)
+    if not match:
+        return None
+    amount, unit = float(match.group(1)), match.group(2).upper()
+    multiplier = {"TB": 1024 * 1024, "GB": 1024, "MB": 1}[unit]
+    return int(amount * multiplier)
 
 
 def _vendor(name: str) -> str:
@@ -276,6 +294,11 @@ def runtime_info() -> dict:
             installed[label] = importlib.util.find_spec(package) is not None
         except (ImportError, ValueError, ModuleNotFoundError):
             installed[label] = False
+    try:
+        importlib.metadata.distribution("onnxruntime-directml")
+        installed["onnx_runtime_directml"] = True
+    except importlib.metadata.PackageNotFoundError:
+        pass
     onnxruntime = sys.modules.get("onnxruntime")
     providers = onnxruntime.get_available_providers() if onnxruntime is not None else []
     return {"installed": installed, "onnx_providers_detected": providers}
