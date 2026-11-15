@@ -200,6 +200,9 @@ def cuda_fallback_reason() -> str | None:
     if cuda_usable():
         return None
     if not nvidia_gpu_present():
+        other_gpus = _other_gpus()
+        if other_gpus:
+            return "No NVIDIA CUDA-capable GPU detected; non-CUDA graphics hardware is present."
         return "No NVIDIA GPU hardware detected; operating in CPU mode."
     if not torch_available():
         return "PyTorch is not installed in the environment; operating in CPU mode."
