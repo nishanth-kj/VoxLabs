@@ -269,7 +269,8 @@ class SettingsPage(BasePage):
                 else f"{g['name']} (VRAM unknown)"
                 for g in hardware["gpus"]
             ) or "none"
-            cuda = "CUDA ready" if hardware["cuda"] else ("no CUDA build of torch" if hardware["gpus"] else "")
+            has_nvidia = any(gpu.get("vendor") == "NVIDIA" for gpu in hardware["gpus"])
+            cuda = "CUDA ready" if hardware["cuda"] else ("CUDA unavailable" if has_nvidia else "")
             ram = hardware["ram_mb"]
             memory = f"RAM {ram['total'] / 1024:.1f} GB ({ram['available'] / 1024:.1f} GB free)" if ram["total"] else ""
             recommended = PERFORMANCE_PRESET_LABELS[hardware["recommended_preset"]]
