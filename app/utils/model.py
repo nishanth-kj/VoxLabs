@@ -381,16 +381,16 @@ def download(url: str, dest: Path, progress: Callable[[float], None] | None = No
                 if exc.message != "Download cancelled":
                     _discard(tmp)
                 raise
-            except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
-                # Keep the partial file so the next attempt (or a later app run) can resume it.
+            except urllib.error.HTTPError as exc:
+                if exc.code < 500:
+                    _discard(tmp)
                 last_error = exc
                 if _saved(dest):
                     if progress:
                         progress(1.0)
                     return dest
-            except urllib.error.HTTPError as exc:
-                if exc.code < 500:
-                    _discard(tmp)
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
+                # Keep the partial file so the next attempt (or a later app run) can resume it.
                 last_error = exc
                 if _saved(dest):
                     if progress:
