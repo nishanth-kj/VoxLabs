@@ -219,6 +219,15 @@ def _physical_cpu_count() -> int | None:
             return max(1, int(value))
         except ValueError:
             return None
+    if system == "Windows":
+        value = _run([
+            "powershell", "-NoProfile", "-NonInteractive", "-Command",
+            "(Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfCores -Sum).Sum",
+        ])
+        try:
+            return max(1, int(value))
+        except ValueError:
+            return None
     if system == "Linux":
         try:
             cores = set()
