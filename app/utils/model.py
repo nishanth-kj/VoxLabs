@@ -326,7 +326,7 @@ def download(url: str, dest: Path, progress: Callable[[float], None] | None = No
                 if progress:
                     progress(1.0)
                 return dest
-        tmp = dest.with_name(f"{dest.name}.{threading.get_ident()}.part")
+        tmp = dest.with_name(f"{dest.name}.part")
         last_error: Exception | None = None
         for _attempt in range(2):
             try:
