@@ -96,3 +96,11 @@ def test_vram_parser_converts_units_without_treating_gigabytes_as_megabytes():
     assert device._parse_vram_mb("8 GB") == 8192
     assert device._parse_vram_mb("1536 MB") == 1536
     assert device._parse_vram_mb("unknown") is None
+
+
+
+def test_windows_physical_core_detection_uses_system_metadata(monkeypatch):
+    monkeypatch.setattr(device.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(device, "_run", lambda command, timeout=5: "6")
+
+    assert device._physical_cpu_count() == 6
